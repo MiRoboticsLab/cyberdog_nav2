@@ -1,0 +1,6 @@
+map_saver:
+  ros__parameters:
+    use_sim_time: False
+    save_map_timeout: 5000 # The glorious timeout parameter
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
