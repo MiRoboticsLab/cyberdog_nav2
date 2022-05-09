@@ -42,6 +42,11 @@
 
 namespace nav2_core
 {
+static const unsigned int NOEXCEPTION = 0;
+static const unsigned int DETECTOREXCEPTION = 1000;
+static const unsigned int TFEXCEPTION = 2000;
+static const unsigned int PLANNEREXECPTION = 3000;
+static const unsigned int CONTROLLEREXECPTION = 4000;
 
 class PlannerException : public std::runtime_error
 {
@@ -49,6 +54,14 @@ public:
   explicit PlannerException(const std::string description)
   : std::runtime_error(description) {}
   using Ptr = std::shared_ptr<PlannerException>;
+};
+
+class TFException : public std::runtime_error
+{
+public:
+  explicit TFException(const std::string description)
+  : std::runtime_error(description) {}
+  using Ptr = std::shared_ptr<TFException>;
 };
 
 }  // namespace nav2_core

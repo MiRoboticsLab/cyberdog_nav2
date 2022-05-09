@@ -26,6 +26,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_msgs/action/compute_path_to_pose.hpp"
+#include "mcr_msgs/action/compute_path_spline_poses.hpp"
 #include "nav2_msgs/action/compute_path_through_poses.hpp"
 #include "nav2_msgs/msg/costmap.hpp"
 #include "nav2_util/robot_utils.hpp"
@@ -69,6 +70,9 @@ public:
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal,
     const std::string & planner_id);
+  nav_msgs::msg::Path getPlan(
+    const std::vector<geometry_msgs::msg::PoseStamped> & poses,
+    const std::string & planner_id);
 
 protected:
   /**
@@ -104,8 +108,10 @@ protected:
 
   using ActionToPose = nav2_msgs::action::ComputePathToPose;
   using ActionThroughPoses = nav2_msgs::action::ComputePathThroughPoses;
+  using ActionSplinePoses = mcr_msgs::action::ComputePathSplinePoses;
   using ActionServerToPose = nav2_util::SimpleActionServer<ActionToPose>;
   using ActionServerThroughPoses = nav2_util::SimpleActionServer<ActionThroughPoses>;
+  using ActionServerSplinePoses = nav2_util::SimpleActionServer<ActionSplinePoses>;
 
   /**
    * @brief Check if an action server is valid / active
@@ -185,6 +191,7 @@ protected:
   // Our action server implements the ComputePathToPose action
   std::unique_ptr<ActionServerToPose> action_server_pose_;
   std::unique_ptr<ActionServerThroughPoses> action_server_poses_;
+  std::unique_ptr<ActionServerSplinePoses> action_server_spline_poses_;
 
   /**
    * @brief The action server callback which calls planner to get the path
@@ -197,6 +204,7 @@ protected:
    * ComputePathThroughPoses
    */
   void computePlanThroughPoses();
+  void computePlanSplinePoses();
 
   /**
    * @brief Publish a path for visualization purposes

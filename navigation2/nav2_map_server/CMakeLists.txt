@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(nav2_map_server)
 
+add_compile_options(-g -O0 -Wall -Wextra -Wpedantic -fpermissive -Wunused-parameter)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake_modules)
 
 find_package(ament_cmake REQUIRED)
