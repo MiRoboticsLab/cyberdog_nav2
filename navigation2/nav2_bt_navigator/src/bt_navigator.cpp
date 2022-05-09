@@ -98,6 +98,7 @@ BtNavigator::on_configure(const rclcpp_lifecycle::State & /*state*/)
   // Libraries to pull plugins (BT Nodes) from
   auto plugin_lib_names = get_parameter("plugin_lib_names").as_string_array();
 
+  target_tracking_navigator_ = std::make_unique<nav2_bt_navigator::TargetTrackingNavigator>();
   pose_navigator_ = std::make_unique<nav2_bt_navigator::NavigateToPoseNavigator>();
   poses_navigator_ = std::make_unique<nav2_bt_navigator::NavigateThroughPosesNavigator>();
 
@@ -107,12 +108,17 @@ BtNavigator::on_configure(const rclcpp_lifecycle::State & /*state*/)
   feedback_utils.robot_frame = robot_frame_;
   feedback_utils.transform_tolerance = transform_tolerance_;
 
-  if (!pose_navigator_->on_configure(
+
+  if (!target_tracking_navigator_->on_configure(
       shared_from_this(), plugin_lib_names, feedback_utils, &plugin_muxer_))
   {
     return nav2_util::CallbackReturn::FAILURE;
   }
-
+  if (!pose_navigator_->on_configure(
+      shared_from_this(), plugin_lib_names, feedback_utils, &plugin_muxer_))
+  {
+    return nav2_util::CallbackReturn::FAILURE;
+  }  
   if (!poses_navigator_->on_configure(
       shared_from_this(), plugin_lib_names, feedback_utils, &plugin_muxer_))
   {
@@ -130,7 +136,9 @@ BtNavigator::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Activating");
 
-  if (!poses_navigator_->on_activate() || !pose_navigator_->on_activate()) {
+  if (!poses_navigator_->on_activate() || !pose_navigator_->on_activate() ||
+    !target_tracking_navigator_->on_activate())
+  {
     return nav2_util::CallbackReturn::FAILURE;
   }
 
@@ -145,7 +153,9 @@ BtNavigator::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating");
 
-  if (!poses_navigator_->on_deactivate() || !pose_navigator_->on_deactivate()) {
+  if (!poses_navigator_->on_deactivate() || !pose_navigator_->on_deactivate() ||
+    !target_tracking_navigator_->on_deactivate())
+  {
     return nav2_util::CallbackReturn::FAILURE;
   }
 
@@ -164,12 +174,15 @@ BtNavigator::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   tf_listener_.reset();
   tf_.reset();
 
-  if (!poses_navigator_->on_cleanup() || !pose_navigator_->on_cleanup()) {
+  if (!poses_navigator_->on_cleanup() || !pose_navigator_->on_cleanup() ||
+    !target_tracking_navigator_->on_cleanup())
+  {
     return nav2_util::CallbackReturn::FAILURE;
   }
 
   poses_navigator_.reset();
   pose_navigator_.reset();
+  target_tracking_navigator_.reset();
 
   RCLCPP_INFO(get_logger(), "Completed Cleaning up");
   return nav2_util::CallbackReturn::SUCCESS;

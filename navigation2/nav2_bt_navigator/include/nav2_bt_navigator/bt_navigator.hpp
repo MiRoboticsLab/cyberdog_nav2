@@ -24,6 +24,7 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/create_timer_ros.h"
+#include "nav2_bt_navigator/navigators/target_tracking.hpp"
 #include "nav2_bt_navigator/navigators/navigate_to_pose.hpp"
 #include "nav2_bt_navigator/navigators/navigate_through_poses.hpp"
 
@@ -83,6 +84,7 @@ protected:
   nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
   // To handle all the BT related execution
+  std::unique_ptr<nav2_bt_navigator::Navigator<mcr_msgs::action::TargetTracking>> target_tracking_navigator_;
   std::unique_ptr<nav2_bt_navigator::Navigator<nav2_msgs::action::NavigateToPose>> pose_navigator_;
   std::unique_ptr<nav2_bt_navigator::Navigator<nav2_msgs::action::NavigateThroughPoses>>
   poses_navigator_;

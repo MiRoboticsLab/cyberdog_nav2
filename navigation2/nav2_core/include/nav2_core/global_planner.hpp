@@ -76,6 +76,13 @@ public:
   virtual nav_msgs::msg::Path createPlan(
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal) = 0;
+
+  virtual nav_msgs::msg::Path createPlan(
+    const std::vector<geometry_msgs::msg::PoseStamped> & /*poses*/)
+  {
+    return nav_msgs::msg::Path();
+  }
+
 };
 
 }  // namespace nav2_core
