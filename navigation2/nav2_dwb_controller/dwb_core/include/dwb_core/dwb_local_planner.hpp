@@ -39,37 +39,35 @@
 #include <string>
 #include <vector>
 
-#include "nav2_core/controller.hpp"
-#include "nav2_core/goal_checker.hpp"
 #include "dwb_core/publisher.hpp"
 #include "dwb_core/trajectory_critic.hpp"
 #include "dwb_core/trajectory_generator.hpp"
+#include "nav2_core/controller.hpp"
+#include "nav2_core/goal_checker.hpp"
 #include "nav_2d_msgs/msg/pose2_d_stamped.hpp"
 #include "nav_2d_msgs/msg/twist2_d_stamped.hpp"
+#include "pluginlib/class_list_macros.hpp"
+#include "pluginlib/class_loader.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "pluginlib/class_loader.hpp"
-#include "pluginlib/class_list_macros.hpp"
 
-namespace dwb_core
-{
+namespace dwb_core {
 
 /**
  * @class DWBLocalPlanner
  * @brief Plugin-based flexible controller
  */
-class DWBLocalPlanner : public nav2_core::Controller
-{
-public:
+class DWBLocalPlanner : public nav2_core::Controller {
+ public:
   /**
    * @brief Constructor that brings up pluginlib loaders
    */
   DWBLocalPlanner();
 
-  void configure(
-    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
-    std::string name, const std::shared_ptr<tf2_ros::Buffer> & tf,
-    const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> & costmap_ros) override;
+  void configure(const rclcpp_lifecycle::LifecycleNode::WeakPtr& parent,
+                 std::string name, const std::shared_ptr<tf2_ros::Buffer>& tf,
+                 const std::shared_ptr<nav2_costmap_2d::Costmap2DROS>&
+                     costmap_ros) override;
 
   virtual ~DWBLocalPlanner() {}
 
@@ -92,10 +90,11 @@ public:
    * @brief nav2_core setPlan - Sets the global plan
    * @param path The global plan
    */
-  void setPlan(const nav_msgs::msg::Path & path) override;
+  void setPlan(const nav_msgs::msg::Path& path) override;
 
   /**
-   * @brief nav2_core computeVelocityCommands - calculates the best command given the current pose and velocity
+   * @brief nav2_core computeVelocityCommands - calculates the best command
+   * given the current pose and velocity
    *
    * It is presumed that the global plan is already set.
    *
@@ -104,31 +103,32 @@ public:
    *
    * @param pose Current robot pose
    * @param velocity Current robot velocity
-   * @param goal_checker   Ptr to the goal checker for this task in case useful in computing commands
+   * @param goal_checker   Ptr to the goal checker for this task in case useful
+   * in computing commands
    * @return The best command for the robot to drive
    */
   geometry_msgs::msg::TwistStamped computeVelocityCommands(
-    const geometry_msgs::msg::PoseStamped & pose,
-    const geometry_msgs::msg::Twist & velocity,
-    nav2_core::GoalChecker * /*goal_checker*/) override;
+      const geometry_msgs::msg::PoseStamped& pose,
+      const geometry_msgs::msg::Twist& velocity,
+      nav2_core::GoalChecker* /*goal_checker*/) override;
 
   /**
    * @brief Score a given command. Can be used for testing.
    *
    * Given a trajectory, calculate the score where lower scores are better.
-   * If the given (positive) score exceeds the best_score, calculation may be cut short, as the
-   * score can only go up from there.
+   * If the given (positive) score exceeds the best_score, calculation may be
+   * cut short, as the score can only go up from there.
    *
    * @param traj Trajectory to check
    * @param best_score If positive, the threshold for early termination
    * @return The full scoring of the input trajectory
    */
   virtual dwb_msgs::msg::TrajectoryScore scoreTrajectory(
-    const dwb_msgs::msg::Trajectory2D & traj,
-    double best_score = -1);
+      const dwb_msgs::msg::Trajectory2D& traj, double best_score = -1);
 
   /**
-   * @brief Compute the best command given the current pose and velocity, with possible debug information
+   * @brief Compute the best command given the current pose and velocity, with
+   * possible debug information
    *
    * Same as above computeVelocityCommands, but with debug results.
    * If the results pointer is not null, additional information about the twists
@@ -136,13 +136,14 @@ public:
    *
    * @param pose      Current robot pose
    * @param velocity  Current robot velocity
-   * @param results   Output param, if not NULL, will be filled in with full evaluation results
+   * @param results   Output param, if not NULL, will be filled in with full
+   * evaluation results
    * @return          Best command
    */
   virtual nav_2d_msgs::msg::Twist2DStamped computeVelocityCommands(
-    const nav_2d_msgs::msg::Pose2DStamped & pose,
-    const nav_2d_msgs::msg::Twist2D & velocity,
-    std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation> & results);
+      const nav_2d_msgs::msg::Pose2DStamped& pose,
+      const nav_2d_msgs::msg::Twist2D& velocity,
+      std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation>& results);
 
   /**
    * @brief Limits the maximum linear speed of the robot.
@@ -151,50 +152,59 @@ public:
    * @param percentage Setting speed limit in percentage if true
    * or in absolute values in false case.
    */
-  void setSpeedLimit(const double & speed_limit, const bool & percentage) override
-  {
+  void setSpeedLimit(const double& speed_limit,
+                     const bool& percentage) override {
     if (traj_generator_) {
       traj_generator_->setSpeedLimit(speed_limit, percentage);
     }
   }
+  bool checkTrajectory(const geometry_msgs::msg::PoseStamped& pose,
+                       const nav_2d_msgs::msg::Twist2D& velocity,
+                       double vx_samp, double vy_samp,
+                       double vtheta_samp) override;
 
-protected:
+ protected:
   /**
-   * @brief Helper method for two common operations for the operating on the global_plan
+   * @brief Helper method for two common operations for the operating on the
+   * global_plan
    *
-   * Transforms the global plan (stored in global_plan_) relative to the pose and saves it in
-   * transformed_plan and possibly publishes it. Then it takes the last pose and transforms it
-   * to match the local costmap's frame
+   * Transforms the global plan (stored in global_plan_) relative to the pose
+   * and saves it in transformed_plan and possibly publishes it. Then it takes
+   * the last pose and transforms it to match the local costmap's frame
    */
-  void prepareGlobalPlan(
-    const nav_2d_msgs::msg::Pose2DStamped & pose, nav_2d_msgs::msg::Path2D & transformed_plan,
-    nav_2d_msgs::msg::Pose2DStamped & goal_pose, bool publish_plan = true);
+  void prepareGlobalPlan(const nav_2d_msgs::msg::Pose2DStamped& pose,
+                         nav_2d_msgs::msg::Path2D& transformed_plan,
+                         nav_2d_msgs::msg::Pose2DStamped& goal_pose,
+                         bool publish_plan = true);
 
   /**
    * @brief Iterate through all the twists and find the best one
    */
   virtual dwb_msgs::msg::TrajectoryScore coreScoringAlgorithm(
-    const geometry_msgs::msg::Pose2D & pose,
-    const nav_2d_msgs::msg::Twist2D velocity,
-    std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation> & results);
+      const geometry_msgs::msg::Pose2D& pose,
+      const nav_2d_msgs::msg::Twist2D velocity,
+      std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation>& results);
 
   /**
-   * @brief Transforms global plan into same frame as pose, clips far away poses and possibly prunes passed poses
+   * @brief Transforms global plan into same frame as pose, clips far away poses
+   * and possibly prunes passed poses
    *
    * Three key operations
    * 1) Transforms global plan into frame of the given pose
-   * 2) Only returns poses that are near the robot, i.e. whether they are likely on the local costmap
-   * 3) If prune_plan_ is true, it will remove all points that we've already passed from both the transformed plan
-   *     and the saved global_plan_. Technically, it iterates to a pose on the path that is within prune_distance_
-   *     of the robot and erases all poses before that.
+   * 2) Only returns poses that are near the robot, i.e. whether they are likely
+   * on the local costmap 3) If prune_plan_ is true, it will remove all points
+   * that we've already passed from both the transformed plan and the saved
+   * global_plan_. Technically, it iterates to a pose on the path that is within
+   * prune_distance_ of the robot and erases all poses before that.
    *
-   * Additionally, shorten_transformed_plan_ determines whether we will pass the full plan all
-   * the way to the nav goal on to the critics or just a subset of the plan near the robot.
-   * True means pass just a subset. This gives DWB less discretion to decide how it gets to the
-   * nav goal. Instead it is encouraged to try to get on to the path generated by the global planner.
+   * Additionally, shorten_transformed_plan_ determines whether we will pass the
+   * full plan all the way to the nav goal on to the critics or just a subset of
+   * the plan near the robot. True means pass just a subset. This gives DWB less
+   * discretion to decide how it gets to the nav goal. Instead it is encouraged
+   * to try to get on to the path generated by the global planner.
    */
   virtual nav_2d_msgs::msg::Path2D transformGlobalPlan(
-    const nav_2d_msgs::msg::Pose2DStamped & pose);
+      const nav_2d_msgs::msg::Pose2DStamped& pose);
   nav_2d_msgs::msg::Path2D global_plan_;  ///< Saved Global Plan
   bool prune_plan_;
   double prune_distance_;
@@ -203,10 +213,13 @@ protected:
   bool shorten_transformed_plan_;
 
   /**
-   * @brief try to resolve a possibly shortened critic name with the default namespaces and the suffix "Critic"
+   * @brief try to resolve a possibly shortened critic name with the default
+   * namespaces and the suffix "Critic"
    *
-   * @param base_name The name of the critic as read in from the parameter server
-   * @return Our attempted resolution of the name, with namespace prepended and/or the suffix Critic appended
+   * @param base_name The name of the critic as read in from the parameter
+   * server
+   * @return Our attempted resolution of the name, with namespace prepended
+   * and/or the suffix Critic appended
    */
   std::string resolveCriticClassName(std::string base_name);
 
