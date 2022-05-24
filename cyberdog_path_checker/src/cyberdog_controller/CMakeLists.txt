@@ -15,7 +15,7 @@ find_package(nav_2d_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(dwb_core REQUIRED)
 find_package(rclcpp_components REQUIRED)
-
+find_package(nav_msgs REQUIRED)
 nav2_package()
 
 include_directories(
@@ -49,6 +49,7 @@ set(dependencies
   pluginlib
   dwb_core
   rclcpp_components
+  nav_msgs
 )
 
 ament_target_dependencies(${library_name}

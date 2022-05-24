@@ -33,6 +33,7 @@
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/simple_action_server.hpp"
 #include "nav_2d_utils/odom_subscriber.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -40,6 +41,12 @@
 #include "tf2_ros/transform_listener.h"
 using namespace std::chrono_literals;
 using GoalStatus = action_msgs::msg::GoalStatus;
+typedef std::vector<int> ivChainCode;
+typedef struct PointT {
+  int x;
+  int y;
+} POINT;
+
 namespace cyberdog_controller {
 /**
  * @class cyberdog_controller::TrajectoryChecker
@@ -174,10 +181,15 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
   std::chrono::milliseconds server_timeout_;
   bool calcualteGoal(double vx, double vy,
                      geometry_msgs::msg::PoseStamped& pose);
+  bool calcualteEdgeStart(double vx, double vy,
+                          geometry_msgs::msg::PoseStamped& pose);
   bool cancleGoal();
   bool isGoalSent();
   bool poseValid(const geometry_msgs::msg::PoseStamped& pose);
   bool isValidCost(const unsigned char cost);
+  bool TracingContour(POINT* pStart, ivChainCode* pChainCode);
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr
+      path_pub_;
 };
 
 }  // namespace cyberdog_controller

@@ -74,7 +74,7 @@ def generate_launch_description():
             executable='controller_server',
             output='screen',
             parameters=[configured_params],
-            prefix=['xterm -e gdb -ex run --args'],
+            #prefix=['xterm -e gdb -ex run --args'],
             remappings=remappings),
 
         Node(

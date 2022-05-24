@@ -99,7 +99,53 @@ bool TrajectoryChecker::isValidCost(const unsigned char cost) {
          cost != nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE &&
          cost != nav2_costmap_2d::NO_INFORMATION;
 }
+bool TrajectoryChecker::calcualteEdgeStart(
+    double vx, double vy, geometry_msgs::msg::PoseStamped &pose) {
+  // get current pose.
+  (void)vx;
+  (void)vy;
+  if (getRobotPose(pose)) {
+    geometry_msgs::msg::PoseStamped tmp_pose;
+    unsigned int size_x = costmap_ros_->getCostmap()->getSizeInCellsX(),
+                 size_y = costmap_ros_->getCostmap()->getSizeInCellsY();
 
+    // get index of the array.
+    // int index = master_grid.getIndex(mx, my);
+    for (unsigned int i = 0; i < size_x; i++) {
+      for (unsigned int j = 0; j < size_y; j++) {
+        // int index = master_grid.getIndex(i, j);
+        // the index is the costmap buffer index;
+        if (!isValidCost(costmap_ros_->getCostmap()->getCost(i, j))) {
+          // the cost is invalid
+          // set the nebigerhould field
+          pose.pose.position.x = i;
+          pose.pose.position.y = j;
+          return true;
+        }
+      }
+    }
+    // while (i++) {
+    //   tmp_pose.pose.position.x = pose.pose.position.x + i * vx;
+    //   tmp_pose.pose.position.y = pose.pose.position.y + i * vy;
+    //   unsigned int cell_x, cell_y;
+
+    //   // out of bound of costmap
+    //   if (!costmap_ros_->getCostmap()->worldToMap(
+    //           pose.pose.position.x, pose.pose.position.y, cell_x, cell_y)) {
+    //     RCLCPP_ERROR(get_logger(), "Goes Off Grid.");
+    //     return false;
+    //   }
+
+    //   // is a obstacle edge point
+    //   unsigned char cost = costmap_ros_->getCostmap()->getCost(cell_x,
+    //   cell_y); if (!isValidCost(cost)) {
+    //     RCLCPP_ERROR(get_logger(), "Found a Obstacle point.");
+    //     return true;
+    //   }
+    // }
+  }
+  return false;
+}
 bool TrajectoryChecker::calcualteGoal(double vx, double vy,
                                       geometry_msgs::msg::PoseStamped &pose) {
   // get current pose.
@@ -204,13 +250,54 @@ bool TrajectoryChecker::startNavigation(geometry_msgs::msg::PoseStamped pose) {
   }
   return true;
 }
-
+#define EDGE_MOVE 1
 TrajectoryChecker::~TrajectoryChecker() { costmap_thread_.reset(); }
 
 void TrajectoryChecker::controlLoop() {
   rclcpp::Rate r(controller_frequency_);
-
+  const POINT linkcode[8] = {{1, 0},  {1, 1},   {0, 1},  {-1, 1},
+                             {-1, 0}, {-1, -1}, {0, -1}, {1, -1}};
   while (rclcpp::ok()) {
+    geometry_msgs::msg::PoseStamped goal_pose;
+    if (calcualteEdgeStart(1, 2, goal_pose)) {
+      POINT start;
+      start.x = goal_pose.pose.position.x;
+      start.y = goal_pose.pose.position.y;
+      RCLCPP_INFO(get_logger(), "Start at (%d:%d)", start.x, start.y);
+      ivChainCode chaincode;
+      TracingContour(&start, &chaincode);
+      nav_msgs::msg::Path path;
+      path.header.frame_id = "map";  // costmap_ros_->getBaseFrameID();
+      path.header.stamp = now();
+      RCLCPP_INFO(get_logger(), "iters:");
+      geometry_msgs::msg::PoseStamped pose;
+      POINT tmp_pose;
+
+      tmp_pose.x = start.x;
+      tmp_pose.y = start.y;
+
+      double world_x, world_y;
+
+      for (auto iter : chaincode) {
+        tmp_pose.x = tmp_pose.x + linkcode[iter].x;
+        tmp_pose.y = tmp_pose.y + linkcode[iter].y;
+        costmap_ros_->getCostmap()->mapToWorld(tmp_pose.x, tmp_pose.y, world_x,
+                                               world_y);
+        RCLCPP_INFO(get_logger(), "%d ", iter);
+        pose.pose.position.x = world_x;
+        pose.pose.position.y = world_y;
+        path.poses.push_back(pose);
+      }
+      for (auto pose_iter : path.poses) {
+        RCLCPP_INFO(get_logger(), "%f, %f ", pose_iter.pose.position.x,
+                    pose_iter.pose.position.y);
+      }
+      path_pub_->publish(path);
+    } else {
+      RCLCPP_INFO(get_logger(), "can not found a start point ");
+    }
+
+#if 0
     RCLCPP_INFO(get_logger(), "controlLoop looping");
     Eigen::Vector3f desired_vel = Eigen::Vector3f::Zero();
     // we'll copy over odometry and velocity data for planning
@@ -249,7 +336,7 @@ void TrajectoryChecker::controlLoop() {
 
     // if we don't have a valid trajectory... we'll start checking others in
     // the angular range specified
-    for (int i = 0; i < num_x_samples_; ++i) {
+    for (int i = 0; i < /*num_x_samples_*/ 1; ++i) {
       Eigen::Vector3f check_vel = Eigen::Vector3f::Zero();
       check_vel[0] = desired_vel[0] - i * dx;
       check_vel[1] = desired_vel[1];
@@ -269,8 +356,12 @@ void TrajectoryChecker::controlLoop() {
             best = check_vel;
             best_dist = sq_dist;
             trajectory_found = true;
+            break;
           }
         }
+      }
+      if (trajectory_found) {
+        break;
       }
     }
     RCLCPP_ERROR(get_logger(), "trajectory_found : ------- %d",
@@ -330,12 +421,40 @@ void TrajectoryChecker::controlLoop() {
       best_cmd.angular.z = best[2];
       vel_publisher_->publish(best_cmd);
     }
+#elif defined EDGE_MOVE
+    const POINT linkcode[8] = {{1, 0},  {1, 1},   {0, 1},  {-1, 1},
+                               {-1, 0}, {-1, -1}, {0, -1}, {1, -1}};
+    geometry_msgs::msg::PoseStamped goal_pose;
+    if (calcualteEdgeStart(desired_vel[0], desired_vel[1], goal_pose)) {
+      POINT start;
+      start.x = goal_pose.pose.position.x;
+      start.y = goal_pose.pose.position.y;
+      RCLCPP_INFO(get_logger(), "Start at (%d:%d)", start.x, start.y);
+      ivChainCode chaincode;
+      TracingContour(&start, &chaincode);
+      nav_msgs::msg::Path path;
+      path.header.frame_id = costmap_ros_->getBaseFrameID();
+      path.header.stamp = now();
+      RCLCPP_INFO(get_logger(), "iters:");
+      for (auto iter : chaincode) {
+        RCLCPP_INFO(get_logger(), "%d ", iter);
+        geometry_msgs::msg::PoseStamped pose;
+        pose.pose.position.x = goal_pose.pose.position.x + linkcode[iter].x;
+        pose.pose.position.y = goal_pose.pose.position.y + linkcode[iter].y;
+        path.poses.push_back(pose);
+      }
+      if (chaincode.size() > 5) path_pub_->publish(path);
+    } else {
+      RCLCPP_INFO(get_logger(), "can not found a start point ");
+    }
+
 #else
     geometry_msgs::msg::Twist best_cmd;
     best_cmd.linear.x = best[0];
     best_cmd.linear.y = best[1];
     best_cmd.angular.z = best[2];
     vel_publisher_->publish(best_cmd);
+#endif
 #endif
     r.sleep();
   }
@@ -358,6 +477,9 @@ nav2_util::CallbackReturn TrajectoryChecker::on_configure(
       std::bind(&TrajectoryChecker::cmd_vell_callback, this,
                 std::placeholders::_1));
 
+  path_pub_ = create_publisher<nav_msgs::msg::Path>(
+      "Path", rclcpp::SystemDefaultsQoS());
+
   controller_ = std::make_unique<dwb_core::DWBLocalPlanner>();
   controller_->configure(node, "FollowPath", costmap_ros_->getTfBuffer(),
                          costmap_ros_);
@@ -375,6 +497,7 @@ nav2_util::CallbackReturn TrajectoryChecker::on_activate(
   RCLCPP_INFO(get_logger(), "Cyberdog controller Activating");
   costmap_ros_->on_activate(state);
   vel_publisher_->on_activate();
+  path_pub_->on_activate();
   controller_->activate();
   planning_thread_ =
       std::make_shared<std::thread>(&TrajectoryChecker::controlLoop, this);
@@ -393,7 +516,7 @@ nav2_util::CallbackReturn TrajectoryChecker::on_deactivate(
   controller_->deactivate();
   // destroy bond connection
   destroyBond();
-
+  path_pub_->on_deactivate();
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -403,6 +526,7 @@ nav2_util::CallbackReturn TrajectoryChecker::on_cleanup(
   costmap_ros_->on_cleanup(state);
 
   vel_publisher_.reset();
+  path_pub_.reset();
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -470,4 +594,91 @@ bool TrajectoryChecker::checkTrajectory(double vx_samp, double vy_samp,
               "as legal in this case.");
   return false;
 }
+
+// 轮廓跟踪
+// 1. pImageData   图像数据
+// 2. nWidth       图像宽度     // master_grid.getSizeInCellsX()
+// 3. nHeight      图像高度     // master_grid.getSizeInCellsY()
+// 4. nWidthStep   图像行大小   // master_grid.getSizeInCellsX()
+// 5. pStart       起始点      // given by tracjotry checker.
+// 6. pChainCode   链码表      // result
+bool TrajectoryChecker::TracingContour(POINT *pStart, ivChainCode *pChainCode) {
+  int nWidth = costmap_ros_->getCostmap()->getSizeInCellsX();
+  int nHeight = costmap_ros_->getCostmap()->getSizeInCellsY();
+  int i = 0;
+  int j = 0;
+  int k = 0;
+  int x = 0;
+  int y = 0;
+  bool bTracing = false;
+  POINT ptCurrent;
+  POINT ptTemp = {0, 0};
+  ptCurrent.x = pStart->x;
+  ptCurrent.y = pStart->y;
+
+  const POINT ptOffset[8] = {{1, 0},  {1, 1},   {0, 1},  {-1, 1},
+                             {-1, 0}, {-1, -1}, {0, -1}, {1, -1}};
+  // 清空起始点与链码表
+  // pStart->x = 0;
+  // pStart->y = 0;
+  pChainCode->clear();
+  // // 轮廓起点
+  // for (y = 0; y < nHeight; y++) {
+  //   pLine = pImageData + nWidthStep * y;
+  //   for (x = 0; x < nWidth; x++) {
+  //     if (pLine[x] == 0xFF) {
+  //       bTracing = true;
+  //       pStart->x = x;
+  //       pStart->y = y;
+  //       ptCurrent.x = x;
+  //       ptCurrent.y = y;
+  //     }
+  //   }
+  // }
+  // 轮廓跟踪
+  bTracing = true;
+  while (bTracing) {
+    bTracing = false;
+    for (i = 0; i < 8; i++, k++) {
+      k &= 0x07;
+      x = ptCurrent.x + ptOffset[k].x;
+      y = ptCurrent.y + ptOffset[k].y;
+      if (x >= 0 && x < nWidth && y >= 0 && y < nHeight) {
+        // 判断是否为轮廓点
+        if (!isValidCost(costmap_ros_->getCostmap()->getCost(x, y))) {
+          // pImageData[nWidthStep * y + x] == 0xFF
+          for (j = 0; j < 8; j += 2) {
+            ptTemp.x = x + ptOffset[j].x;
+            ptTemp.y = y + ptOffset[j].y;
+            if (ptTemp.x >= 0 && ptTemp.x < nWidth && ptTemp.y >= 0 &&
+                ptTemp.y < nHeight) {
+              if (isValidCost(costmap_ros_->getCostmap()->getCost(ptTemp.x,
+                                                                  ptTemp.y))) {
+                //  pImageData[nWidthStep * ptTemp.y + ptTemp.x] == 0
+                // isValidCost(costmap_ros_->getCostmap()->getCost(ptTemp.x,
+                // ptTemp.y))
+                bTracing = true;
+                ptCurrent.x = x;
+                ptCurrent.y = y;
+                pChainCode->push_back(k);
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (bTracing) {
+        // 如果当前点为轮廓起点
+        if (pStart->x == ptCurrent.x && pStart->y == ptCurrent.y) {
+          // 则跟踪完毕
+          bTracing = false;
+        }
+        break;
+      }
+    }
+    k += 0x06;
+  }
+  return true;
+}
+
 }  // namespace cyberdog_controller
