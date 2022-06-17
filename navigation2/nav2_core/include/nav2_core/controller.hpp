@@ -130,6 +130,7 @@ class Controller {
                                const nav_2d_msgs::msg::Twist2D &velocity,
                                double vx_samp, double vy_samp,
                                double vtheta_samp) {
+    (void)(pose),(void)(velocity),(void)(vx_samp),(void)(vy_samp),(void)(vtheta_samp);
     return true;
   }
 };
