@@ -15,44 +15,41 @@
 #ifndef NAV2_BT_NAVIGATOR__NAVIGATORS__AUTOMATIC_RECHARGE_HPP_
 #define NAV2_BT_NAVIGATOR__NAVIGATORS__AUTOMATIC_RECHARGE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
+
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "nav2_bt_navigator/navigator.hpp"
 #include "mcr_msgs/action/automatic_recharge.hpp"
+#include "nav2_bt_navigator/navigator.hpp"
 #include "nav2_util/geometry_utils.hpp"
+#include "nav2_util/odometry_utils.hpp"
 #include "nav2_util/robot_utils.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "nav2_util/odometry_utils.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
-namespace nav2_bt_navigator
-{
+namespace nav2_bt_navigator {
 
 /**
  * @class AutomaticRechargeNavigator
  * @brief A navigator for tracking target
  */
 class AutomaticRechargeNavigator
-  : public nav2_bt_navigator::Navigator<mcr_msgs::action::AutomaticRecharge>
-{
-public:
+    : public nav2_bt_navigator::Navigator<mcr_msgs::action::AutomaticRecharge> {
+ public:
   using ActionT = mcr_msgs::action::AutomaticRecharge;
 
   /**
    * @brief A constructor for AutomaticRechargeNavigator
    */
-  AutomaticRechargeNavigator()
-  : Navigator() {}
+  AutomaticRechargeNavigator() : Navigator() {}
 
   /**
    * @brief A configure state transition to configure navigator's state
    * @param node Weakptr to the lifecycle node
    */
-  bool configure(
-    rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
+  bool configure(rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
 
   /**
    * @brief A cleanup state transition to remove memory allocated
@@ -64,34 +61,36 @@ public:
    * from rviz
    * @param pose Pose received via atopic
    */
-  void onGoalPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr pose);
+  void onGoalPoseReceived(
+      const geometry_msgs::msg::PoseStamped::SharedPtr pose);
 
   /**
    * @brief Get action name for this navigator
    * @return string Name of action server
    */
-  std::string getName() {return std::string("automatic_recharge");}
+  std::string getName() { return std::string("automatic_recharge"); }
 
   /**
    * @brief Get navigator's default BT
    * @param node WeakPtr to the lifecycle node
    * @return string Filepath to default XML
    */
-  std::string getDefaultBTFilepath(rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
+  std::string getDefaultBTFilepath(
+      rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
 
-protected:
+ protected:
   /**
-   * @brief A callback to be called when a new goal is received by the BT action server
-   * Can be used to check if goal is valid and put values on
-   * the blackboard which depend on the received goal
+   * @brief A callback to be called when a new goal is received by the BT action
+   * server Can be used to check if goal is valid and put values on the
+   * blackboard which depend on the received goal
    * @param goal Action template's goal message
    * @return bool if goal was received successfully to be processed
    */
   bool goalReceived(ActionT::Goal::ConstSharedPtr goal) override;
 
   /**
-   * @brief A callback that defines execution that happens on one iteration through the BT
-   * Can be used to publish action feedback
+   * @brief A callback that defines execution that happens on one iteration
+   * through the BT Can be used to publish action feedback
    */
   void onLoop() override;
 
@@ -101,8 +100,8 @@ protected:
   void onPreempt(ActionT::Goal::ConstSharedPtr goal) override;
 
   /**
-   * @brief A callback that is called when a the action is completed, can fill in
-   * action result message or indicate that this action is done.
+   * @brief A callback that is called when a the action is completed, can fill
+   * in action result message or indicate that this action is done.
    * @param result Action template result message to populate
    */
   void goalCompleted(typename ActionT::Result::SharedPtr result) override;
@@ -119,6 +118,7 @@ protected:
   rclcpp_action::Client<ActionT>::SharedPtr self_client_;
 
   std::string charging_station_;
+  std::string goal_blackboard_keep_dist_;
 
   // Odometry smoother object
   std::unique_ptr<nav2_util::OdomSmoother> odom_smoother_;
