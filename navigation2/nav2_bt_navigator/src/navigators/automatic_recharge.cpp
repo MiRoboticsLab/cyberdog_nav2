@@ -26,6 +26,7 @@ namespace nav2_bt_navigator {
 bool AutomaticRechargeNavigator::configure(
     rclcpp_lifecycle::LifecycleNode::WeakPtr parent_node) {
   start_time_ = rclcpp::Time(0);
+  RCLCPP_ERROR(logger_, "AutomaticRechargeNavigator configure:.");
   auto node = parent_node.lock();
   if (!node->has_parameter("charging_station")) {
     node->declare_parameter("charging_station",
@@ -165,7 +166,7 @@ void AutomaticRechargeNavigator::onGoalPoseReceived(
   ActionT::Goal goal;
   // goal.keep_distance = 1.0;
   // goal.behavior_tree
-  // self_client_->async_send_goal(goal);
+  self_client_->async_send_goal(goal);
 }
 
 }  // namespace nav2_bt_navigator
