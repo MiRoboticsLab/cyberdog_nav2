@@ -232,6 +232,10 @@ public:
 
         // check if, after invoking spin_some(), we finally received the result
         if (!goal_result_available_) {
+          auto elapsed = (node_->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
+          if (elapsed > server_timeout_) {
+            return BT::NodeStatus::FAILURE;
+          }
           // Yield this Action, returning RUNNING
           return BT::NodeStatus::RUNNING;
         }
@@ -427,3 +431,5 @@ protected:
 }  // namespace nav2_behavior_tree
 
 #endif  // NAV2_BEHAVIOR_TREE__BT_ACTION_NODE_HPP_
+
+
