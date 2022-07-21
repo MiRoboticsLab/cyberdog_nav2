@@ -474,11 +474,9 @@ void
 Costmap2DROS::start()
 {
   RCLCPP_INFO(get_logger(), "start");
-  RCLCPP_INFO(get_logger(), "1");
   std::vector<std::shared_ptr<Layer>> * plugins = layered_costmap_->getPlugins();
   std::vector<std::shared_ptr<Layer>> * filters = layered_costmap_->getFilters();
 
-  RCLCPP_INFO(get_logger(), "2");
   // check if we're stopped or just paused
   if (stopped_) {
     // if we're stopped we need to re-subscribe to topics
@@ -488,27 +486,22 @@ Costmap2DROS::start()
     {
       (*plugin)->activate();
     }
-    RCLCPP_INFO(get_logger(), "3");
     for (std::vector<std::shared_ptr<Layer>>::iterator filter = filters->begin();
       filter != filters->end();
       ++filter)
     {
       (*filter)->activate();
     }
-    RCLCPP_INFO(get_logger(), "4");
     stopped_ = false;
   }
   stop_updates_ = false;
 
-  RCLCPP_INFO(get_logger(), "5");
   // block until the costmap is re-initialized.. meaning one update cycle has run
   rclcpp::Rate r(20.0);
   while (rclcpp::ok() && !initialized_) {
     RCLCPP_DEBUG(get_logger(), "Sleeping, waiting for initialized_");
-    RCLCPP_INFO(get_logger(), "6");
     r.sleep();
   }
-  RCLCPP_INFO(get_logger(), "7");
 }
 
 void
