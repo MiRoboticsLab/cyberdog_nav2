@@ -10,18 +10,18 @@
       <PipelineSequence name="NavigateWithReplanning">
         <RateController hz="1.0">
           <RecoveryNode number_of_retries="1" name="ComputePathToPose">
-            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            <ComputePathToPose goal="{goal}" path="{path}" server_timeout="4000" planner_id="GridBased"/>
             <ReactiveFallback name="ComputePathToPoseRecoveryFallback">
               <GoalUpdated/>
-              <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
+              <ClearEntireCostmap name="ClearGlobalCostmap-Context" server_timeout="1000" service_name="global_costmap/clear_entirely_global_costmap"/>
             </ReactiveFallback>
           </RecoveryNode>
         </RateController>
         <RecoveryNode number_of_retries="1" name="FollowPath">
-          <FollowPath path="{path}" controller_id="FollowPath" progress_checker_id="progress_checker" goal_checker_id="general_goal_checker" />
+          <FollowPath path="{path}" controller_id="FollowPath" server_timeout="4000" progress_checker_id="progress_checker" goal_checker_id="general_goal_checker" />
           <ReactiveFallback name="FollowPathRecoveryFallback">
             <GoalUpdated/>
-            <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap-Context" server_timeout="1000" service_name="local_costmap/clear_entirely_local_costmap"/>
           </ReactiveFallback>
         </RecoveryNode>
       </PipelineSequence>
@@ -29,12 +29,12 @@
         <GoalUpdated/>
         <RoundRobin name="RecoveryActions">
           <Sequence name="ClearingActions">
-            <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
-            <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap-Subtree" server_timeout="1000" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" server_timeout="1000" service_name="global_costmap/clear_entirely_global_costmap"/>
           </Sequence>
-          <Spin spin_dist="1.57"/>
+          <Spin spin_dist="1.57" server_timeout="4000"/>
           <Wait wait_duration="5"/>
-          <BackUp backup_dist="0.15" backup_speed="0.025"/>
+          <BackUp backup_dist="0.15" server_timeout="4000" backup_speed="0.025"/>
         </RoundRobin>
       </ReactiveFallback>
     </RecoveryNode>
