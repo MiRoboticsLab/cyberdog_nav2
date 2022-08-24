@@ -16,28 +16,27 @@
 #define NAV2_BT_NAVIGATOR__NAVIGATOR_HPP_
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
-#include "tf2_ros/buffer.h"
+#include "nav2_behavior_tree/bt_action_server.hpp"
+#include "pluginlib/class_loader.hpp"
+#include "protocol/msg/follow_points.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "pluginlib/class_loader.hpp"
-#include "nav2_behavior_tree/bt_action_server.hpp"
-#include "protocol/msg/follow_points.hpp"
+#include "tf2_ros/buffer.h"
 
 using FollowPoses = protocol::msg::FollowPoints;
 
-namespace nav2_bt_navigator
-{
+namespace nav2_bt_navigator {
 
 /**
  * @struct FeedbackUtils
- * @brief Navigator feedback utilities required to get transforms and reference frames.
+ * @brief Navigator feedback utilities required to get transforms and reference
+ * frames.
  */
-struct FeedbackUtils
-{
+struct FeedbackUtils {
   std::string robot_frame;
   std::string global_frame;
   double transform_tolerance;
@@ -46,24 +45,21 @@ struct FeedbackUtils
 
 /**
  * @class NavigatorMuxer
- * @brief A class to control the state of the BT navigator by allowing only a single
- * plugin to be processed at a time.
+ * @brief A class to control the state of the BT navigator by allowing only a
+ * single plugin to be processed at a time.
  */
-class NavigatorMuxer
-{
-public:
+class NavigatorMuxer {
+ public:
   /**
    * @brief A Navigator Muxer constructor
    */
-  NavigatorMuxer()
-  : current_navigator_(std::string("")) {}
+  NavigatorMuxer() : current_navigator_(std::string("")) {}
 
   /**
    * @brief Get the navigator muxer state
    * @return bool If a navigator is in progress
    */
-  bool isNavigating()
-  {
+  bool isNavigating() {
     std::scoped_lock l(mutex_);
     return !current_navigator_.empty();
   }
@@ -72,15 +68,14 @@ public:
    * @brief Start navigating with a given navigator
    * @param string Name of the navigator to start
    */
-  void startNavigating(const std::string & navigator_name)
-  {
+  void startNavigating(const std::string& navigator_name) {
     std::scoped_lock l(mutex_);
     if (!current_navigator_.empty()) {
       RCLCPP_ERROR(
-        rclcpp::get_logger("NavigatorMutex"),
-        "Major error! Navigation requested while another navigation"
-        " task is in progress! This likely occurred from an incorrect"
-        "implementation of a navigator plugin.");
+          rclcpp::get_logger("NavigatorMutex"),
+          "Major error! Navigation requested while another navigation"
+          " task is in progress! This likely occurred from an incorrect"
+          "implementation of a navigator plugin.");
     }
     current_navigator_ = navigator_name;
   }
@@ -89,42 +84,38 @@ public:
    * @brief Stop navigating with a given navigator
    * @param string Name of the navigator ending task
    */
-  void stopNavigating(const std::string & navigator_name)
-  {
+  void stopNavigating(const std::string& navigator_name) {
     std::scoped_lock l(mutex_);
     if (current_navigator_ != navigator_name) {
       RCLCPP_ERROR(
-        rclcpp::get_logger("NavigatorMutex"),
-        "Major error! Navigation stopped while another navigation"
-        " task is in progress! This likely occurred from an incorrect"
-        "implementation of a navigator plugin.");
+          rclcpp::get_logger("NavigatorMutex"),
+          "Major error! Navigation stopped while another navigation"
+          " task is in progress! This likely occurred from an incorrect"
+          "implementation of a navigator plugin.");
     } else {
       current_navigator_ = std::string("");
     }
   }
 
-protected:
+ protected:
   std::string current_navigator_;
   std::mutex mutex_;
 };
 
 /**
  * @class Navigator
- * @brief Navigator interface that acts as a base class for all BT-based Navigator action's plugins
+ * @brief Navigator interface that acts as a base class for all BT-based
+ * Navigator action's plugins
  */
-template<class ActionT>
-class Navigator
-{
-public:
+template <class ActionT>
+class Navigator {
+ public:
   using Ptr = std::shared_ptr<nav2_bt_navigator::Navigator<ActionT>>;
 
   /**
    * @brief A Navigator constructor
    */
-  Navigator()
-  {
-    plugin_muxer_ = nullptr;
-  }
+  Navigator() { plugin_muxer_ = nullptr; }
 
   /**
    * @brief Virtual destructor
@@ -140,12 +131,10 @@ public:
    * can be active at a time
    * @return bool If successful
    */
-  bool on_configure(
-    rclcpp_lifecycle::LifecycleNode::WeakPtr parent_node,
-    const std::vector<std::string> & plugin_lib_names,
-    const FeedbackUtils & feedback_utils,
-    nav2_bt_navigator::NavigatorMuxer * plugin_muxer)
-  {
+  bool on_configure(rclcpp_lifecycle::LifecycleNode::WeakPtr parent_node,
+                    const std::vector<std::string>& plugin_lib_names,
+                    const FeedbackUtils& feedback_utils,
+                    nav2_bt_navigator::NavigatorMuxer* plugin_muxer) {
     auto node = parent_node.lock();
     logger_ = node->get_logger();
     clock_ = node->get_clock();
@@ -156,16 +145,14 @@ public:
     std::string default_bt_xml_filename = getDefaultBTFilepath(parent_node);
 
     // Create the Behavior Tree Action Server for this navigator
-    bt_action_server_ = std::make_unique<nav2_behavior_tree::BtActionServer<ActionT>>(
-      node,
-      getName(),
-      plugin_lib_names,
-      default_bt_xml_filename,
-      std::bind(&Navigator::onGoalReceived, this, std::placeholders::_1),
-      std::bind(&Navigator::onLoop, this),
-      std::bind(&Navigator::onPreempt, this, std::placeholders::_1),
-      std::bind(&Navigator::onCompletion, this, std::placeholders::_1),
-      std::bind(&Navigator::onGoalUpdate, this, std::placeholders::_1));
+    bt_action_server_ =
+        std::make_unique<nav2_behavior_tree::BtActionServer<ActionT>>(
+            node, getName(), plugin_lib_names, default_bt_xml_filename,
+            std::bind(&Navigator::onGoalReceived, this, std::placeholders::_1),
+            std::bind(&Navigator::onLoop, this),
+            std::bind(&Navigator::onPreempt, this, std::placeholders::_1),
+            std::bind(&Navigator::onCompletion, this, std::placeholders::_1),
+            std::bind(&Navigator::onGoalUpdate, this, std::placeholders::_1));
 
     bool ok = true;
     if (!bt_action_server_->on_configure()) {
@@ -173,9 +160,10 @@ public:
     }
 
     BT::Blackboard::Ptr blackboard = bt_action_server_->getBlackboard();
-    blackboard->set<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer", feedback_utils.tf);  // NOLINT
+    blackboard->set<std::shared_ptr<tf2_ros::Buffer>>(
+        "tf_buffer", feedback_utils.tf);                    // NOLINT
     blackboard->set<bool>("initial_pose_received", false);  // NOLINT
-    blackboard->set<int>("number_recoveries", 0);  // NOLINT
+    blackboard->set<int>("number_recoveries", 0);           // NOLINT
 
     return configure(parent_node) && ok;
   }
@@ -184,8 +172,7 @@ public:
    * @brief Actiation of the navigator's backend BT and actions
    * @return bool If successful
    */
-  bool on_activate()
-  {
+  bool on_activate() {
     bool ok = true;
 
     if (!bt_action_server_->on_activate()) {
@@ -199,8 +186,7 @@ public:
    * @brief Dectiation of the navigator's backend BT and actions
    * @return bool If successful
    */
-  bool on_deactivate()
-  {
+  bool on_deactivate() {
     bool ok = true;
     if (!bt_action_server_->on_deactivate()) {
       ok = false;
@@ -213,8 +199,7 @@ public:
    * @brief Cleanup a navigator
    * @return bool If successful
    */
-  bool on_cleanup()
-  {
+  bool on_cleanup() {
     bool ok = true;
     if (!bt_action_server_->on_cleanup()) {
       ok = false;
@@ -231,19 +216,20 @@ public:
    */
   virtual std::string getName() = 0;
 
-  virtual std::string getDefaultBTFilepath(rclcpp_lifecycle::LifecycleNode::WeakPtr node) = 0;
+  virtual std::string getDefaultBTFilepath(
+      rclcpp_lifecycle::LifecycleNode::WeakPtr node) = 0;
 
-protected:
+ protected:
   /**
    * @brief An intermediate goal reception function to mux navigators.
    */
-  bool onGoalReceived(typename ActionT::Goal::ConstSharedPtr goal)
-  {
+  bool onGoalReceived(typename ActionT::Goal::ConstSharedPtr goal) {
     if (plugin_muxer_->isNavigating()) {
       RCLCPP_ERROR(
-        logger_,
-        "Requested navigation from %s while another navigator is processing,"
-        " rejecting request.", getName().c_str());
+          logger_,
+          "Requested navigation from %s while another navigator is processing,"
+          " rejecting request.",
+          getName().c_str());
       return false;
     }
 
@@ -255,22 +241,21 @@ protected:
   /**
    * @brief An intermediate compution function to mux navigators
    */
-  void onCompletion(typename ActionT::Result::SharedPtr result)
-  {
+  void onCompletion(typename ActionT::Result::SharedPtr result) {
     plugin_muxer_->stopNavigating(getName());
     goalCompleted(result);
   }
 
   /**
-   * @brief A callback to be called when a new goal is received by the BT action server
-   * Can be used to check if goal is valid and put values on
-   * the blackboard which depend on the received goal
+   * @brief A callback to be called when a new goal is received by the BT action
+   * server Can be used to check if goal is valid and put values on the
+   * blackboard which depend on the received goal
    */
   virtual bool goalReceived(typename ActionT::Goal::ConstSharedPtr goal) = 0;
   virtual bool onGoalUpdate(FollowPoses::SharedPtr msg) = 0;
   /**
-   * @brief A callback that defines execution that happens on one iteration through the BT
-   * Can be used to publish action feedback
+   * @brief A callback that defines execution that happens on one iteration
+   * through the BT Can be used to publish action feedback
    */
   virtual void onLoop() = 0;
 
@@ -280,36 +265,39 @@ protected:
   virtual void onPreempt(typename ActionT::Goal::ConstSharedPtr goal) = 0;
 
   /**
-   * @brief A callback that is called when a the action is completed, can fill in
-   * action result message or indicate that this action is done.
+   * @brief A callback that is called when a the action is completed, can fill
+   * in action result message or indicate that this action is done.
    */
   virtual void goalCompleted(typename ActionT::Result::SharedPtr result) = 0;
 
   /**
    * @param Method to configure resources.
    */
-  virtual bool configure(rclcpp_lifecycle::LifecycleNode::WeakPtr /*node*/) {return true;}
+  virtual bool configure(rclcpp_lifecycle::LifecycleNode::WeakPtr /*node*/) {
+    return true;
+  }
 
   /**
    * @brief Method to cleanup resources.
    */
-  virtual bool cleanup() {return true;}
+  virtual bool cleanup() { return true; }
 
   /**
    * @brief Method to active and any threads involved in execution.
    */
-  virtual bool activate() {return true;}
+  virtual bool activate() { return true; }
 
   /**
    * @brief Method to deactive and any threads involved in execution.
    */
-  virtual bool deactivate() {return true;}
+  virtual bool deactivate() { return true; }
 
-  std::unique_ptr<nav2_behavior_tree::BtActionServer<ActionT>> bt_action_server_;
+  std::unique_ptr<nav2_behavior_tree::BtActionServer<ActionT>>
+      bt_action_server_;
   rclcpp::Logger logger_{rclcpp::get_logger("Navigator")};
   rclcpp::Clock::SharedPtr clock_;
   FeedbackUtils feedback_utils_;
-  NavigatorMuxer * plugin_muxer_;
+  NavigatorMuxer* plugin_muxer_;
 };
 
 }  // namespace nav2_bt_navigator
