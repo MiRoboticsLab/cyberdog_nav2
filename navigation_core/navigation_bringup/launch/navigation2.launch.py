@@ -114,7 +114,7 @@ def generate_launch_description():
             default_value='False'
         ),
         start_ros2_navigation_cmd,
-        # velocity_adaptor_cmd,
+        velocity_adaptor_cmd,
         start_rviz_cmd
     ])
     return ld
