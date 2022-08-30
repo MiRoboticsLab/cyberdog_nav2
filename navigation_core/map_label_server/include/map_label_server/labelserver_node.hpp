@@ -1,9 +1,13 @@
 #ifndef _LABELSERVER_NODE_
 #define _LABELSERVER_NODE_
+
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include "nav2_map_server/map_server.hpp"
+#include "nav2_map_server/map_io.hpp"
+#include "map_label_server/label_store.hpp"
 namespace CYBERDOG_NAV {
 typedef struct LABEL {
   float x;
@@ -41,6 +45,9 @@ class LabelServer : public rclcpp::Node {
   bool removeFile(std::string path);
 
   void writeLabel(std::string path, LABEL label);
+
+  std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV
 #endif  // _LABELSERVER_NODE_
+

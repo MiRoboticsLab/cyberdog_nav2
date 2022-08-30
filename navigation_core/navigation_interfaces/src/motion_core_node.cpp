@@ -13,10 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "motion_core/motion_core_node.hpp"
-
 #include <memory>
 #include <vector>
+
+#include "motion_core/motion_core_node.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+
 namespace CARPO_NAVIGATION {
 using namespace std::chrono_literals;
 NavigationCore::NavigationCore()
@@ -121,32 +123,37 @@ void NavigationCore::follow_execute(
   auto result = std::make_shared<Navigation::Result>();
   RCLCPP_INFO(this->get_logger(), "Executing goal: %d", goal->nav_type);
   switch (goal->nav_type) {
-    case Navigation::Goal::NAVIGATION_GOAL_TYPE_AB: {
-      if (goal->poses.empty()) {
-        RCLCPP_INFO(this->get_logger(), "empty pose ");
-        goal_handle->succeed(result);
-      }
+    case Navigation::Goal::NAVIGATION_TYPE_START_AB: {
+      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+      // if (goal->poses.empty()) {
+      //   RCLCPP_INFO(this->get_logger(), "empty pose ");
+      //   goal_handle->succeed(result);
+      // }
 
-      uint8_t goal_result = startNavigation(goal->poses[0]);
-      if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
-        // goal process failed
-        result->result = goal_result;
-        goal_handle->succeed(result);
-      }
+      // uint8_t goal_result = startNavigation(goal->poses[0]);
+      // if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+      //   // goal process failed
+      //   result->result = goal_result;
+      //   goal_handle->succeed(result);
+      // }
     } break;
 
-    case Navigation::Goal::NAVIGATION_GOAL_TYPE_FOLLOW: {
+    case Navigation::Goal::NAVIGATION_TYPE_START_FOLLOW: {
+      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_FOLLOW .....");
       uint8_t goal_result = startNavThroughPoses(goal->poses);
       if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
         goal_handle->succeed(result);
       }
     } break;
-    case Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING:
-    case Navigation::Goal::NAVIGATION_GOAL_TYPE_STOP_MAPPING: {
+    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING: {
       RCLCPP_INFO(this->get_logger(), "mapping request");
       uint8_t goal_result = handleMapping(
-          goal->nav_type == Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING);
+          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING);
       if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING .....");
+
         result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
         RCLCPP_INFO(this->get_logger(), "mapping request success");
         goal_handle->succeed(result);
@@ -154,6 +161,19 @@ void NavigationCore::follow_execute(
         RCLCPP_INFO(this->get_logger(), "mapping request failed");
       }
     } break;
+
+    // uint8 NAVIGATION_GOAL_TYPE_LOCATION = 5
+    // uint8 NAVIGATION_GOAL_TYPE_AUTO_DOCKING = 6
+    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION: {
+      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_LOCATION .....");
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+    } break;
+
+    case Navigation::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING: {
+      INFO("[Navigation] Navigation::Goal::NAVIGATION_GOAL_TYPE_AUTO_DOCKING .....");
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+    } break;
+
     default:
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
       goal_handle->succeed(result);

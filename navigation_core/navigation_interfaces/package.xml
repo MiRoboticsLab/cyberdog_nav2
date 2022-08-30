@@ -13,6 +13,7 @@
   <depend>nav2_lifecycle_manager</depend>
   <depend>nav2_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>nav2_map_server</depend>
   <depend>rclcpp_lifecycle</depend>
   <depend>std_msgs</depend>
   <depend>builtin_interfaces</depend>
@@ -21,6 +22,7 @@
   <depend>rclcpp_action</depend>
   <depend>rclcpp_components</depend>
   <depend>geometry_msgs</depend>
+  <depend>cyberdog_common</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <export>

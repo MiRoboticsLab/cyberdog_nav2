@@ -85,7 +85,6 @@ def generate_launch_description():
     lifecycle_maping_nodes = ['map_builder']
     #lifecycle_elevation_nodes = ['lifecycle_manager_elevation']
 
-
     #navigations
     nav2_bt_path = FindPackageShare(package='nav2_bt_navigator').find('nav2_bt_navigator')
     behavior_tree_xml_path = os.path.join(nav2_bt_path, 'behavior_trees', 'navigate_w_replanning_and_recovery.xml')
@@ -120,20 +119,20 @@ def generate_launch_description():
                                 namespace='/',
                                 )
 
-    ydlidar_node = LifecycleNode(
-                                package='ydlidar_ros2_driver',
-                                executable='ydlidar_ros2_driver_node',
-                                name='ydlidar_ros2_driver_node',
-                                output='screen',
-                                emulate_tty=True,
-                                parameters=[yilidar_params_file],
-                                namespace='/',
-                                )
+    # ydlidar_node = LifecycleNode(
+    #                             package='ydlidar_ros2_driver',
+    #                             executable='ydlidar_ros2_driver_node',
+    #                             name='ydlidar_ros2_driver_node',
+    #                             output='screen',
+    #                             emulate_tty=True,
+    #                             parameters=[yilidar_params_file],
+    #                             namespace='/',
+    #                             )
 
     tf2_node = Node(package='tf2_ros',
                                 executable='static_transform_publisher',
                                 name='static_tf_pub_laser',
-                                arguments=['0.179', '0', '0.0837','0', '0', '0', '1','base_link','lidar_link'],
+                                arguments=['0.179', '0', '0.0837','1', '0', '0', '0','base_link','lidar_link'],
                                 )
 
     tf2_node_depth_base = Node(package='tf2_ros',
@@ -290,7 +289,7 @@ def generate_launch_description():
         tf2_node_vodom_map,
         tf2_node_odom_map,
         start_realsense_cmd,
-        ydlidar_node,
+        # ydlidar_node,
         camera_node,
         #camera_node_relocation,
         #start_motion_cmd,

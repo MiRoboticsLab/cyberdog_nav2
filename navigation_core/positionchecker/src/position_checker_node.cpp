@@ -33,20 +33,23 @@ void PositionChecker::loop() {
   geometry_msgs::msg::PoseStamped pose_based_on_global_frame;
   std::string global_frame_, robot_base_frame_;
   rclcpp::WallRate r(500ms);
-  while (looping_) {
+  while (true) {
     RCLCPP_WARN(get_logger(), "Lopping.");
     sleep(1);
-    if (!nav2_util::getCurrentPose(pose_based_on_global_frame, *tf_buffer_,
-                                   "map", "base_link")) {
-      RCLCPP_WARN(
-          get_logger(),
-          "Failed to obtain current pose based on map coordinate system.");
-    } else {
-      RCLCPP_INFO(get_logger(), "current pose (%f,%f)",
-                  pose_based_on_global_frame.pose.position.x,
-                  pose_based_on_global_frame.pose.position.y);
+    // if (!nav2_util::getCurrentPose(pose_based_on_global_frame, *tf_buffer_,
+    //                                "map", "base_link")) {
+    //   RCLCPP_WARN(
+    //       get_logger(),
+    //       "Failed to obtain current pose based on map coordinate system.");
+    // } else {
+    //   RCLCPP_INFO(get_logger(), "current pose (%f,%f)",
+    //               pose_based_on_global_frame.pose.position.x,
+    //               pose_based_on_global_frame.pose.position.y);
+
+      pose_based_on_global_frame.pose.position.x = 0;
+      pose_based_on_global_frame.pose.position.y = 0;
       pos_pub_->publish(pose_based_on_global_frame);
-    }
+    // }
     r.sleep();
   }
 }

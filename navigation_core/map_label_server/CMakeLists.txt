@@ -8,17 +8,25 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(protocol REQUIRED)
+find_package(cyberdog_common REQUIRED)
+find_package(nav2_map_server REQUIRED) 
+
 set(executable_name label_server)
 set(library_name ${executable_name}_core)
 set(dependencies
   rclcpp
+  nav_msgs
   protocol
+  cyberdog_common
+  nav2_map_server
 )
 
 include_directories(include)
 add_library(${library_name}
   src/labelserver_node.cpp
+  src/label_store.cpp
 )
 ament_target_dependencies(${library_name}
   ${dependencies}
