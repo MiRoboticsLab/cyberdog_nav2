@@ -41,43 +41,30 @@ def generate_launch_description():
         description='Top-level namespace'
         )
     package_dir = get_package_share_directory('mcr_bringup')
-    # param_dir = os.path.join(package_dir, 'params')
-    # nav_param_file = 'nav2_params.yaml'
-    # follow_param_file = 'follow_params.yaml'
     remappings = [('/tf', 'tf'),
                   ('/tf_static', 'tf_static')]
-    params_file = LaunchConfiguration('params_file')
-    params_file_declare = DeclareLaunchArgument(
+    params_file = LaunchConfiguration(
         'params_file',
-        default_value=os.path.join(
+        default=os.path.join(
             os.path.join(package_dir, 'params'),
-            'nav2_params.yaml'),
-        description='Full path to the ROS2 parameters file to use'
-        )
-    follow_params_file = LaunchConfiguration('follow_params_file')
-    follow_params_file_declare = DeclareLaunchArgument(
+            'nav2_params.yaml')
+    )
+    follow_params_file = LaunchConfiguration(
         'follow_params_file',
-        default_value=os.path.join(
+        default=os.path.join(
             os.path.join(package_dir, 'params'),
-            'follow_params.yaml'),
-        description='Full path to the ROS2 parameters file to use'
-        )
-    # bt_dir = os.path.join(package_dir, 'behavior_trees')
-    # bt_file = 'target_tracking.xml'
-    default_target_tracking_bt_xml = LaunchConfiguration('default_target_tracking_bt_xml')
-    default_target_tracking_bt_xml_declare = DeclareLaunchArgument(
+            'follow_params.yaml')
+    )
+    default_target_tracking_bt_xml = LaunchConfiguration(
         'default_target_tracking_bt_xml',
-        default_value=os.path.join(
+        default=os.path.join(
             os.path.join(package_dir, 'behavior_trees'),
-            'target_tracking.xml'),
-        description='Full path to the behavior tree xml file to use'
-        )
-    map_subscribe_transient_local = LaunchConfiguration('map_subscribe_transient_local')
-    map_subscribe_transient_local_declare = DeclareLaunchArgument(
-        'map_subscribe_transient_local', 
-        default_value='true',
-        description='Whether to set the map subscriber QoS to transient local'
-        )
+            'target_tracking.xml')
+    )
+    map_subscribe_transient_local = LaunchConfiguration(
+        'map_subscribe_transient_local',
+        default='true'
+    )
     param_substitutions = {
         'default_target_tracking_bt_xml': default_target_tracking_bt_xml,
         'map_subscribe_transient_local': map_subscribe_transient_local
@@ -98,17 +85,45 @@ def generate_launch_description():
     controller_cmd = Node(
             package='mcr_controller',
             executable='controller_server',
+            name='controller_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[{configured_params},{configured_params_f}],
+            remappings=remappings
+            )
+    planner_cmd = Node(
+            package='mcr_planner',
+            executable='mcr_planner_server',
+            name='planner_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[{configured_params},{configured_params_f}],
+            remappings=remappings
+            )
+    recoveries_cmd = Node(
+            package='nav2_recoveries',
+            executable='recoveries_server',
+            name='recoveries_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[{configured_params},{configured_params_f}],
+            remappings=remappings
+            )
+    bt_navigator_cmd = Node(
+            package='nav2_bt_navigator',
+            executable='bt_navigator',
+            name='bt_navigator',
+            namespace=namespace,
             output='screen',
             parameters=[{configured_params},{configured_params_f}],
             remappings=remappings
             )
     ld = launch.LaunchDescription([
         namespace_declare,
-        params_file_declare,
-        follow_params_file_declare,
-        default_target_tracking_bt_xml_declare,
-        map_subscribe_transient_local_declare,
-        controller_cmd
+        controller_cmd,
+        planner_cmd,
+        recoveries_cmd,
+        bt_navigator_cmd
     ])
     return ld
 
