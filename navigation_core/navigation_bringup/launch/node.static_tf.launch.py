@@ -77,7 +77,7 @@ def generate_launch_description():
         tf2_node_base_to_tof_right_head,
         tf2_node_base_to_tof_left_rear,
         tf2_node_base_to_tof_right_rear,
-        tf2_node_map_to_odom,
+        # tf2_node_map_to_odom,
     ])
     return ld
     
