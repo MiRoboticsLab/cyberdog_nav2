@@ -49,6 +49,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/transform_listener.h"
+#include "protocol/msg/motion_servo_cmd.hpp"
+#include "protocol/msg/motion_servo_response.hpp"
 
 namespace nav2_core {
 
@@ -112,6 +114,26 @@ class Controller {
    * @return The best command for the robot to drive
    */
   virtual geometry_msgs::msg::TwistStamped computeVelocityCommands(
+      const geometry_msgs::msg::PoseStamped &pose,
+      const geometry_msgs::msg::Twist &velocity,
+      nav2_core::GoalChecker *goal_checker) = 0;
+
+  /**
+   * @brief Controller computeVelocityCommands - calculates the best command
+   * given the current pose and velocity
+   *
+   * It is presumed that the global plan is already set.
+   *
+   * This is mostly a wrapper for the protected computeVelocityCommands
+   * function which has additional debugging info.
+   *
+   * @param pose Current robot pose
+   * @param velocity Current robot velocity
+   * @param goal_checker Pointer to the current goal checker the task is
+   * utilizing
+   * @return The best command for the robot to drive
+   */
+  virtual protocol::msg::MotionServoCmd computeVelocityCommands(
       const geometry_msgs::msg::PoseStamped &pose,
       const geometry_msgs::msg::Twist &velocity,
       nav2_core::GoalChecker *goal_checker) = 0;

@@ -32,7 +32,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
-    lifecycle_nodes = ['map_server', 'amcl']
+    lifecycle_nodes = ['map_server', 'demo_node']
 
     # Map fully qualified names to relative ones so the node's namespace can be prepended.
     # In case of the transforms (tf), currently, there doesn't seem to be a better alternative
@@ -53,6 +53,8 @@ def generate_launch_description():
         root_key=namespace,
         param_rewrites=param_substitutions,
         convert_types=True)
+
+    camera_localization_params_file = LaunchConfiguration('camera_localization_params_file')
 
     return LaunchDescription([
         # Set env var to print messages to stdout immediately
@@ -79,6 +81,12 @@ def generate_launch_description():
             'params_file',
             default_value=os.path.join(bringup_dir, 'params', 'nav2_params.yaml'),
             description='Full path to the ROS2 parameters file to use'),
+        
+        DeclareLaunchArgument(
+            name='camera_localization_params_file',
+            default_value=os.path.join(
+            camera_share_dir, 'param', 'localization.yaml'),
+            description='FPath to the ROS2 parameters file to use.'),
 
         Node(
             package='nav2_map_server',
@@ -88,13 +96,15 @@ def generate_launch_description():
             parameters=[configured_params],
             remappings=remappings),
 
-        Node(
-            package='nav2_amcl',
-            executable='amcl',
-            name='amcl',
+        Node = LifecycleNode(
+            package='laser_slam',
+            executable='demo',
+            name='demo_node',
             output='screen',
-            parameters=[configured_params],
-            remappings=remappings),
+            emulate_tty=True,
+            #prefix=['xterm -e gdb  --args'],
+            parameters=[camera_localization_params_file],
+            namespace='/',)
 
         Node(
             package='nav2_lifecycle_manager',
