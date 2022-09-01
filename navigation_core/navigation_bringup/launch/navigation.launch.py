@@ -43,7 +43,7 @@ def generate_launch_description():
         'vision_manager',
         'camera_server',
         'tracking',
-        'realsense',
+        # 'realsense',
         'nav2_base',
         'lifecycle_mgr_loc',
         'lifecycle_mgr_nav'
