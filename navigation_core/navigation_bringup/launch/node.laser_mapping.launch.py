@@ -45,7 +45,7 @@ def generate_launch_description():
         name='camera_params_file',
         default_value=os.path.join(
         camera_share_dir, 'param', 'mapping_node.yaml'),
-        description='FPath to the ROS2 parameters file to use.'),
+        description='FPath to the ROS2 parameters file to use.')
     laser_mapping_node = LifecycleNode(
                                 package='laser_slam',
                                 executable='mapping',
