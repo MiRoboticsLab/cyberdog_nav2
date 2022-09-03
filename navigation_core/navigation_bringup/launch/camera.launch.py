@@ -27,9 +27,27 @@ def generate_launch_description():
     sudoPassword = '123'
     command = 'chmod a+rw /dev/ttyTHS0'
     command1 = 'usermod -aG dialout mi'
+    command_route = 'route add -net 224.0.0.0 netmask 240.0.0.0 dev eth0'
 
     os.system('echo %s|sudo -S %s' % (sudoPassword, command))
     os.system('echo %s|sudo -S %s' % (sudoPassword, command1))
+    os.system('echo %s|sudo -S %s' % (sudoPassword, command_route))
+
+    #odom
+    start_odom_cmd = launch_ros.actions.Node(
+        package='odom_publisher',
+        executable='odom_publisher',
+        name='odom_publisher',
+        output='screen',
+        # prefix=['xterm -e gdb  --args'],
+        namespace='/')
+
+    start_motion_cmd = launch_ros.actions.Node(
+        package='motion_sender',
+        executable='sendlcm',
+        name='motion_sender',
+        output='screen',
+        namespace='/')
 
     start_get_pose_cmd = launch_ros.actions.Node(
         package='positionchecker',
@@ -67,7 +85,6 @@ def generate_launch_description():
     lifecycle_maping_nodes = ['map_builder']
     #lifecycle_elevation_nodes = ['lifecycle_manager_elevation']
 
-
     #navigations
     nav2_bt_path = FindPackageShare(package='nav2_bt_navigator').find('nav2_bt_navigator')
     behavior_tree_xml_path = os.path.join(nav2_bt_path, 'behavior_trees', 'navigate_w_replanning_and_recovery.xml')
@@ -102,6 +119,28 @@ def generate_launch_description():
                                 namespace='/',
                                 )
 
+    # ydlidar_node = LifecycleNode(
+    #                             package='ydlidar_ros2_driver',
+    #                             executable='ydlidar_ros2_driver_node',
+    #                             name='ydlidar_ros2_driver_node',
+    #                             output='screen',
+    #                             emulate_tty=True,
+    #                             parameters=[yilidar_params_file],
+    #                             namespace='/',
+    #                             )
+
+    tf2_node = Node(package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_pub_laser',
+                                arguments=['0.179', '0', '0.0837','1', '0', '0', '0','base_link','lidar_link'],
+                                )
+
+    tf2_node_depth_base = Node(package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_pub_laser',
+                                arguments=['0.275309', '0.025', '0.114282','-0.545621', '0.545621', '-0.4497752', '0.4497752','base_link','camera_depth_optical_frame'],
+                                )
+
     # tf2_node_elevation_mapping = Node(
     #                            package='elevation_mapping',
     #                            executable='elevation_mapping',
@@ -111,13 +150,25 @@ def generate_launch_description():
     #                            parameters=[elevation_mapping_params_file],
     #                            namespace='/',
     #                            )
-    # lidar_controller = LifecycleNode(
-    #                             package='lidar_controller',
-    #                             executable='lidar_controller',
-    #                             name='lidar_controller',
-    #                             output='screen',
-    #                             namespace='/',
-    #                             emulate_tty=True)       
+    tf2_node_vodom_map = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_pub_laser',
+                                arguments=['0', '0', '0','0', '0', '0', '1','map','vodom'],
+                                )
+    tf2_node_odom_map = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_pub_laser',
+                                arguments=['0', '0', '0','0', '0', '0', '1','map','odom_out'],
+                                )
+    lidar_controller = LifecycleNode(
+                                package='lidar_controller',
+                                executable='lidar_controller',
+                                name='lidar_controller',
+                                output='screen',
+                                namespace='/',
+                                emulate_tty=True)       
     realsense_controller = LifecycleNode(
                                 package='realsense_controller',
                                 executable='realsense_controller',
@@ -230,10 +281,15 @@ def generate_launch_description():
 
         #start_odom_cmd,
         odom_controller,
-        # lidar_controller,
+        lidar_controller,
         realsense_controller,
         start_get_pose_cmd,
+        tf2_node,
+        tf2_node_depth_base,
+        tf2_node_vodom_map,
+        tf2_node_odom_map,
         start_realsense_cmd,
+        # ydlidar_node,
         camera_node,
         #camera_node_relocation,
         #start_motion_cmd,
