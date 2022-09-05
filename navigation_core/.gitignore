@@ -1,0 +1,7 @@
+# cache and binary files during ros build
+build/
+log/
+install/
+
+# vs code workspaces
+.vscode/

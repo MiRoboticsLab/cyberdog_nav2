@@ -50,6 +50,7 @@ public:
    * @param label_name 
    * @param label 
    */
+ 
   void AddLabel(
     const std::string & filename,
     const std::string & label_name,
@@ -68,15 +69,37 @@ public:
    * @param filename 
    * @param label_name 
    */
-  void DeleteLabel(const std::string & filename, const std::string & label_name);
+  void DeleteLabel(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc);
 
   /**
-   * @brief Check map's label exist
+   * @brief change map's label
    * 
    * @param filename 
    * @param label_name 
+   * @param new_label_name 
+   * @param label 
    */
-  void IsLabelExist(const std::string & filename, const std::string & label_name);
+  void ChangeLable(
+    const std::string & old_label_name,
+    const std::string & new_label_name,
+    const protocol::msg::Label::SharedPtr & new_label,
+     rapidjson::Document & existed_doc
+    );
+
+
+  /**
+   * @brief Check map's label exist
+   *
+   * @param filename 
+   * @param label_name 
+   */
+  bool IsLabelExist(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc);
 
   /**
    * @brief Set the Label object
@@ -89,6 +112,7 @@ public:
     const std::string & filename,
     const std::string & label_name,
     const protocol::msg::Label::SharedPtr label);
+
 
   /**
    * @brief Create a Map Label File object
@@ -163,12 +187,22 @@ public:
   void Write(const std::string & label_filename, const rapidjson::Document & doc);
 
   /**
-   * @brief Read label from json filename
+   * @brief Read label from json filename and save labels' into a vector 
    * 
    * @param label_filename 
    * @param labels 
    */
   void Read(const std::string & label_filename, std::vector<protocol::msg::Label> & labels);
+
+  /**
+   * @brief Read label from json filename 
+   * 
+   * @param label_filename 
+   * @param doc 
+   * @return true 
+   * @return false 
+   */
+  bool ReadLabels(const std::string & label_filename, rapidjson::Document & doc);
 
   /**
    * @brief Debug for logic test
