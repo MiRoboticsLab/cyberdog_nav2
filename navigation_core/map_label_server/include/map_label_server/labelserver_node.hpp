@@ -46,6 +46,8 @@ class LabelServer : public rclcpp::Node {
 
   void writeLabel(std::string path, LABEL label);
 
+  void PrintMapData();
+
   std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV

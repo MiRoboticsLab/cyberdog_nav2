@@ -1,3 +1,19 @@
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <memory>
+
 #include "nav_panel.hpp"
 
 namespace cyberdog2_control_plugin
@@ -17,7 +33,7 @@ NavControlPanel::NavControlPanel(QWidget * parent)
     [this]() {
       rclcpp::spin(nav_client_node_);
     });
-  //interface
+  // interface
   QVBoxLayout * layout = new QVBoxLayout;
   QVBoxLayout * nav_layout = new QVBoxLayout;
   nav_combo_ = new NavComboBox(this);
@@ -103,7 +119,7 @@ void NavControlPanel::send_nav_action()
       {
         Navigation::Goal goal;
         goal.poses.resize(0);
-        goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING;
+        goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_TYPE_START_MAPPING;
         send_goal(goal);
         nav_btn_->setEnabled(false);
       } break;
@@ -111,7 +127,7 @@ void NavControlPanel::send_nav_action()
       {
         Navigation::Goal goal;
         goal.poses.resize(0);
-        goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_GOAL_TYPE_STOP_MAPPING;
+        goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING;
         send_goal(goal);
         nav_btn_->setEnabled(false);
       } break;
@@ -125,7 +141,7 @@ void NavControlPanel::nav_goals_callback(const geometry_msgs::msg::PoseStamped::
   if (receive_goals) {
     printf("send goals start!\n");
     Navigation::Goal goal;
-    goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_GOAL_TYPE_AB;
+    goal.nav_type = protocol::action::Navigation::Goal::NAVIGATION_TYPE_START_AB;
     goal.poses.resize(1);
     goal.poses[0] = *msg;
     send_goal(goal);
@@ -140,7 +156,7 @@ bool NavControlPanel::event(QEvent * event)
   return false;
 }
 
-} // namespace cyberdog2_control_plugin
+}  // namespace cyberdog2_control_plugin
 
-#include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(cyberdog2_control_plugin::NavControlPanel, rviz_common::Panel)
+#include <pluginlib/class_list_macros.hpp>  // NOLINT
+PLUGINLIB_EXPORT_CLASS(cyberdog2_control_plugin::NavControlPanel, rviz_common::Panel) // NOLINT

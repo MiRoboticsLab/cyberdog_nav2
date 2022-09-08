@@ -133,10 +133,10 @@ class Controller {
    * utilizing
    * @return The best command for the robot to drive
    */
-  virtual protocol::msg::MotionServoCmd computeVelocityCommands(
-      const geometry_msgs::msg::PoseStamped &pose,
-      const geometry_msgs::msg::Twist &velocity,
-      nav2_core::GoalChecker *goal_checker) = 0;
+//   virtual protocol::msg::MotionServoCmd computeVelocityCommands(
+//       const geometry_msgs::msg::PoseStamped &pose,
+//       const geometry_msgs::msg::Twist &velocity,
+//       nav2_core::GoalChecker *goal_checker) = 0;
 
   /**
    * @brief Limits the maximum linear speed of the robot.

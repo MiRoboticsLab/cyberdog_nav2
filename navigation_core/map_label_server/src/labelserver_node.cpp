@@ -18,6 +18,7 @@
 namespace CYBERDOG_NAV {
 LabelServer::LabelServer() : rclcpp::Node("LabelServer") {
 
+  PrintMapData();
   map_label_store_ptr_ = std::make_shared<cyberdog::navigation::LabelStore>();
   
   callback_group_ =
@@ -67,7 +68,6 @@ void LabelServer::handle_get_label(
     }
   }
 
-
   nav_msgs::msg::OccupancyGrid map;
   std::string yaml_map = "/home/quan/Downloads/mapping/map.yaml";
   auto status = nav2_map_server::loadMapFromYaml(yaml_map, map);
@@ -94,6 +94,13 @@ void LabelServer::handle_get_label(
     INFO("width : %d", response->label.map.info.width);
     INFO("height : %d", response->label.map.info.height);
     INFO("map.data size : %d", response->label.map.data.size());
+
+    std::cout << "\n\n";
+    std::cout << "[" << std::endl;
+    for (int i = 0; i < map.data.size(); i++) {
+      std::cout << map.data[i] << ",";
+    }
+    std::cout << "]" << std::endl;
   }
 
   // closedir(dirp);
@@ -174,6 +181,39 @@ bool LabelServer::isFileExixt(std::string path) {
 
 bool LabelServer::removeFile(std::string path) {
   return (remove(path.c_str()) == 0);
+}
+
+void LabelServer::PrintMapData()
+{
+  nav_msgs::msg::OccupancyGrid map;
+  std::string yaml_map = "/home/quan/Downloads/mapping/map.yaml";
+  auto status = nav2_map_server::loadMapFromYaml(yaml_map, map);
+  if (nav2_map_server::LOAD_MAP_STATUS::LOAD_MAP_SUCCESS == status) {
+    INFO("Get yaml map success.");
+    // response->label.resolution = map.info.resolution;
+    // response->label.width = map.info.width;
+    // response->label.height = map.info.height;
+    // response->label.origin = map.info.origin;
+    // response->label.data = map.data;
+
+
+   
+    // for (int i = 0; i < 25; i++) {
+    //   response->label.map.data.push_back(i % 100);
+    // }
+
+    std::cout << "resolution: " << map.info.resolution << std::endl;
+    std::cout << "width: " << map.info.width << std::endl;
+    std::cout << "height: " << map.info.height << std::endl;
+
+    std::cout << "\n\n";
+    std::cout << "[" << std::endl;
+    for (int i = 0; i < map.data.size(); i++) {
+
+      printf("%d, ", map.data[i]);
+    }
+    std::cout << "]" << std::endl;
+  }
 }
 
 }  // namespace CYBERDOG_NAV

@@ -71,8 +71,8 @@ def generate_launch_description():
     camera_localization_params_file = LaunchConfiguration('camera_localization_params_file')
 
     #lidar
-    ydlidar_share_dir = get_package_share_directory('ydlidar_ros2_driver')
-    yilidar_params_file = LaunchConfiguration('yilidar_params_file')
+    #ydlidar_share_dir = get_package_share_directory('ydlidar_ros2_driver')
+    #yilidar_params_file = LaunchConfiguration('yilidar_params_file')
 
 
     #elevation_mapping
@@ -221,11 +221,11 @@ def generate_launch_description():
                             'autostart': autostart}.items())
     # lds
     ld = launch.LaunchDescription([
-        DeclareLaunchArgument(
-            name='yilidar_params_file',
-            default_value=os.path.join(
-            ydlidar_share_dir, 'params', 'ydlidar.yaml'),
-            description='FPath to the ROS2 parameters file to use.'),
+        # DeclareLaunchArgument(
+        #     name='yilidar_params_file',
+        #     default_value=os.path.join(
+        #     ydlidar_share_dir, 'params', 'ydlidar.yaml'),
+        #     description='FPath to the ROS2 parameters file to use.'),
 
         DeclareLaunchArgument(
             name='camera_params_file',
