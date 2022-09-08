@@ -55,6 +55,11 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
+add_executable(core_client src/motioncore_client.cpp)
+ament_target_dependencies(${PROJECT_NAME}
+  ${dependencies}
+)
+target_link_libraries(core_client ${PROJECT_NAME}_lib)
 
 set(library_name ${PROJECT_NAME}_lib)
 add_library(${library_name} SHARED
@@ -75,7 +80,7 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} core_client
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)

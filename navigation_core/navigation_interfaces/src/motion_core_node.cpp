@@ -19,160 +19,178 @@
 #include "motion_core/motion_core_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
-namespace CARPO_NAVIGATION {
+namespace carpo_navigation
+{
 using namespace std::chrono_literals;
 NavigationCore::NavigationCore()
-    : rclcpp::Node("NavigationCore"),
-      server_timeout_(20),
-      client_nav_("lifecycle_manager_navigation"),
-      client_loc_("lifecycle_manager_localization"),
-      client_data_("lifecycle_manager_data"),
-      client_mapping("lifecycle_manager_mapping"),
-      status_(GoalStatus::STATUS_UNKNOWN),
-      action_type_(ACTION_NONE) {
+: rclcpp::Node("NavigationCore"),
+  server_timeout_(2000),
+  client_nav_("lifecycle_manager_navigation"),
+  client_loc_("lifecycle_manager_localization"),
+  client_mapping_("lifecycle_manager_mapping"),
+  status_(GoalStatus::STATUS_UNKNOWN),
+  action_type_(ACTION_NONE)
+{
   auto options = rclcpp::NodeOptions().arguments(
-      {"--ros-args --remap __node:=navigation_dialog_action_client"});
+    {"--ros-args --remap __node:=navigation_dialog_action_client"});
   client_node_ = std::make_shared<rclcpp::Node>("_", options);
 
   navigation_action_client_ =
-      rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
-          client_node_, "navigate_to_pose");
+    rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
+    client_node_, "navigate_to_pose");
   waypoint_follower_action_client_ =
-      rclcpp_action::create_client<nav2_msgs::action::FollowWaypoints>(
-          client_node_, "follow_waypoints");
+    rclcpp_action::create_client<nav2_msgs::action::FollowWaypoints>(
+    client_node_, "follow_waypoints");
   nav_through_poses_action_client_ =
-      rclcpp_action::create_client<nav2_msgs::action::NavigateThroughPoses>(
-          client_node_, "navigate_through_poses");
+    rclcpp_action::create_client<nav2_msgs::action::NavigateThroughPoses>(
+    client_node_, "navigate_through_poses");
 
   navigation_goal_ = nav2_msgs::action::NavigateToPose::Goal();
   waypoint_follower_goal_ = nav2_msgs::action::FollowWaypoints::Goal();
   nav_through_poses_goal_ = nav2_msgs::action::NavigateThroughPoses::Goal();
 
   navigation_server_ = rclcpp_action::create_server<Navigation>(
-      this, "CyberdogNavigation",
-      std::bind(&NavigationCore::handle_navigation_goal, this, _1, _2),
-      std::bind(&NavigationCore::handle_navigation_cancel, this, _1),
-      std::bind(&NavigationCore::handle_navigation_accepted, this, _1));
+    this, "CyberdogNavigation",
+    std::bind(&NavigationCore::HandleNavigationGoal, this, _1, _2),
+    std::bind(&NavigationCore::HandleNavigationCancel, this, _1),
+    std::bind(&NavigationCore::HandleNavigationAccepted, this, _1));
   callback_group_ =
-      this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_mapping_client_ = create_client<TRIGGERT>(
-      "start_mapping", rmw_qos_profile_services_default, callback_group_);
+    "start_mapping", rmw_qos_profile_services_default, callback_group_);
   stop_mapping_client_ = create_client<TRIGGERT>(
-      "stop_mapping", rmw_qos_profile_services_default, callback_group_);
-  onInitialize();
+    "stop_mapping", rmw_qos_profile_services_default, callback_group_);
+  OnInitialize();
   points_pub_ = this->create_publisher<protocol::msg::FollowPoints>(
-      "follow_points", rclcpp::SystemDefaultsQoS());
+    "follow_points", rclcpp::SystemDefaultsQoS());
 
   points_subscriber_ = this->create_subscription<protocol::msg::FollowPoints>(
-      "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
-      std::bind(&NavigationCore::follwPointCallback, this, _1));
+    "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
+    std::bind(&NavigationCore::FollwPointCallback, this, _1));
 }
 
-void NavigationCore::follwPointCallback(
-    const protocol::msg::FollowPoints::SharedPtr msg) {
+void NavigationCore::FollwPointCallback(
+  const protocol::msg::FollowPoints::SharedPtr msg)
+{
   protocol::msg::FollowPoints msg_;
   int status;
   ACTION_TYPE action_type;
-  getNavStatus(status, action_type);
+  GetNavStatus(status, action_type);
   if ((action_type == ACTION_THROUGH_POSE) && (msg->poses.size() > 0)) {
     msg_.poses = msg->poses;
     msg_.token = "0xafic29casckdek";
-    msg_.header = returnHeader();
+    msg_.header = ReturnHeader();
     points_pub_->publish(msg_);
   } else {
-    RCLCPP_ERROR(this->get_logger(),
-                 "action type: %d error or follow points empty", action_type);
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "action type: %d error or follow points empty", action_type);
   }
 }
 
-std_msgs::msg::Header NavigationCore::returnHeader() {
+std_msgs::msg::Header NavigationCore::ReturnHeader()
+{
   std_msgs::msg::Header msg;
   msg.frame_id = "NavigationCore";
   msg.stamp = this->get_clock()->now();
   return msg;
 }
 
-rclcpp_action::GoalResponse NavigationCore::handle_navigation_goal(
-    const rclcpp_action::GoalUUID& uuid,
-    std::shared_ptr<const Navigation::Goal> goal) {
+rclcpp_action::GoalResponse NavigationCore::HandleNavigationGoal(
+  const rclcpp_action::GoalUUID & uuid,
+  std::shared_ptr<const Navigation::Goal> goal)
+{
   (void)uuid;
   (void)goal;
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse NavigationCore::handle_navigation_cancel(
-    const std::shared_ptr<GoalHandleNavigation> goal_handle) {
+rclcpp_action::CancelResponse NavigationCore::HandleNavigationCancel(
+  const std::shared_ptr<GoalHandleNavigation> goal_handle)
+{
   RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
   (void)goal_handle;
-  onCancel();
+  OnCancel();
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void NavigationCore::handle_navigation_accepted(
-    const std::shared_ptr<GoalHandleNavigation> goal_handle) {
+void NavigationCore::HandleNavigationAccepted(
+  const std::shared_ptr<GoalHandleNavigation> goal_handle)
+{
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
   goal_handle_ = goal_handle;
-  std::thread{std::bind(&NavigationCore::follow_execute, this, _1), goal_handle}
-      .detach();
+  std::thread{std::bind(&NavigationCore::FollowExecute, this, _1), goal_handle}
+  .detach();
 }
 
-void NavigationCore::follow_execute(
-    const std::shared_ptr<GoalHandleNavigation> goal_handle) {
+void NavigationCore::FollowExecute(
+  const std::shared_ptr<GoalHandleNavigation> goal_handle)
+{
   const auto goal = goal_handle->get_goal();
   auto result = std::make_shared<Navigation::Result>();
   RCLCPP_INFO(this->get_logger(), "Executing goal: %d", goal->nav_type);
   switch (goal->nav_type) {
-    case Navigation::Goal::NAVIGATION_TYPE_START_AB: {
-      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
-      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-      // if (goal->poses.empty()) {
-      //   RCLCPP_INFO(this->get_logger(), "empty pose ");
-      //   goal_handle->succeed(result);
-      // }
-
-      // uint8_t goal_result = startNavigation(goal->poses[0]);
-      // if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
-      //   // goal process failed
-      //   result->result = goal_result;
-      //   goal_handle->succeed(result);
-      // }
-    } break;
-
-    case Navigation::Goal::NAVIGATION_TYPE_START_FOLLOW: {
-      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_FOLLOW .....");
-      uint8_t goal_result = startNavThroughPoses(goal->poses);
-      if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
-        goal_handle->succeed(result);
-      }
-    } break;
-    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
-    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING: {
-      RCLCPP_INFO(this->get_logger(), "mapping request");
-      uint8_t goal_result = handleMapping(
-          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING);
-      if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
-        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING .....");
-
+    case Navigation::Goal::NAVIGATION_TYPE_START_AB:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
         result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-        RCLCPP_INFO(this->get_logger(), "mapping request success");
-        goal_handle->succeed(result);
-      } else {
-        RCLCPP_INFO(this->get_logger(), "mapping request failed");
+        if (goal->poses.empty()) {
+          INFO("empty pose ");
+          goal_handle->succeed(result);
+        }
+
+        uint8_t goal_result = StartNavigation(goal->poses[0]);
+        if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+          // goal process failed
+          result->result = goal_result;
+          goal_handle->succeed(result);
+        }
       }
-    } break;
+      break;
+
+    case Navigation::Goal::NAVIGATION_TYPE_START_FOLLOW:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_FOLLOW .....");
+        uint8_t goal_result = StartNavThroughPoses(goal->poses);
+        if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+          goal_handle->succeed(result);
+        }
+      }
+      break;
+
+    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
+      {
+        INFO("mapping request");
+        uint8_t goal_result = HandleMapping(
+          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING);
+        if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+          INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING .....");
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          INFO("mapping request success");
+          goal_handle->succeed(result);
+        } else {
+          INFO("mapping request failed");
+        }
+      }
+      break;
 
     // uint8 NAVIGATION_GOAL_TYPE_LOCATION = 5
     // uint8 NAVIGATION_GOAL_TYPE_AUTO_DOCKING = 6
-    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION: {
-      INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_LOCATION .....");
-      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-    } break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_LOCATION .....");
+        result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+      }
+      break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING: {
-      INFO("[Navigation] Navigation::Goal::NAVIGATION_GOAL_TYPE_AUTO_DOCKING .....");
-      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-    } break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
+      {
+        INFO("[Navigation] Navigation::Goal::NAVIGATION_GOAL_TYPE_AUTO_DOCKING .....");
+        result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+      }
+      break;
 
     default:
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
@@ -181,64 +199,71 @@ void NavigationCore::follow_execute(
   }
 }
 
-void NavigationCore::onInitialize() {
+void NavigationCore::OnInitialize()
+{
   // create action feedback subscribers
   navigation_feedback_sub_ = this->create_subscription<
-      nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage>(
-      "navigate_to_pose/_action/feedback", rclcpp::SystemDefaultsQoS(),
-      [this](const nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage::
-                 SharedPtr msg) {
-        (void)msg;
-        // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel(msg->feedback));
-      });
+    nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage>(
+    "navigate_to_pose/_action/feedback", rclcpp::SystemDefaultsQoS(),
+    [this](const nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage::
+    SharedPtr msg) {
+      (void)msg;
+      // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel(msg->feedback));
+    });
   nav_through_poses_feedback_sub_ = this->create_subscription<
-      nav2_msgs::action::NavigateThroughPoses::Impl::FeedbackMessage>(
-      "navigate_through_poses/_action/feedback", rclcpp::SystemDefaultsQoS(),
-      [this](const nav2_msgs::action::NavigateThroughPoses::Impl::
-                 FeedbackMessage::SharedPtr msg) {
-        (void)msg;
-        // navigation_feedback_indicator_->setText(getNavThroughPosesFeedbackLabel(msg->feedback));
-      });
+    nav2_msgs::action::NavigateThroughPoses::Impl::FeedbackMessage>(
+    "navigate_through_poses/_action/feedback", rclcpp::SystemDefaultsQoS(),
+    [this](const nav2_msgs::action::NavigateThroughPoses::Impl::
+    FeedbackMessage::SharedPtr msg) {
+      (void)msg;
+      // navigation_feedback_indicator_->setText(getNavThroughPosesFeedbackLabel(msg->feedback));
+    });
 
   // create action goal status subscribers
   navigation_goal_status_sub_ =
-      this->create_subscription<action_msgs::msg::GoalStatusArray>(
-          "navigate_to_pose/_action/status", rclcpp::SystemDefaultsQoS(),
-          [this](const action_msgs::msg::GoalStatusArray::SharedPtr msg) {
-            (void)msg;
-            // navigation_goal_status_indicator_->setText(
-            //   getGoalStatusLabel(msg->status_list.back().status));
-            if (msg->status_list.back().status !=
-                action_msgs::msg::GoalStatus::STATUS_EXECUTING) {
-              // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel());
-            }
-          });
+    this->create_subscription<action_msgs::msg::GoalStatusArray>(
+    "navigate_to_pose/_action/status", rclcpp::SystemDefaultsQoS(),
+    [this](const action_msgs::msg::GoalStatusArray::SharedPtr msg) {
+      (void)msg;
+      // navigation_goal_status_indicator_->setText(
+      //   getGoalStatusLabel(msg->status_list.back().status));
+      if (msg->status_list.back().status !=
+      action_msgs::msg::GoalStatus::STATUS_EXECUTING)
+      {
+        // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel());
+      }
+    });
   nav_through_poses_goal_status_sub_ =
-      this->create_subscription<action_msgs::msg::GoalStatusArray>(
-          "navigate_through_poses/_action/status", rclcpp::SystemDefaultsQoS(),
-          [this](const action_msgs::msg::GoalStatusArray::SharedPtr msg) {
-            (void)msg;
-            // navigation_goal_status_indicator_->setText(
-            //   getGoalStatusLabel(msg->status_list.back().status));
-            if (msg->status_list.back().status !=
-                action_msgs::msg::GoalStatus::STATUS_EXECUTING) {
-              // navigation_feedback_indicator_->setText(getNavThroughPosesFeedbackLabel());
-            }
-          });
+    this->create_subscription<action_msgs::msg::GoalStatusArray>(
+    "navigate_through_poses/_action/status", rclcpp::SystemDefaultsQoS(),
+    [this](const action_msgs::msg::GoalStatusArray::SharedPtr msg) {
+      (void)msg;
+      // navigation_goal_status_indicator_->setText(
+      //   getGoalStatusLabel(msg->status_list.back().status));
+      if (msg->status_list.back().status !=
+      action_msgs::msg::GoalStatus::STATUS_EXECUTING)
+      {
+        // navigation_feedback_indicator_->setText(getNavThroughPosesFeedbackLabel());
+      }
+    });
 }
 
-uint8_t NavigationCore::startNavigation(geometry_msgs::msg::PoseStamped pose) {
+uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
+{
   // start navigation stack
-  if (!client_nav_.startup()) {
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+    if (!client_nav_.startup()) {
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
   }
   auto is_action_server_ready =
-      navigation_action_client_->wait_for_action_server(
-          std::chrono::seconds(5));
+    navigation_action_client_->wait_for_action_server(
+    std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    RCLCPP_ERROR(client_node_->get_logger(),
-                 "navigate_to_pose action server is not available."
-                 " Is the initial pose set?");
+    RCLCPP_ERROR(
+      client_node_->get_logger(),
+      "navigate_to_pose action server is not available."
+      " Is the initial pose set?");
     return Navigation::Result::NAVIGATION_RESULT_TYPE_UNAVALIBLE;
     client_nav_.pause();
   }
@@ -246,25 +271,25 @@ uint8_t NavigationCore::startNavigation(geometry_msgs::msg::PoseStamped pose) {
   // Send the goal pose
   navigation_goal_.pose = pose;
 
-  RCLCPP_INFO(client_node_->get_logger(),
-              "NavigateToPose will be called using the BT Navigator's default "
-              "behavior tree.");
+  INFO("NavigateToPose will be called using the BT Navigator's default behavior tree.");
 
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
-      nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+    nav2_msgs::action::NavigateToPose>::SendGoalOptions();
   send_goal_options.result_callback = [this](auto) {
-    RCLCPP_ERROR(client_node_->get_logger(), "Get navigate to poses result");
-    senResult();
-    navigation_goal_handle_.reset();
-  };
+      ERROR("Get navigate to poses result");
+      SenResult();
+      navigation_goal_handle_.reset();
+    };
 
   auto future_goal_handle = navigation_action_client_->async_send_goal(
-      navigation_goal_, send_goal_options);
-  if (rclcpp::spin_until_future_complete(client_node_, future_goal_handle,
-                                         server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS) {
-    RCLCPP_ERROR(client_node_->get_logger(), "Send goal call failed");
+    navigation_goal_, send_goal_options);
+  if (rclcpp::spin_until_future_complete(
+      client_node_, future_goal_handle,
+      server_timeout_) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    ERROR("Send goal call failed");
     client_nav_.pause();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
@@ -279,83 +304,117 @@ uint8_t NavigationCore::startNavigation(geometry_msgs::msg::PoseStamped pose) {
   }
 
   nav_timer_ = this->create_wall_timer(
-      200ms, std::bind(&NavigationCore::getCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
-uint8_t NavigationCore::handleMapping(bool start) {
-  RCLCPP_ERROR(client_node_->get_logger(), "handleMapping:  %s",
-               start ? "start" : "stop");
-  if (client_data_.startup() && client_mapping.startup()) {
-    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
-    request->data = true;
-    rclcpp::Client<TRIGGERT>::SharedPtr client;
-    if (start) {
-      client = start_mapping_client_;
-    } else {
-      client = stop_mapping_client_;
-    }
-    while (!client->wait_for_service(5s)) {
-      if (!rclcpp::ok()) {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"),
-                     "Interrupted while waiting for the service. Exiting.");
+
+uint8_t NavigationCore::HandleMapping(bool start)
+{
+  INFO("HandleMapping:  %s", start ? "start" : "stop");
+  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  request->data = true;
+  rclcpp::Client<TRIGGERT>::SharedPtr client;
+  if (start) {
+    if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      if (!client_mapping_.startup()) {
         return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       }
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "service not available, waiting again...");
+    }
+    client = start_mapping_client_;
+    while (!client->wait_for_service(5s)) {
+      if (!rclcpp::ok()) {
+        ERROR("Interrupted while waiting for the service. Exiting.");
+        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+      }
+      INFO("service not available, waiting again...");
     }
     auto result = client->async_send_request(request);
-    // // Wait for the result.
-    // if (rclcpp::spin_until_future_complete(shared_from_this(), result) ==
-    //     rclcpp::FutureReturnCode::SUCCESS) {
-    //   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "success");
-    // } else {
-    //   RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service");
-    // }
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+    // Wait for the result.
+    if (rclcpp::spin_until_future_complete(shared_from_this(), result) ==
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      INFO("success");
+    } else {
+      ERROR("Failed to call service");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
   } else {
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      INFO("Failed to stop mapping because node not active");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+    client = stop_mapping_client_;
+    while (!client->wait_for_service(5s)) {
+      if (!rclcpp::ok()) {
+        ERROR("Interrupted while waiting for the service. Exiting.");
+        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+      }
+      WARN("service not available, waiting again...");
+    }
+    auto result = client->async_send_request(request);
+    // Wait for the result.
+    if (rclcpp::spin_until_future_complete(shared_from_this(), result) ==
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      INFO("Success");
+    } else {
+      INFO("Failed to call service");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+    if (!client_mapping_.pause()) {
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
   }
+  return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
-uint8_t NavigationCore::startNavThroughPoses(
-    std::vector<geometry_msgs::msg::PoseStamped> poses) {
+uint8_t NavigationCore::StartNavThroughPoses(
+  std::vector<geometry_msgs::msg::PoseStamped> poses)
+{
   auto is_action_server_ready =
-      nav_through_poses_action_client_->wait_for_action_server(
-          std::chrono::seconds(5));
+    nav_through_poses_action_client_->wait_for_action_server(
+    std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    RCLCPP_ERROR(client_node_->get_logger(),
-                 "navigate_through_poses action server is not available."
-                 " Is the initial pose set?");
+    RCLCPP_ERROR(
+      client_node_->get_logger(),
+      "navigate_through_poses action server is not available."
+      " Is the initial pose set?");
     return Navigation::Result::NAVIGATION_RESULT_TYPE_UNAVALIBLE;
   }
 
   nav_through_poses_goal_.poses = poses;
-  RCLCPP_INFO(client_node_->get_logger(),
-              "NavigateThroughPoses will be called using the BT Navigator's "
-              "default behavior tree.");
+  RCLCPP_INFO(
+    client_node_->get_logger(),
+    "NavigateThroughPoses will be called using the BT Navigator's "
+    "default behavior tree.");
 
-  RCLCPP_DEBUG(client_node_->get_logger(), "Sending a path of %zu waypoints:",
-               nav_through_poses_goal_.poses.size());
+  RCLCPP_DEBUG(
+    client_node_->get_logger(), "Sending a path of %zu waypoints:",
+    nav_through_poses_goal_.poses.size());
   for (auto waypoint : nav_through_poses_goal_.poses) {
-    RCLCPP_DEBUG(client_node_->get_logger(), "\t(%lf, %lf)",
-                 waypoint.pose.position.x, waypoint.pose.position.y);
+    RCLCPP_DEBUG(
+      client_node_->get_logger(), "\t(%lf, %lf)",
+      waypoint.pose.position.x, waypoint.pose.position.y);
   }
 
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
-      nav2_msgs::action::NavigateThroughPoses>::SendGoalOptions();
+    nav2_msgs::action::NavigateThroughPoses>::SendGoalOptions();
   send_goal_options.result_callback = [this](auto) {
-    RCLCPP_ERROR(client_node_->get_logger(),
-                 "Get navigate_through_poses result");
-    nav_through_poses_goal_handle_.reset();
-    senResult();
-  };
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "Get navigate_through_poses result");
+      nav_through_poses_goal_handle_.reset();
+      SenResult();
+    };
 
   auto future_goal_handle = nav_through_poses_action_client_->async_send_goal(
-      nav_through_poses_goal_, send_goal_options);
-  if (rclcpp::spin_until_future_complete(client_node_, future_goal_handle,
-                                         server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS) {
+    nav_through_poses_goal_, send_goal_options);
+  if (rclcpp::spin_until_future_complete(
+      client_node_, future_goal_handle,
+      server_timeout_) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
     RCLCPP_ERROR(client_node_->get_logger(), "Send goal call failed");
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
@@ -369,46 +428,52 @@ uint8_t NavigationCore::startNavThroughPoses(
   }
 
   through_pose_timer_ = this->create_wall_timer(
-      200ms, std::bind(&NavigationCore::getCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
-uint8_t NavigationCore::startWaypointFollowing(
-    std::vector<geometry_msgs::msg::PoseStamped> poses) {
+uint8_t NavigationCore::StartWaypointFollowing(
+  std::vector<geometry_msgs::msg::PoseStamped> poses)
+{
   auto is_action_server_ready =
-      waypoint_follower_action_client_->wait_for_action_server(
-          std::chrono::seconds(5));
+    waypoint_follower_action_client_->wait_for_action_server(
+    std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    RCLCPP_ERROR(client_node_->get_logger(),
-                 "follow_waypoints action server is not available."
-                 " Is the initial pose set?");
+    RCLCPP_ERROR(
+      client_node_->get_logger(),
+      "follow_waypoints action server is not available."
+      " Is the initial pose set?");
     return Navigation::Result::NAVIGATION_RESULT_TYPE_UNAVALIBLE;
   }
 
   // Send the goal poses
   waypoint_follower_goal_.poses = poses;
 
-  RCLCPP_DEBUG(client_node_->get_logger(), "Sending a path of %zu waypoints:",
-               waypoint_follower_goal_.poses.size());
+  RCLCPP_DEBUG(
+    client_node_->get_logger(), "Sending a path of %zu waypoints:",
+    waypoint_follower_goal_.poses.size());
   for (auto waypoint : waypoint_follower_goal_.poses) {
-    RCLCPP_DEBUG(client_node_->get_logger(), "\t(%lf, %lf)",
-                 waypoint.pose.position.x, waypoint.pose.position.y);
+    RCLCPP_DEBUG(
+      client_node_->get_logger(), "\t(%lf, %lf)",
+      waypoint.pose.position.x, waypoint.pose.position.y);
   }
 
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
-      nav2_msgs::action::FollowWaypoints>::SendGoalOptions();
+    nav2_msgs::action::FollowWaypoints>::SendGoalOptions();
   send_goal_options.result_callback = [this](auto) {
-    RCLCPP_ERROR(client_node_->get_logger(), "Get follow waypoints result");
-    senResult();
-    waypoint_follower_goal_handle_.reset();
-  };
+      RCLCPP_ERROR(client_node_->get_logger(), "Get follow waypoints result");
+      SenResult();
+      waypoint_follower_goal_handle_.reset();
+    };
 
   auto future_goal_handle = waypoint_follower_action_client_->async_send_goal(
-      waypoint_follower_goal_, send_goal_options);
-  if (rclcpp::spin_until_future_complete(client_node_, future_goal_handle,
-                                         server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS) {
+    waypoint_follower_goal_, send_goal_options);
+  if (rclcpp::spin_until_future_complete(
+      client_node_, future_goal_handle,
+      server_timeout_) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
     RCLCPP_ERROR(client_node_->get_logger(), "Send goal call failed");
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
@@ -422,20 +487,23 @@ uint8_t NavigationCore::startWaypointFollowing(
   }
 
   waypoint_follow_timer_ = this->create_wall_timer(
-      200ms, std::bind(&NavigationCore::getCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
-void NavigationCore::getNavStatus(int& status, ACTION_TYPE& action_type) {
+void NavigationCore::GetNavStatus(int & status, ACTION_TYPE & action_type)
+{
   status = status_;
   action_type = action_type_;
 }
 
-void NavigationCore::getCurrentNavStatus() {
-  RCLCPP_ERROR(client_node_->get_logger(), "getCurrentNavStatus ");
+void NavigationCore::GetCurrentNavStatus()
+{
+  RCLCPP_ERROR(client_node_->get_logger(), "GetCurrentNavStatus ");
 
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
-      !navigation_goal_handle_) {
+    !navigation_goal_handle_)
+  {
     RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
     // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
     action_type_ = ACTION_NONE;
@@ -446,13 +514,14 @@ void NavigationCore::getCurrentNavStatus() {
     action_type_ = ACTION_WAYPOINT;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
-        status_ == GoalStatus::STATUS_EXECUTING) {
+      status_ == GoalStatus::STATUS_EXECUTING)
+    {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       waypoint_follow_timer_->cancel();
       RCLCPP_ERROR(client_node_->get_logger(), "Way point follow finished");
-      senResult();
+      SenResult();
     }
   } else if (nav_through_poses_goal_handle_) {
     rclcpp::spin_some(client_node_);
@@ -460,13 +529,14 @@ void NavigationCore::getCurrentNavStatus() {
     action_type_ = ACTION_THROUGH_POSE;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
-        status_ == GoalStatus::STATUS_EXECUTING) {
+      status_ == GoalStatus::STATUS_EXECUTING)
+    {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "through poses finished");
       through_pose_timer_->cancel();
-      senResult();
+      SenResult();
     }
   } else if (navigation_goal_handle_) {
     rclcpp::spin_some(client_node_);
@@ -474,55 +544,65 @@ void NavigationCore::getCurrentNavStatus() {
     action_type_ = ACTION_NAVIGATION;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
-        status_ == GoalStatus::STATUS_EXECUTING) {
+      status_ == GoalStatus::STATUS_EXECUTING)
+    {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
       nav_timer_->cancel();
-      senResult();
+      SenResult();
     }
   }
 }
-void NavigationCore::senResult() {
+void NavigationCore::SenResult()
+{
   auto result = std::make_shared<Navigation::Result>();
   result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
   goal_handle_->succeed(result);
   action_type_ = ACTION_NONE;
 }
-void NavigationCore::onCancel() {
+void NavigationCore::OnCancel()
+{
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
-      !navigation_goal_handle_) {
+    !navigation_goal_handle_)
+  {
     RCLCPP_ERROR(client_node_->get_logger(), "nothing to cancel");
   }
   if (navigation_goal_handle_) {
     auto future_cancel =
-        navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
+      navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(client_node_, future_cancel,
-                                           server_timeout_) !=
-        rclcpp::FutureReturnCode::SUCCESS) {
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
       RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
     } else {
       navigation_goal_handle_.reset();
       RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
     }
     if (!nav_timer_->is_canceled()) {
-      RCLCPP_ERROR(client_node_->get_logger(),
-                   "canceled navigation goal timer");
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "canceled navigation goal timer");
       nav_timer_->cancel();
     }
   }
 
   if (waypoint_follower_goal_handle_) {
     auto future_cancel = waypoint_follower_action_client_->async_cancel_goal(
-        waypoint_follower_goal_handle_);
+      waypoint_follower_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(client_node_, future_cancel,
-                                           server_timeout_) !=
-        rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_ERROR(client_node_->get_logger(),
-                   "Failed to cancel waypoint follower");
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "Failed to cancel waypoint follower");
     } else {
       waypoint_follower_goal_handle_.reset();
       RCLCPP_ERROR(client_node_->get_logger(), "canceled waypoint follower");
@@ -532,17 +612,21 @@ void NavigationCore::onCancel() {
 
   if (nav_through_poses_goal_handle_) {
     auto future_cancel = nav_through_poses_action_client_->async_cancel_goal(
-        nav_through_poses_goal_handle_);
+      nav_through_poses_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(client_node_, future_cancel,
-                                           server_timeout_) !=
-        rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_ERROR(client_node_->get_logger(),
-                   "Failed to cancel nav through pose action");
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "Failed to cancel nav through pose action");
     } else {
       nav_through_poses_goal_handle_.reset();
-      RCLCPP_ERROR(client_node_->get_logger(),
-                   "canceled nav through pose action");
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "canceled nav through pose action");
     }
     through_pose_timer_->cancel();
   }
@@ -553,4 +637,4 @@ void NavigationCore::onCancel() {
 
 // a topic to send follow mode poses.
 
-}  // namespace CARPO_NAVIGATION
+}  // namespace carpo_navigation
