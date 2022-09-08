@@ -34,20 +34,20 @@ def generate_launch_description():
     os.system('echo %s|sudo -S %s' % (sudoPassword, command_route))
 
     #odom
-    start_odom_cmd = launch_ros.actions.Node(
-        package='odom_publisher',
-        executable='odom_publisher',
-        name='odom_publisher',
-        output='screen',
-        # prefix=['xterm -e gdb  --args'],
-        namespace='/')
+    # start_odom_cmd = launch_ros.actions.Node(
+    #     package='odom_publisher',
+    #     executable='odom_publisher',
+    #     name='odom_publisher',
+    #     output='screen',
+    #     # prefix=['xterm -e gdb  --args'],
+    #     namespace='/')
 
-    start_motion_cmd = launch_ros.actions.Node(
-        package='motion_sender',
-        executable='sendlcm',
-        name='motion_sender',
-        output='screen',
-        namespace='/')
+    # start_motion_cmd = launch_ros.actions.Node(
+    #     package='motion_sender',
+    #     executable='sendlcm',
+    #     name='motion_sender',
+    #     output='screen',
+    #     namespace='/')
 
     start_get_pose_cmd = launch_ros.actions.Node(
         package='positionchecker',
@@ -64,15 +64,15 @@ def generate_launch_description():
     PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'on_dog.py')))   
 
     #camera for mapping
-    camera_params_file = LaunchConfiguration('camera_params_file')
+    camera_params_file = LaunchConfiguration('camera_params_file', default='')
     camera_share_dir = get_package_share_directory('laser_slam')
 
     #lidar for localization
     camera_localization_params_file = LaunchConfiguration('camera_localization_params_file')
 
     #lidar
-    ydlidar_share_dir = get_package_share_directory('ydlidar_ros2_driver')
-    yilidar_params_file = LaunchConfiguration('yilidar_params_file')
+    # ydlidar_share_dir = get_package_share_directory('ydlidar_ros2_driver')
+    # yilidar_params_file = LaunchConfiguration('yilidar_params_file')
 
 
     #elevation_mapping
@@ -81,7 +81,7 @@ def generate_launch_description():
 
 
     #lifecycle nodes
-    lifecycle_data_nodes = ['lidar_controller', 'realsense_controller', 'odom_controller']
+    # lifecycle_data_nodes = ['lidar_controller', 'realsense_controller', 'odom_controller']
     lifecycle_maping_nodes = ['map_builder']
     #lifecycle_elevation_nodes = ['lifecycle_manager_elevation']
 
@@ -89,14 +89,14 @@ def generate_launch_description():
     nav2_bt_path = FindPackageShare(package='nav2_bt_navigator').find('nav2_bt_navigator')
     behavior_tree_xml_path = os.path.join(nav2_bt_path, 'behavior_trees', 'navigate_w_replanning_and_recovery.xml')
     default_bt_xml_filename = LaunchConfiguration('default_bt_xml_filename')
-    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     nav2_dir = FindPackageShare(package='nav2_bringup').find('nav2_bringup') 
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     namespace = LaunchConfiguration('namespace')
     use_namespace = LaunchConfiguration('use_namespace')
     pkg_share = get_package_share_directory('navigation_bringup')
     nav2_params_path = os.path.join(pkg_share, 'params', 'nav2_params.yaml')
-    autostart = LaunchConfiguration('autostart')
+    autostart = LaunchConfiguration('autostart', default='false')
     params_file = LaunchConfiguration('params_file')
     camera_node = LifecycleNode(
                                 package='laser_slam',
@@ -162,27 +162,27 @@ def generate_launch_description():
                                 name='static_tf_pub_laser',
                                 arguments=['0', '0', '0','0', '0', '0', '1','map','odom_out'],
                                 )
-    lidar_controller = LifecycleNode(
-                                package='lidar_controller',
-                                executable='lidar_controller',
-                                name='lidar_controller',
-                                output='screen',
-                                namespace='/',
-                                emulate_tty=True)       
-    realsense_controller = LifecycleNode(
-                                package='realsense_controller',
-                                executable='realsense_controller',
-                                name='realsense_controller',
-                                output='screen',
-                                namespace='/',
-                                emulate_tty=True)
-    odom_controller = LifecycleNode(
-                                package='odom_controller',
-                                executable='odom_controller',
-                                name='odom_controller',
-                                output='screen',
-                                namespace='/',
-                                emulate_tty=True)   
+    # lidar_controller = LifecycleNode(
+    #                             package='lidar_controller',
+    #                             executable='lidar_controller',
+    #                             name='lidar_controller',
+    #                             output='screen',
+    #                             namespace='/',
+    #                             emulate_tty=True)       
+    # realsense_controller = LifecycleNode(
+    #                             package='realsense_controller',
+    #                             executable='realsense_controller',
+    #                             name='realsense_controller',
+    #                             output='screen',
+    #                             namespace='/',
+    #                             emulate_tty=True)
+    # odom_controller = LifecycleNode(
+    #                             package='odom_controller',
+    #                             executable='odom_controller',
+    #                             name='odom_controller',
+    #                             output='screen',
+    #                             namespace='/',
+    #                             emulate_tty=True)   
     lifecycle_data = Node(
                                 package='nav2_lifecycle_manager',
                                 executable='lifecycle_manager',
@@ -190,7 +190,8 @@ def generate_launch_description():
                                 output='screen',
                                 parameters=[{'use_sim_time': use_sim_time},
                                             {'autostart': autostart},
-                                            {'node_names': lifecycle_data_nodes}])
+                                            # {'node_names': lifecycle_data_nodes}
+                                            ])
     lifecycle_mapping = Node(
                                 package='nav2_lifecycle_manager',
                                 executable='lifecycle_manager',
@@ -221,11 +222,11 @@ def generate_launch_description():
                             'autostart': autostart}.items())
     # lds
     ld = launch.LaunchDescription([
-        DeclareLaunchArgument(
-            name='yilidar_params_file',
-            default_value=os.path.join(
-            ydlidar_share_dir, 'params', 'ydlidar.yaml'),
-            description='FPath to the ROS2 parameters file to use.'),
+        # DeclareLaunchArgument(
+        #     name='yilidar_params_file',
+        #     default_value=os.path.join(
+        #     ydlidar_share_dir, 'params', 'ydlidar.yaml'),
+        #     description='FPath to the ROS2 parameters file to use.'),
 
         DeclareLaunchArgument(
             name='camera_params_file',
@@ -233,11 +234,11 @@ def generate_launch_description():
             camera_share_dir, 'param', 'mapping_node.yaml'),
             description='FPath to the ROS2 parameters file to use.'),
 
-        DeclareLaunchArgument(
-            name='camera_localization_params_file',
-            default_value=os.path.join(
-            camera_share_dir, 'param', 'localization.yaml'),
-            description='FPath to the ROS2 parameters file to use.'),
+        # DeclareLaunchArgument(
+        #     name='camera_localization_params_file',
+        #     default_value=os.path.join(
+        #     camera_share_dir, 'param', 'localization.yaml'),
+        #     description='FPath to the ROS2 parameters file to use.'),
 
         # DeclareLaunchArgument(
         #    name='elevation_mapping_params_file',
@@ -245,44 +246,44 @@ def generate_launch_description():
         #    elevation_mapping_share_dir, 'launch', 'mi_elevation_mapping_param_l91_test.yaml'),
         #    description='FPath to the elevation_maping parameters file to use.'),
 
-        DeclareLaunchArgument(
-            name='default_bt_xml_filename',
-            default_value=behavior_tree_xml_path,
-            description='Full path to the behavior tree xml file to use'),
+        # DeclareLaunchArgument(
+        #     name='default_bt_xml_filename',
+        #     default_value=behavior_tree_xml_path,
+        #     description='Full path to the behavior tree xml file to use'),
 
-        DeclareLaunchArgument(
-            'autostart', default_value='false',
-            description='Automatically startup the nav2 stack'),
+        # DeclareLaunchArgument(
+        #     'autostart', default_value='false',
+        #     description='Automatically startup the nav2 stack'),
 
-        DeclareLaunchArgument(
-            name='namespace',
-            default_value='',
-            description='Top-level namespace'),
+        # DeclareLaunchArgument(
+        #     name='namespace',
+        #     default_value='',
+        #     description='Top-level namespace'),
     
-        DeclareLaunchArgument(
-            name='use_namespace',
-            default_value='False',
-            description='Whether to apply a namespace to the navigation stack'),
+        # DeclareLaunchArgument(
+        #     name='use_namespace',
+        #     default_value='False',
+        #     description='Whether to apply a namespace to the navigation stack'),
 
-        DeclareLaunchArgument(
-            name='autostart', 
-            default_value='False',
-            description='Automatically startup the nav2 stack'),
+        # DeclareLaunchArgument(
+        #     name='autostart', 
+        #     default_value='False',
+        #     description='Automatically startup the nav2 stack'),
 
-        DeclareLaunchArgument(
-            name='use_sim_time',
-            default_value='False'
-        ),
+        # DeclareLaunchArgument(
+        #     name='use_sim_time',
+        #     default_value='False'
+        # ),
 
-        DeclareLaunchArgument(
-            name='params_file',
-            default_value=nav2_params_path,
-            description='Full path to the ROS2 parameters file to use for all launched nodes'),
+        # DeclareLaunchArgument(
+        #     name='params_file',
+        #     default_value=nav2_params_path,
+        #     description='Full path to the ROS2 parameters file to use for all launched nodes'),
 
         #start_odom_cmd,
-        odom_controller,
-        lidar_controller,
-        realsense_controller,
+        # odom_controller,
+        # lidar_controller,
+        # realsense_controller,
         start_get_pose_cmd,
         tf2_node,
         tf2_node_depth_base,

@@ -40,7 +40,7 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace'
         )
-    lifecycle_nodes = ['']
+    lifecycle_nodes = ['map_server', 'localization_node']
     lifecycle_loc_cmd = Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',

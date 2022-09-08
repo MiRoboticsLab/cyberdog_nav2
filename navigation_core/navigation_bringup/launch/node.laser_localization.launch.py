@@ -48,8 +48,8 @@ def generate_launch_description():
 
     camera_node_relocation_cmd = LifecycleNode(
                                 package='laser_slam',
-                                executable='demo',
-                                name='demo_node',
+                                executable='localization',
+                                name='localization_node',
                                 output='screen',
                                 emulate_tty=True,
                                 #prefix=['xterm -e gdb  --args'],

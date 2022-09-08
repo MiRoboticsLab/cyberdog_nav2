@@ -31,7 +31,7 @@ sys.path.append(os.path.join(get_package_share_directory('cyberdog_bringup'), 'b
 from manual import get_namespace
 
 def generate_launch_description():
-    namespace = LaunchConfiguration('namespace', default=get_namespace())
+    namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
@@ -43,9 +43,11 @@ def generate_launch_description():
         'vision_manager',
         'camera_server',
         'tracking',
-        # 'realsense',
+        'realsense',
         'nav2_base',
-        'lifecycle_mgr_loc',
+        'laser_mapping',
+        'laser_localization',
+        'lifecycle_mgr_localization',
         'lifecycle_mgr_nav'
         ]
     lds = [IncludeLaunchDescription(
