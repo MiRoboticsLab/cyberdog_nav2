@@ -126,6 +126,7 @@ def generate_launch_description():
             package='nav2_map_server',
             executable='map_server',
             name='map_server',
+            namespace=namespace,
             output='screen',
             parameters=[{'yaml_filename': map_file}],
             remappings=remappings)
