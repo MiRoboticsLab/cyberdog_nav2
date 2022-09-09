@@ -56,9 +56,9 @@ NavigationCore::NavigationCore()
     std::bind(&NavigationCore::HandleNavigationAccepted, this, _1));
   callback_group_ =
     this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-  start_mapping_client_ = create_client<TRIGGERT>(
+  start_mapping_client_ = create_client<TriggerT>(
     "start_mapping", rmw_qos_profile_services_default, callback_group_);
-  stop_mapping_client_ = create_client<TRIGGERT>(
+  stop_mapping_client_ = create_client<TriggerT>(
     "stop_mapping", rmw_qos_profile_services_default, callback_group_);
   OnInitialize();
   points_pub_ = this->create_publisher<protocol::msg::FollowPoints>(
@@ -74,7 +74,7 @@ void NavigationCore::FollwPointCallback(
 {
   protocol::msg::FollowPoints msg_;
   int status;
-  ACTION_TYPE action_type;
+  ActionType action_type;
   GetNavStatus(status, action_type);
   if ((action_type == ACTION_THROUGH_POSE) && (msg->poses.size() > 0)) {
     msg_.poses = msg->poses;
@@ -313,29 +313,17 @@ uint8_t NavigationCore::HandleMapping(bool start)
   INFO("HandleMapping:  %s", start ? "start" : "stop");
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = true;
-  rclcpp::Client<TRIGGERT>::SharedPtr client;
+  rclcpp::Client<TriggerT>::SharedPtr client;
   if (start) {
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {
+        ERROR("Lifecycle start failed");
         return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       }
     }
     client = start_mapping_client_;
-    while (!client->wait_for_service(5s)) {
-      if (!rclcpp::ok()) {
-        ERROR("Interrupted while waiting for the service. Exiting.");
-        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      }
-      INFO("service not available, waiting again...");
-    }
-    auto result = client->async_send_request(request);
-    // Wait for the result.
-    if (rclcpp::spin_until_future_complete(shared_from_this(), result) ==
-      rclcpp::FutureReturnCode::SUCCESS)
-    {
-      INFO("success");
-    } else {
-      ERROR("Failed to call service");
+    if(!ServiceImpl(client, request)) {
+      ERROR("Service failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   } else {
@@ -344,18 +332,20 @@ uint8_t NavigationCore::HandleMapping(bool start)
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
     client = stop_mapping_client_;
-    while (!client->wait_for_service(5s)) {
-      if (!rclcpp::ok()) {
-        ERROR("Interrupted while waiting for the service. Exiting.");
-        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      }
-      WARN("service not available, waiting again...");
+    if(!ServiceImpl(client, request)) {
+      ERROR("Service failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
-    auto result = client->async_send_request(request);
-    // Wait for the result.
-    if (rclcpp::spin_until_future_complete(shared_from_this(), result) ==
-      rclcpp::FutureReturnCode::SUCCESS)
-    {
+    if (!client_mapping_.pause()) {
+      ERROR("Lifecycle pause failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+  }
+  return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+}
+
+uint8_t NavigationCore::HandleLocalization(bool start)
+{
       INFO("Success");
     } else {
       INFO("Failed to call service");
@@ -366,6 +356,25 @@ uint8_t NavigationCore::HandleMapping(bool start)
     }
   }
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+}
+
+bool NavigationCore::ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr client,
+  const std_srvs::srv::SetBool_Request::SharedPtr request)
+{
+  while (!client->wait_for_service(5s)) {
+    if (!rclcpp::ok()) {
+      ERROR("Interrupted while waiting for the service. Exiting.");
+      return false;
+    }
+    WARN("service not available, waiting again...");
+  }
+  auto future = client->async_send_request(request);
+  // Wait for the result.
+  if(future.wait_for(5s) == std::future_status::timeout) {
+    ERROR("Service timeout");
+    return false;
+  }
+  return future.get()->success;
 }
 
 uint8_t NavigationCore::StartNavThroughPoses(
@@ -491,7 +500,7 @@ uint8_t NavigationCore::StartWaypointFollowing(
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
-void NavigationCore::GetNavStatus(int & status, ACTION_TYPE & action_type)
+void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
 {
   status = status_;
   action_type = action_type_;

@@ -32,7 +32,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
-enum ACTION_TYPE
+enum ActionType
 {
   ACTION_NONE,
   ACTION_NAVIGATION,
@@ -57,7 +57,7 @@ public:
   using GoalStatus = action_msgs::msg::GoalStatus;
   using Navigation = protocol::action::Navigation;
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
-  using TRIGGERT = std_srvs::srv::SetBool;
+  using TriggerT = std_srvs::srv::SetBool;
   NavigationCore();
   ~NavigationCore() = default;
 
@@ -125,14 +125,14 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-//   nav2_lifecycle_manager::LifecycleManagerClient client_data_;
+  // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
   rclcpp::TimerBase::SharedPtr nav_timer_;
   rclcpp::TimerBase::SharedPtr waypoint_follow_timer_;
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
-  ACTION_TYPE action_type_;
-  void GetNavStatus(int & status, ACTION_TYPE & action_type);
+  ActionType action_type_;
+  void GetNavStatus(int & status, ActionType & action_type);
 
   rclcpp_action::Server<Navigation>::SharedPtr navigation_server_;
 
@@ -155,11 +155,14 @@ private:
   rclcpp::Publisher<protocol::msg::FollowPoints>::SharedPtr points_pub_;
   rclcpp::Subscription<protocol::msg::FollowPoints>::SharedPtr
     points_subscriber_;
-
+  bool ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr,
+    const std_srvs::srv::SetBool_Request::SharedPtr);
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
-  rclcpp::Client<TRIGGERT>::SharedPtr start_mapping_client_;
-  rclcpp::Client<TRIGGERT>::SharedPtr stop_mapping_client_;
+  rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
+  rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
+  rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
 };
 }  // namespace carpo_navigation
