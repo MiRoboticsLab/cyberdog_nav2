@@ -24,12 +24,44 @@
 
 #include "motion_core/motion_core_node.hpp"
 
+#include <iostream>
+#include <csignal>
+#include <unistd.h>
+
+// std::shared_future<std::shared_ptr<rclcpp_action::ClientGoalHandle<protocol::action::Navigation>>> goal_handle_future
+
+rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("client");
+auto client = rclcpp_action::create_client<protocol::action::Navigation>(
+  node, "CyberdogNavigation");
+
+std::shared_ptr<rclcpp_action::ClientGoalHandle<protocol::action::Navigation>> goal_handle;
+
+
+void feedback_callback(
+  rclcpp_action::ClientGoalHandle<protocol::action::Navigation>::SharedPtr,
+  const std::shared_ptr<const protocol::action::Navigation_Feedback> feedback)
+{
+  std::cout << feedback->status << std::endl;
+}
+
+
+void signalHandler( int signum )
+{
+  std::cout << "Interrupt signal (" << signum << ") received.\n";
+
+    // 清理并关闭
+    // 终止程序  
+  client->async_cancel_goal(goal_handle);
+
+   exit(signum);  
+
+}
+
 int main(int argc, char ** argv)
 {
+  signal(SIGINT, signalHandler);  
   rclcpp::init(argc, argv);
-  rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("client");
-  auto client = rclcpp_action::create_client<protocol::action::Navigation>(
-    node, "CyberdogNavigation");
+
   if(!client->wait_for_action_server(std::chrono::seconds(1))) {
     ERROR("ActionServer not avilable");
   }
@@ -44,16 +76,18 @@ int main(int argc, char ** argv)
   pose.pose.position.x = 0.5;
   goal.poses.push_back(pose);
   
-  auto goal_handle_future = client->async_send_goal(goal);
+  auto send_goal_option = rclcpp_action::Client<protocol::action::Navigation>::SendGoalOptions();
+  send_goal_option.feedback_callback = feedback_callback;
+  auto goal_handle_future = client->async_send_goal(goal, send_goal_option);
   if (rclcpp::spin_until_future_complete(node, goal_handle_future) !=
     rclcpp::FutureReturnCode::SUCCESS)
   {
     RCLCPP_ERROR(node->get_logger(), "send goal call failed :(");
     return 1;
   }
-
   // rclcpp_action::ClientGoalHandle<Fibonacci>::SharedPtr goal_handle = goal_handle_future.get();
-  auto goal_handle = goal_handle_future.get();
+  goal_handle = goal_handle_future.get();
+  
   if (!goal_handle) {
     RCLCPP_ERROR(node->get_logger(), "Goal was rejected by server");
     return 1;

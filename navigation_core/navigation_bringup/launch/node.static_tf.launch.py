@@ -80,6 +80,13 @@ def generate_launch_description():
                                 namespace=namespace,
                                 arguments=['0', '0', '0','0', '0', '0', '1','map','odom'],
                                 )
+    # TODO：腿式里程计的位置
+    tf2_node_map_to_vodom = Node(package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_map_to_vodom',
+                                namespace=namespace,
+                                arguments=['0', '0', '0','0', '0', '0', '1','map','vodom'],
+                                )
     # lds
     ld = launch.LaunchDescription([
         namespace_declare,
@@ -89,7 +96,8 @@ def generate_launch_description():
         tf2_node_base_to_tof_right_head,
         tf2_node_base_to_tof_left_rear,
         tf2_node_base_to_tof_right_rear,
-        # tf2_node_map_to_odom,
+        tf2_node_map_to_odom,
+        tf2_node_map_to_vodom,
     ])
     return ld
     

@@ -557,7 +557,7 @@ void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
 void NavigationCore::GetCurrentNavStatus()
 {
   RCLCPP_ERROR(client_node_->get_logger(), "GetCurrentNavStatus ");
-
+  static auto feedback = std::make_shared<Navigation::Feedback>();
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_)
   {
@@ -603,6 +603,8 @@ void NavigationCore::GetCurrentNavStatus()
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
       status_ == GoalStatus::STATUS_EXECUTING)
     {
+      feedback->status = 1;
+      goal_handle_->publish_feedback(feedback);
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
@@ -640,7 +642,7 @@ void NavigationCore::GetCurrentLocStatus()
       feedback->reloc = static_cast<int32_t>(reloc_status_);
       goal_handle_->publish_feedback(feedback);
       INFO("feeding back");
-      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      // std::this_thread::sleep_for(std::chrono::milliseconds(20));
       continue;
     }
     if(reloc_status_ == RelocStatus::kFailed) {
