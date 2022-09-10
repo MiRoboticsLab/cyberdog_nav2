@@ -30,6 +30,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/int32.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
 enum ActionType
@@ -38,6 +39,13 @@ enum ActionType
   ACTION_NAVIGATION,
   ACTION_WAYPOINT,
   ACTION_THROUGH_POSE,
+};
+
+enum class ActionExecStage : uint8_t
+{
+  kExecuting,
+  kSuccess,
+  kFailed,
 };
 
 namespace carpo_navigation
@@ -80,9 +88,11 @@ public:
 
   // get current navstatus.
   void GetCurrentNavStatus();
+  void GetCurrentLocStatus();
 
   // mapping
   uint8_t HandleMapping(bool start);
+  ActionExecStage HandleLocalization(bool start);
 
 private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
@@ -91,6 +101,8 @@ private:
     waypoint_follower_action_client_;
   rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SharedPtr
     nav_through_poses_action_client_;
+
+  rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr reloc_sub_;
 
   // Navigation action feedback subscribers
   rclcpp::Subscription<
@@ -128,11 +140,22 @@ private:
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
   rclcpp::TimerBase::SharedPtr nav_timer_;
+  rclcpp::TimerBase::SharedPtr loc_timer_;
   rclcpp::TimerBase::SharedPtr waypoint_follow_timer_;
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
   ActionType action_type_;
   void GetNavStatus(int & status, ActionType & action_type);
+  void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
+  {
+    reloc_status_ = msg->data;
+    INFO("%d", reloc_status_);
+    if(reloc_topic_waiting_) {
+      INFO("notify");
+      reloc_cv_.notify_one();
+      reloc_topic_waiting_ = false;
+    }
+  }
 
   rclcpp_action::Server<Navigation>::SharedPtr navigation_server_;
 
@@ -164,6 +187,10 @@ private:
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
+  int32_t reloc_status_{-1};
+  std::mutex reloc_mutex_;
+  std::condition_variable reloc_cv_;
+  bool reloc_topic_waiting_{false};
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_

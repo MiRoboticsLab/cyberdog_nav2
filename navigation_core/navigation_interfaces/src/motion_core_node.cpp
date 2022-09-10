@@ -60,6 +60,11 @@ NavigationCore::NavigationCore()
     "start_mapping", rmw_qos_profile_services_default, callback_group_);
   stop_mapping_client_ = create_client<TriggerT>(
     "stop_mapping", rmw_qos_profile_services_default, callback_group_);
+  start_loc_client_ = create_client<TriggerT>(
+    "start_location", rmw_qos_profile_services_default, callback_group_);
+  stop_loc_client_ = create_client<TriggerT>(
+    "stop_location", rmw_qos_profile_services_default, callback_group_);
+
   OnInitialize();
   points_pub_ = this->create_publisher<protocol::msg::FollowPoints>(
     "follow_points", rclcpp::SystemDefaultsQoS());
@@ -67,6 +72,10 @@ NavigationCore::NavigationCore()
   points_subscriber_ = this->create_subscription<protocol::msg::FollowPoints>(
     "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::FollwPointCallback, this, _1));
+  reloc_sub_ = create_subscription<std_msgs::msg::Int32>(
+    "laser_reloc_result",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(&NavigationCore::HandleRelocCallback, this, _1));
 }
 
 void NavigationCore::FollwPointCallback(
@@ -108,7 +117,7 @@ rclcpp_action::GoalResponse NavigationCore::HandleNavigationGoal(
 rclcpp_action::CancelResponse NavigationCore::HandleNavigationCancel(
   const std::shared_ptr<GoalHandleNavigation> goal_handle)
 {
-  RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+  INFO("Received request to cancel goal");
   (void)goal_handle;
   OnCancel();
   return rclcpp_action::CancelResponse::ACCEPT;
@@ -179,9 +188,18 @@ void NavigationCore::FollowExecute(
     // uint8 NAVIGATION_GOAL_TYPE_LOCATION = 5
     // uint8 NAVIGATION_GOAL_TYPE_AUTO_DOCKING = 6
     case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
       {
-        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_LOCATION .....");
-        result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+        INFO("loc request");
+        auto goal_result = HandleLocalization(
+          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION);
+        if(goal_result == ActionExecStage::kFailed) {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+          goal_handle->abort(result);
+        } else if (goal_result == ActionExecStage::kSuccess) {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          goal_handle->succeed(result);
+        }
       }
       break;
 
@@ -344,18 +362,43 @@ uint8_t NavigationCore::HandleMapping(bool start)
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
-uint8_t NavigationCore::HandleLocalization(bool start)
+ActionExecStage NavigationCore::HandleLocalization(bool start)
 {
-      INFO("Success");
-    } else {
-      INFO("Failed to call service");
-      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  INFO("HandleLocalization:  %s", start ? "start" : "stop");
+  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  request->data = true;
+  rclcpp::Client<TriggerT>::SharedPtr client;
+  if (start) {
+    if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      if (!client_loc_.startup()) {
+        ERROR("Lifecycle start failed");
+        return ActionExecStage::kFailed;
+      }
     }
-    if (!client_mapping_.pause()) {
-      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    client = start_loc_client_;
+    if(!ServiceImpl(client, request)) {
+      ERROR("Service failed");
+      return ActionExecStage::kFailed;
     }
+    std::thread{std::bind(&NavigationCore::GetCurrentLocStatus, this)}.detach();
+    return ActionExecStage::kExecuting;
+  } else {
+    if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      INFO("Failed to stop mapping because node not active");
+      return ActionExecStage::kFailed;
+    }
+    client = stop_loc_client_;
+    if(!ServiceImpl(client, request)) {
+      ERROR("Service failed");
+      return ActionExecStage::kFailed;
+    }
+    if (!client_loc_.pause()) {
+      ERROR("Lifecycle pause failed");
+      return ActionExecStage::kFailed;
+    }
+    reloc_status_ = -1;
+    return ActionExecStage::kSuccess;
   }
-  return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
 bool NavigationCore::ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr client,
@@ -564,6 +607,32 @@ void NavigationCore::GetCurrentNavStatus()
     }
   }
 }
+
+
+void NavigationCore::GetCurrentLocStatus()
+{
+  INFO("GetCurrentLocStatus");
+  reloc_topic_waiting_ = true;
+  std::unique_lock<std::mutex> lk(reloc_mutex_);
+  reloc_cv_.wait(lk);
+  INFO("over");
+  while (reloc_status_ > 0 && rclcpp::ok()) {
+    if(goal_handle_->is_canceling()) {
+      auto result = std::make_shared<protocol::action::Navigation_Result>();
+      result->result = protocol::action::Navigation_Result::NAVIGATION_RESULT_TYPE_CANCEL;
+      goal_handle_->canceled(result);
+      reloc_status_ = -1;
+      return;
+    }
+    auto feedback = std::make_shared<protocol::action::Navigation_Feedback>();
+    feedback->reloc = reloc_status_;
+    goal_handle_->publish_feedback(feedback);
+    INFO("feeding back");
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  SenResult();
+}
+
 void NavigationCore::SenResult()
 {
   auto result = std::make_shared<Navigation::Result>();
@@ -574,9 +643,17 @@ void NavigationCore::SenResult()
 void NavigationCore::OnCancel()
 {
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
-    !navigation_goal_handle_)
+    !navigation_goal_handle_ && reloc_status_  <= 0)
   {
-    RCLCPP_ERROR(client_node_->get_logger(), "nothing to cancel");
+    ERROR("nothing to cancel");
+  }
+  if(reloc_status_ > 0) {
+    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+    request->data = true;
+    if(!ServiceImpl(stop_loc_client_, request)) {
+      ERROR("Failed to cancel Reloc");
+    }
+    reloc_status_ = -1;
   }
   if (navigation_goal_handle_) {
     auto future_cancel =
@@ -639,6 +716,8 @@ void NavigationCore::OnCancel()
     }
     through_pose_timer_->cancel();
   }
+
+
 }
 // a service to start ab point.
 

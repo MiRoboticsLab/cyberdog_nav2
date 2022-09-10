@@ -29,30 +29,66 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("client");
   auto client = rclcpp_action::create_client<protocol::action::Navigation>(
-    node,
-    "CyberdogNavigation");
-  protocol::action::Navigation_Goal goal;
-  std::cout << argv[1] << std::endl;
-  if (std::string(argv[1]) == std::string("1")) { // 开始AB
-    std::cout << "Start AB" << std::endl;
-    goal.nav_type = protocol::action::Navigation_Goal::NAVIGATION_TYPE_START_AB;
-    geometry_msgs::msg::PoseStamped pose;
-    pose.header.frame_id = "map";
-    pose.pose.orientation.w = 1;
-    pose.pose.position.x = 0.5;
-    goal.poses.push_back(pose);
-    client->async_send_goal(goal);
-  } else if (std::string(argv[1]) == std::string("2")) {  // 结束AB
-    std::cout << "Stop AB" << std::endl;
-
-  } else if (std::string(argv[1]) == std::string("6")) { // 开始建图
-    std::cout << "Start Mapping" << std::endl;
-    goal.nav_type = protocol::action::Navigation_Goal::NAVIGATION_TYPE_START_MAPPING;
-    client->async_send_goal(goal);
-  } else if (std::string(argv[1]) == std::string("7")) { // 结束建图
-    std::cout << "Stop Mapping" << std::endl;
-    goal.nav_type = protocol::action::Navigation_Goal::NAVIGATION_TYPE_STOP_MAPPING;
+    node, "CyberdogNavigation");
+  if(!client->wait_for_action_server(std::chrono::seconds(1))) {
+    ERROR("ActionServer not avilable");
   }
+  protocol::action::Navigation_Goal goal;
+
+  std::cout << argv[1] << std::endl;
+
+  goal.nav_type = std::stoi(std::string(argv[1]));
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header.frame_id = "map";
+  pose.pose.orientation.w = 1;
+  pose.pose.position.x = 0.5;
+  goal.poses.push_back(pose);
+  
+  auto goal_handle_future = client->async_send_goal(goal);
+  if (rclcpp::spin_until_future_complete(node, goal_handle_future) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_ERROR(node->get_logger(), "send goal call failed :(");
+    return 1;
+  }
+
+  // rclcpp_action::ClientGoalHandle<Fibonacci>::SharedPtr goal_handle = goal_handle_future.get();
+  auto goal_handle = goal_handle_future.get();
+  if (!goal_handle) {
+    RCLCPP_ERROR(node->get_logger(), "Goal was rejected by server");
+    return 1;
+  }
+
+  // Wait for the server to be done with the goal
+  auto result_future = client->async_get_result(goal_handle);
+
+  RCLCPP_INFO(node->get_logger(), "Waiting for result");
+  if (rclcpp::spin_until_future_complete(node, result_future) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_ERROR(node->get_logger(), "get result call failed :(");
+    return 1;
+  }
+
+  // rclcpp_action::ClientGoalHandle<Fibonacci>::WrappedResult wrapped_result = result_future.get();
+  auto wrapped_result = result_future.get();
+
+  switch (wrapped_result.code) {
+    case rclcpp_action::ResultCode::SUCCEEDED:
+      RCLCPP_ERROR(node->get_logger(), "Goal was succeed");
+      break;
+    case rclcpp_action::ResultCode::ABORTED:
+      RCLCPP_ERROR(node->get_logger(), "Goal was aborted");
+      return 1;
+    case rclcpp_action::ResultCode::CANCELED:
+      RCLCPP_ERROR(node->get_logger(), "Goal was canceled");
+      return 1;
+    default:
+      RCLCPP_ERROR(node->get_logger(), "Unknown result code");
+      return 1;
+  }
+
+
   rclcpp::shutdown();
   return 0;
 }
