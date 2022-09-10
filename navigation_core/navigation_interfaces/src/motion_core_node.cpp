@@ -29,7 +29,7 @@ NavigationCore::NavigationCore()
   client_loc_("lifecycle_manager_localization"),
   client_mapping_("lifecycle_manager_mapping"),
   status_(GoalStatus::STATUS_UNKNOWN),
-  action_type_(ACTION_NONE)
+  action_type_(kActionNone)
 {
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=navigation_dialog_action_client"});
@@ -85,7 +85,7 @@ void NavigationCore::FollwPointCallback(
   int status;
   ActionType action_type;
   GetNavStatus(status, action_type);
-  if ((action_type == ACTION_THROUGH_POSE) && (msg->poses.size() > 0)) {
+  if ((action_type == kActionThroughPose) && (msg->poses.size() > 0)) {
     msg_.poses = msg->poses;
     msg_.token = "0xafic29casckdek";
     msg_.header = ReturnHeader();
@@ -119,6 +119,11 @@ rclcpp_action::CancelResponse NavigationCore::HandleNavigationCancel(
 {
   INFO("Received request to cancel goal");
   (void)goal_handle;
+  if(reloc_topic_waiting_) {
+    INFO("notify");
+    reloc_cv_.notify_one();
+    reloc_topic_waiting_ = false;
+  }
   OnCancel();
   return rclcpp_action::CancelResponse::ACCEPT;
 }
@@ -396,7 +401,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
       ERROR("Lifecycle pause failed");
       return ActionExecStage::kFailed;
     }
-    reloc_status_ = -1;
+    reloc_status_ = RelocStatus::kIdle;
     return ActionExecStage::kSuccess;
   }
 }
@@ -558,12 +563,12 @@ void NavigationCore::GetCurrentNavStatus()
   {
     RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
     // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
-    action_type_ = ACTION_NONE;
+    action_type_ = kActionNone;
     return;
   } else if (waypoint_follower_goal_handle_) {
     rclcpp::spin_some(client_node_);
     status_ = waypoint_follower_goal_handle_->get_status();
-    action_type_ = ACTION_WAYPOINT;
+    action_type_ = kActionWayPoint;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
       status_ == GoalStatus::STATUS_EXECUTING)
@@ -578,7 +583,7 @@ void NavigationCore::GetCurrentNavStatus()
   } else if (nav_through_poses_goal_handle_) {
     rclcpp::spin_some(client_node_);
     status_ = nav_through_poses_goal_handle_->get_status();
-    action_type_ = ACTION_THROUGH_POSE;
+    action_type_ = kActionThroughPose;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
       status_ == GoalStatus::STATUS_EXECUTING)
@@ -593,7 +598,7 @@ void NavigationCore::GetCurrentNavStatus()
   } else if (navigation_goal_handle_) {
     rclcpp::spin_some(client_node_);
     status_ = navigation_goal_handle_->get_status();
-    action_type_ = ACTION_NAVIGATION;
+    action_type_ = kActionNavigation;
     // Check if the goal is still executing
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
       status_ == GoalStatus::STATUS_EXECUTING)
@@ -612,25 +617,46 @@ void NavigationCore::GetCurrentNavStatus()
 void NavigationCore::GetCurrentLocStatus()
 {
   INFO("GetCurrentLocStatus");
-  reloc_topic_waiting_ = true;
-  std::unique_lock<std::mutex> lk(reloc_mutex_);
-  reloc_cv_.wait(lk);
-  INFO("over");
-  while (reloc_status_ > 0 && rclcpp::ok()) {
-    if(goal_handle_->is_canceling()) {
-      auto result = std::make_shared<protocol::action::Navigation_Result>();
-      result->result = protocol::action::Navigation_Result::NAVIGATION_RESULT_TYPE_CANCEL;
-      goal_handle_->canceled(result);
-      reloc_status_ = -1;
+  while(rclcpp::ok()) {
+    reloc_topic_waiting_ = true;
+    std::unique_lock<std::mutex> lk(reloc_mutex_);
+    if(reloc_cv_.wait_for(lk, std::chrono::seconds(2)) == std::cv_status::timeout) {
+      auto result = std::make_shared<Navigation::Result>();
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED; 
+      goal_handle_->abort(result);
+      ResetReloc();
+      ERROR("Topic timeout");
       return;
     }
-    auto feedback = std::make_shared<protocol::action::Navigation_Feedback>();
-    feedback->reloc = reloc_status_;
-    goal_handle_->publish_feedback(feedback);
-    INFO("feeding back");
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    if(goal_handle_->is_canceling()) {
+      auto result = std::make_shared<Navigation::Result>();
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+      goal_handle_->canceled(result);
+      reloc_status_ = RelocStatus::kIdle;
+      return;
+    }
+    static auto feedback = std::make_shared<Navigation::Feedback>();
+    if (reloc_status_ == RelocStatus::kRetrying) {
+      feedback->reloc = static_cast<int32_t>(reloc_status_);
+      goal_handle_->publish_feedback(feedback);
+      INFO("feeding back");
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      continue;
+    }
+    if(reloc_status_ == RelocStatus::kFailed) {
+      feedback->reloc = static_cast<int32_t>(reloc_status_);
+      auto result = std::make_shared<Navigation::Result>();
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+      goal_handle_->abort(result);
+      ResetReloc();
+      return;
+    }
+    if(reloc_status_ == RelocStatus::kSuccess) {
+      SenResult();
+      reloc_status_ = RelocStatus::kIdle;
+      return;
+    }
   }
-  SenResult();
 }
 
 void NavigationCore::SenResult()
@@ -638,22 +664,17 @@ void NavigationCore::SenResult()
   auto result = std::make_shared<Navigation::Result>();
   result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
   goal_handle_->succeed(result);
-  action_type_ = ACTION_NONE;
+  action_type_ = kActionNone;
 }
 void NavigationCore::OnCancel()
 {
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
-    !navigation_goal_handle_ && reloc_status_  <= 0)
+    !navigation_goal_handle_ && reloc_status_  != RelocStatus::kRetrying)
   {
     ERROR("nothing to cancel");
   }
-  if(reloc_status_ > 0) {
-    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
-    request->data = true;
-    if(!ServiceImpl(stop_loc_client_, request)) {
-      ERROR("Failed to cancel Reloc");
-    }
-    reloc_status_ = -1;
+  if(reloc_status_ == RelocStatus::kRetrying) {
+    ResetReloc(); 
   }
   if (navigation_goal_handle_) {
     auto future_cancel =
@@ -716,13 +737,8 @@ void NavigationCore::OnCancel()
     }
     through_pose_timer_->cancel();
   }
-
-
+  // auto result = std::make_shared<Navigation::Result>();
+  // result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+  // goal_handle_->canceled(result);
 }
-// a service to start ab point.
-
-// a service to start follow mode
-
-// a topic to send follow mode poses.
-
 }  // namespace carpo_navigation

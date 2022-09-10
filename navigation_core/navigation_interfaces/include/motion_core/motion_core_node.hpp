@@ -35,10 +35,10 @@
 
 enum ActionType
 {
-  ACTION_NONE,
-  ACTION_NAVIGATION,
-  ACTION_WAYPOINT,
-  ACTION_THROUGH_POSE,
+  kActionNone,
+  kActionNavigation,
+  kActionWayPoint,
+  kActionThroughPose,
 };
 
 enum class ActionExecStage : uint8_t
@@ -46,6 +46,14 @@ enum class ActionExecStage : uint8_t
   kExecuting,
   kSuccess,
   kFailed,
+};
+
+enum class RelocStatus : int32_t
+{
+  kIdle = -1,
+  kSuccess = 0,
+  kRetrying = 100,
+  kFailed = 200
 };
 
 namespace carpo_navigation
@@ -148,13 +156,27 @@ private:
   void GetNavStatus(int & status, ActionType & action_type);
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
-    reloc_status_ = msg->data;
+    reloc_status_ = static_cast<RelocStatus>(msg->data);
     INFO("%d", reloc_status_);
     if(reloc_topic_waiting_) {
       INFO("notify");
       reloc_cv_.notify_one();
       reloc_topic_waiting_ = false;
     }
+  }
+  void ResetReloc()
+  {
+    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+    request->data = true;
+    if(!ServiceImpl(stop_loc_client_, request)) {
+      ERROR("Failed to cancel Reloc because stopping service failed");
+    }
+    if (client_loc_.is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      if (!client_loc_.pause()) {
+        ERROR("Failed to cancel Reloc because pause failed");
+      }
+    }
+    reloc_status_ = RelocStatus::kIdle;
   }
 
   rclcpp_action::Server<Navigation>::SharedPtr navigation_server_;
@@ -187,7 +209,7 @@ private:
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
-  int32_t reloc_status_{-1};
+  RelocStatus reloc_status_{RelocStatus::kIdle};
   std::mutex reloc_mutex_;
   std::condition_variable reloc_cv_;
   bool reloc_topic_waiting_{false};
