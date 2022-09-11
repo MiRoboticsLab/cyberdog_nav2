@@ -30,79 +30,104 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_srvs/srv/set_bool.hpp"
-typedef enum {
-  ACTION_NONE,
-  ACTION_NAVIGATION,
-  ACTION_WAYPOINT,
-  ACTION_THROUGH_POSE,
-} ACTION_TYPE;
+#include "std_msgs/msg/int32.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
 
-namespace CARPO_NAVIGATION {
+enum ActionType
+{
+  kActionNone,
+  kActionNavigation,
+  kActionWayPoint,
+  kActionThroughPose,
+};
+
+enum class ActionExecStage : uint8_t
+{
+  kExecuting,
+  kSuccess,
+  kFailed,
+};
+
+enum class RelocStatus : int32_t
+{
+  kIdle = -1,
+  kSuccess = 0,
+  kRetrying = 100,
+  kFailed = 200
+};
+
+namespace carpo_navigation
+{
 using std::placeholders::_1;
 using std::placeholders::_2;
-class NavigationCore : public rclcpp::Node {
- public:
+class NavigationCore : public rclcpp::Node
+{
+public:
   using NavigationGoalHandle =
-      rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
   using WaypointFollowerGoalHandle =
-      rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
   using NavThroughPosesGoalHandle =
-      rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
 
   using GoalStatus = action_msgs::msg::GoalStatus;
   using Navigation = protocol::action::Navigation;
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
-  using TRIGGERT = std_srvs::srv::SetBool;
+  using TriggerT = std_srvs::srv::SetBool;
   NavigationCore();
   ~NavigationCore() = default;
 
- public:
-  void onInitialize();
+public:
+  void OnInitialize();
 
   // start a2b navigation
-  uint8_t startNavigation(geometry_msgs::msg::PoseStamped pose);
+  uint8_t StartNavigation(geometry_msgs::msg::PoseStamped pose);
 
   // cancel a navigation request
-  void onCancel();
+  void OnCancel();
 
   // way point following
-  uint8_t startWaypointFollowing(
-      std::vector<geometry_msgs::msg::PoseStamped> poses);
+  uint8_t StartWaypointFollowing(
+    std::vector<geometry_msgs::msg::PoseStamped> poses);
 
   // start through poses
-  uint8_t startNavThroughPoses(
-      std::vector<geometry_msgs::msg::PoseStamped> poses);
+  uint8_t StartNavThroughPoses(
+    std::vector<geometry_msgs::msg::PoseStamped> poses);
 
   // get current navstatus.
-  void getCurrentNavStatus();
+  void GetCurrentNavStatus();
+  void GetCurrentLocStatus();
 
   // mapping
-  uint8_t handleMapping(bool start);
+  uint8_t HandleMapping(bool start);
+  ActionExecStage HandleLocalization(bool start);
 
- private:
+private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
-      navigation_action_client_;
+    navigation_action_client_;
   rclcpp_action::Client<nav2_msgs::action::FollowWaypoints>::SharedPtr
-      waypoint_follower_action_client_;
+    waypoint_follower_action_client_;
   rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SharedPtr
-      nav_through_poses_action_client_;
+    nav_through_poses_action_client_;
+
+  rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr reloc_sub_;
 
   // Navigation action feedback subscribers
   rclcpp::Subscription<
-      nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage>::SharedPtr
-      navigation_feedback_sub_;
+    nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage>::SharedPtr
+    navigation_feedback_sub_;
 
   rclcpp::Subscription<
-      nav2_msgs::action::NavigateThroughPoses::Impl::FeedbackMessage>::SharedPtr
-      nav_through_poses_feedback_sub_;
+    nav2_msgs::action::NavigateThroughPoses::Impl::FeedbackMessage>::SharedPtr
+    nav_through_poses_feedback_sub_;
 
   rclcpp::Subscription<
-      nav2_msgs::action::NavigateToPose::Impl::GoalStatusMessage>::SharedPtr
-      navigation_goal_status_sub_;
+    nav2_msgs::action::NavigateToPose::Impl::GoalStatusMessage>::SharedPtr
+    navigation_goal_status_sub_;
 
   rclcpp::Subscription<
-      nav2_msgs::action::NavigateThroughPoses::Impl::GoalStatusMessage>::
-      SharedPtr nav_through_poses_goal_status_sub_;
+    nav2_msgs::action::NavigateThroughPoses::Impl::GoalStatusMessage>::
+  SharedPtr nav_through_poses_goal_status_sub_;
 
   // Goal-related state
   nav2_msgs::action::NavigateToPose::Goal navigation_goal_;
@@ -120,42 +145,74 @@ class NavigationCore : public rclcpp::Node {
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_data_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_mapping;
+  // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
+  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
   rclcpp::TimerBase::SharedPtr nav_timer_;
+  rclcpp::TimerBase::SharedPtr loc_timer_;
   rclcpp::TimerBase::SharedPtr waypoint_follow_timer_;
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
-  ACTION_TYPE action_type_;
-  void getNavStatus(int& status, ACTION_TYPE& action_type);
+  ActionType action_type_;
+  void GetNavStatus(int & status, ActionType & action_type);
+  void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
+  {
+    reloc_status_ = static_cast<RelocStatus>(msg->data);
+    INFO("%d", reloc_status_);
+    if(reloc_topic_waiting_) {
+      INFO("notify");
+      reloc_cv_.notify_one();
+      reloc_topic_waiting_ = false;
+    }
+  }
+  void ResetReloc()
+  {
+    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+    request->data = true;
+    if(!ServiceImpl(stop_loc_client_, request)) {
+      ERROR("Failed to cancel Reloc because stopping service failed");
+    }
+    if (client_loc_.is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+      if (!client_loc_.pause()) {
+        ERROR("Failed to cancel Reloc because pause failed");
+      }
+    }
+    reloc_status_ = RelocStatus::kIdle;
+  }
 
   rclcpp_action::Server<Navigation>::SharedPtr navigation_server_;
 
-  rclcpp_action::GoalResponse handle_navigation_goal(
-      const rclcpp_action::GoalUUID& uuid,
-      std::shared_ptr<const Navigation::Goal> goal);
+  rclcpp_action::GoalResponse HandleNavigationGoal(
+    const rclcpp_action::GoalUUID & uuid,
+    std::shared_ptr<const Navigation::Goal> goal);
 
-  rclcpp_action::CancelResponse handle_navigation_cancel(
-      const std::shared_ptr<GoalHandleNavigation> goal_handle);
+  rclcpp_action::CancelResponse HandleNavigationCancel(
+    const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
-  void handle_navigation_accepted(
-      const std::shared_ptr<GoalHandleNavigation> goal_handle);
+  void HandleNavigationAccepted(
+    const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
-  void follow_execute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
+  void FollowExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
-  void senResult();
+  void SenResult();
 
   rclcpp::Publisher<protocol::msg::FollowPoints>::SharedPtr points_pub_;
   rclcpp::Subscription<protocol::msg::FollowPoints>::SharedPtr
-      points_subscriber_;
-
-  void follwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
-  std_msgs::msg::Header returnHeader();
-  rclcpp::Client<TRIGGERT>::SharedPtr start_mapping_client_;
-  rclcpp::Client<TRIGGERT>::SharedPtr stop_mapping_client_;
+    points_subscriber_;
+  bool ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr,
+    const std_srvs::srv::SetBool_Request::SharedPtr);
+  void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
+  std_msgs::msg::Header ReturnHeader();
+  rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
+  rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
+  rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
+  RelocStatus reloc_status_{RelocStatus::kIdle};
+  std::mutex reloc_mutex_;
+  std::condition_variable reloc_cv_;
+  bool reloc_topic_waiting_{false};
 };
-}  // namespace CARPO_NAVIGATION
+}  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_

@@ -18,6 +18,7 @@ import os
 import sys
 
 import launch
+import subprocess
 import launch_ros.actions
 from ament_index_python.packages import get_package_prefix
 from ament_index_python.packages import get_package_share_directory
@@ -27,34 +28,41 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
-sys.path.append(os.path.join(get_package_share_directory('cyberdog_bringup'), 'bringup'))
-from manual import get_namespace
+from launch_ros.actions import LifecycleNode
+from launch_ros.actions import Node
 
 def generate_launch_description():
+
     namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup') 
-    nav2_launch_dir = os.path.join(nav2_dir, 'launch')
-    node_lists = [
-        'static_tf',
-        'vision_manager',
-        'camera_server',
-        'tracking',
-        'realsense',
-        'nav2_base',
-        'laser_mapping',
-        'laser_localization',
-        'lifecycle_mgr_localization',
-        'lifecycle_mgr_nav',
-        'lifecycle_mgr_mapping'
-        ]
-    lds = [IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
-        launch_arguments = {'namespace': namespace}.items()) for node in node_lists]
-    return launch.LaunchDescription(lds + [namespace_declare])
+    camera_share_dir = get_package_share_directory('laser_slam')
+    camera_localization_params_file = LaunchConfiguration('camera_localization_params_file')
+    camera_localization_params_file_declare = DeclareLaunchArgument(
+            name='camera_localization_params_file',
+            default_value=os.path.join(
+            camera_share_dir, 'param', 'localization.yaml'),
+            description='FPath to the ROS2 parameters file to use.')
+
+    camera_node_relocation_cmd = LifecycleNode(
+                                package='laser_slam',
+                                executable='localization',
+                                name='localization_node',
+                                output='screen',
+                                emulate_tty=True,
+                                #prefix=['xterm -e gdb  --args'],
+                                parameters=[camera_localization_params_file],
+                                namespace=namespace,
+                                )
+    # lds
+    ld = launch.LaunchDescription([
+        namespace_declare,
+        camera_localization_params_file_declare,
+        camera_node_relocation_cmd,
+    ])
+    return ld
 
 if __name__ == '__main__':
     generate_launch_description()
