@@ -47,7 +47,8 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNC
 
 install(TARGETS ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
-  )
+)
+
 # install(DIRECTORY data
 #  DESTINATION share/${PROJECT_NAME})
 # install(
@@ -68,7 +69,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# replaces catkin_package(LIBRARIES ${PROJECT_NAME}) 
+# replaces catkin_package(LIBRARIES ${PROJECT_NAME})
 ament_export_libraries(${PROJECT_NAME})
 
 ament_package()

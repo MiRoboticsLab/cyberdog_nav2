@@ -13,6 +13,9 @@
 // limitations under the License.
 
 #include <regex>
+#include <string>
+#include <vector>
+#include <memory>
 
 #include "map_label_server/label_store.hpp"
 
@@ -21,13 +24,12 @@ namespace cyberdog
 namespace navigation
 {
 
-const std::string kMapLabelDirectory = "/home/quan/Downloads/mapping/";
+const std::string kMapLabelDirectory = "/home/quan/Downloads/mapping/";   // NOLINT
 
 LabelStore::LabelStore()
- : map_label_directory_{kMapLabelDirectory}
+: map_label_directory_{kMapLabelDirectory}
 {
   // LoadLabels(map_label_directory_);
-
   Debug();
 }
 
@@ -57,7 +59,7 @@ void LabelStore::AddLabel(
 }
 
 bool LabelStore::CreateMapLabelFile(
-  const std::string & directory, 
+  const std::string & directory,
   const std::string & filename)
 {
   std::string label_filename = map_label_directory() + filename;
@@ -69,9 +71,9 @@ bool LabelStore::CreateMapLabelFile(
   ofs.open(label_filename.c_str(), std::ios::app);
 
   if (!ofs) {
-      std::cerr << "Could not open " << filename << "." << std::endl;
-      ERROR("Could not open %s.", label_filename);
-      return false;
+    std::cerr << "Could not open " << filename << "." << std::endl;
+    ERROR("Could not open %s.", label_filename);
+    return false;
   }
   ofs.close();
   return true;
@@ -119,7 +121,7 @@ bool LabelStore::LoadLabels(const std::string & directory)
     return false;
   }
 
-  std::regex file_suffix("(.*)(.json)");// *.json
+  std::regex file_suffix("(.*)(.json)");   // *.json
   filesystem::path path(directory);
   for (auto filename : filesystem::directory_iterator(path)) {
     if (std::regex_match(filename.path().c_str(), file_suffix)) {
@@ -146,14 +148,14 @@ void LabelStore::Read(
   rapidjson::Document document(rapidjson::kObjectType);
   common::CyberdogJson::ReadJsonFromFile(label_filename, document);
 
-  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) 
-  {
+  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     if (it->name.GetString() == "map_name" || it->value.IsString()) {
       continue;
     }
 
     INFO("----------------------------------------");
-    INFO("key = %s, x = %f, y = %f", it->name.GetString(), 
+    INFO(
+      "key = %s, x = %f, y = %f", it->name.GetString(),
       it->value["x"].GetFloat(), it->value["y"].GetFloat());
 
     auto label = std::make_shared<protocol::msg::Label>();

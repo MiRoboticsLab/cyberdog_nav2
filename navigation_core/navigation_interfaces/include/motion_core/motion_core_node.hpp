@@ -164,6 +164,7 @@ private:
       reloc_topic_waiting_ = false;
     }
   }
+  
   void ResetReloc()
   {
     auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
