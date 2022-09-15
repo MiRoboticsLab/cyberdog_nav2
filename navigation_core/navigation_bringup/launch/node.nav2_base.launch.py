@@ -43,6 +43,10 @@ def generate_launch_description():
     package_dir = get_package_share_directory('mcr_bringup')
     remappings = [('/tf', 'tf'),
                   ('/tf_static', 'tf_static')]
+    map_file = LaunchConfiguration(
+        'map_file',
+        default=os.path.join('/home/mi/mapping/', 'map.yaml')
+    )
     params_file = LaunchConfiguration(
         'params_file',
         default=os.path.join(
@@ -118,12 +122,21 @@ def generate_launch_description():
             parameters=[{configured_params},{configured_params_f}],
             remappings=remappings
             )
+    map_server_cmd = Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='map_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[{'yaml_filename': map_file}],
+            remappings=remappings)
     ld = launch.LaunchDescription([
         namespace_declare,
         controller_cmd,
         planner_cmd,
         recoveries_cmd,
-        bt_navigator_cmd
+        bt_navigator_cmd,
+        map_server_cmd
     ])
     return ld
 
