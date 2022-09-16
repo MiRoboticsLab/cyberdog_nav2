@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <algorithm>
 
 #include "nav2_core/exceptions.hpp"
 #include "nav2_util/geometry_utils.hpp"
@@ -31,27 +32,29 @@
 #include "rclcpp/create_service.hpp"
 using namespace std::chrono_literals;
 
-#define param_float(a, b, c)         \
+#define param_float(a, b, c) \
   this->declare_parameter((a), (c)); \
   (b) = get_parameter(a).as_double();
 
-#define param_bool(a, b, c)          \
+#define param_bool(a, b, c) \
   this->declare_parameter((a), (c)); \
   (b) = get_parameter(a).as_bool();
 
-#define param_string(a, b, c)        \
+#define param_string(a, b, c) \
   this->declare_parameter((a), (c)); \
   (b) = get_parameter(a).as_string();
 
-#define param_int(a, b, c)           \
+#define param_int(a, b, c) \
   this->declare_parameter((a), (c)); \
   (b) = get_parameter(a).as_int();
 
-namespace cyberdog_controller {
+namespace cyberdog_controller
+{
 
 TrajectoryChecker::TrajectoryChecker()
-    : LifecycleNode("cyberdog_controller_server", "", true),
-      server_timeout_(20) {
+: LifecycleNode("cyberdog_controller_server", "", true),
+  server_timeout_(20)
+{
   RCLCPP_INFO(get_logger(), "Creating controller server");
 
   param_float("controller_frequency", controller_frequency_, 1000.0);
@@ -62,26 +65,29 @@ TrajectoryChecker::TrajectoryChecker()
   param_float("rotational_collision_speed", collision_rot_speed_, 0.0);
   declare_parameter("min_x_velocity_threshold", rclcpp::ParameterValue(0.0001));
   declare_parameter("min_y_velocity_threshold", rclcpp::ParameterValue(0.0001));
-  declare_parameter("min_theta_velocity_threshold",
-                    rclcpp::ParameterValue(0.0001));
+  declare_parameter(
+    "min_theta_velocity_threshold",
+    rclcpp::ParameterValue(0.0001));
   // The costmap node is used in the implementation of the controller
   costmap_ros_ = std::make_shared<nav2_costmap_2d::Costmap2DROS>(
-      "local_costmap", std::string{get_namespace()}, "local_costmap");
+    "local_costmap", std::string{get_namespace()}, "local_costmap");
 
   // Launch a thread to run the costmap node
   costmap_thread_ = std::make_unique<nav2_util::NodeThread>(costmap_ros_);
   auto options = rclcpp::NodeOptions().arguments(
-      {"--ros-args --remap __node:=navigation_dialog_action_client"});
+    {"--ros-args --remap __node:=navigation_dialog_action_client"});
   client_node_ = std::make_shared<rclcpp::Node>("_", options);
   navigation_action_client_ =
-      rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
-          client_node_, "navigate_to_pose");
+    rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
+    client_node_, "navigate_to_pose");
 }
 
-bool TrajectoryChecker::poseValid(const geometry_msgs::msg::PoseStamped &pose) {
+bool TrajectoryChecker::poseValid(const geometry_msgs::msg::PoseStamped & pose)
+{
   unsigned int cell_x, cell_y;
   if (!costmap_ros_->getCostmap()->worldToMap(
-          pose.pose.position.x, pose.pose.position.y, cell_x, cell_y)) {
+      pose.pose.position.x, pose.pose.position.y, cell_x, cell_y))
+  {
     RCLCPP_ERROR(get_logger(), "Trajectory Goes Off Grid.");
     return false;
   }
@@ -94,14 +100,17 @@ bool TrajectoryChecker::poseValid(const geometry_msgs::msg::PoseStamped &pose) {
   return true;
 }
 
-bool TrajectoryChecker::isValidCost(const unsigned char cost) {
+bool TrajectoryChecker::isValidCost(const unsigned char cost)
+{
   return cost != nav2_costmap_2d::LETHAL_OBSTACLE &&
          cost != nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE &&
          cost != nav2_costmap_2d::NO_INFORMATION;
 }
 
-bool TrajectoryChecker::calcualteGoal(double vx, double vy,
-                                      geometry_msgs::msg::PoseStamped &pose) {
+bool TrajectoryChecker::calcualteGoal(
+  double vx, double vy,
+  geometry_msgs::msg::PoseStamped & pose)
+{
   // get current pose.
   if (getRobotPose(pose)) {
     geometry_msgs::msg::PoseStamped tmp_pose;
@@ -121,31 +130,36 @@ bool TrajectoryChecker::calcualteGoal(double vx, double vy,
 
   return false;
 }
-bool TrajectoryChecker::isGoalSent() {
+bool TrajectoryChecker::isGoalSent()
+{
   if (!navigation_goal_handle_) {
     RCLCPP_ERROR(get_logger(), "no goal processing ");
     return false;
   }
   auto status = navigation_goal_handle_->get_status();
   if (status == GoalStatus::STATUS_ACCEPTED ||
-      status == GoalStatus::STATUS_EXECUTING) {
+    status == GoalStatus::STATUS_EXECUTING)
+  {
     RCLCPP_ERROR(get_logger(), "goal is sent ");
     return true;
   }
   return false;
 }
-bool TrajectoryChecker::cancleGoal() {
+bool TrajectoryChecker::cancleGoal()
+{
   if (!navigation_goal_handle_) {
     RCLCPP_INFO(get_logger(), "nothing to cancel");
     return false;
   }
   if (navigation_goal_handle_) {
     auto future_cancel =
-        navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
+      navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(client_node_, future_cancel,
-                                           server_timeout_) !=
-        rclcpp::FutureReturnCode::SUCCESS) {
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
       RCLCPP_ERROR(get_logger(), "Failed to cancel goal");
       return false;
     } else {
@@ -157,14 +171,16 @@ bool TrajectoryChecker::cancleGoal() {
   return true;
 }
 
-bool TrajectoryChecker::startNavigation(geometry_msgs::msg::PoseStamped pose) {
+bool TrajectoryChecker::startNavigation(geometry_msgs::msg::PoseStamped pose)
+{
   auto is_action_server_ready =
-      navigation_action_client_->wait_for_action_server(
-          std::chrono::seconds(5));
+    navigation_action_client_->wait_for_action_server(
+    std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    RCLCPP_ERROR(get_logger(),
-                 "navigate_to_pose action server is not available."
-                 " Is the initial pose set?");
+    RCLCPP_ERROR(
+      get_logger(),
+      "navigate_to_pose action server is not available."
+      " Is the initial pose set?");
     return false;
   }
 
@@ -172,25 +188,28 @@ bool TrajectoryChecker::startNavigation(geometry_msgs::msg::PoseStamped pose) {
   nav2_msgs::action::NavigateToPose::Goal navigation_goal_;
   navigation_goal_.pose = pose;
 
-  RCLCPP_INFO(get_logger(),
-              "NavigateToPose will be called using the BT Navigator's default "
-              "behavior tree.");
+  RCLCPP_INFO(
+    get_logger(),
+    "NavigateToPose will be called using the BT Navigator's default "
+    "behavior tree.");
 
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
-      nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+    nav2_msgs::action::NavigateToPose>::SendGoalOptions();
 
   send_goal_options.result_callback = [this](auto) {
-    RCLCPP_ERROR(get_logger(), "Get navigate to poses result");
-    navigation_goal_handle_.reset();
-  };
+      RCLCPP_ERROR(get_logger(), "Get navigate to poses result");
+      navigation_goal_handle_.reset();
+    };
 
   auto future_goal_handle = navigation_action_client_->async_send_goal(
-      navigation_goal_, send_goal_options);
+    navigation_goal_, send_goal_options);
 
-  if (rclcpp::spin_until_future_complete(client_node_, future_goal_handle,
-                                         server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS) {
+  if (rclcpp::spin_until_future_complete(
+      client_node_, future_goal_handle,
+      server_timeout_) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
     RCLCPP_ERROR(get_logger(), "Send goal call failed");
     return false;
   }
@@ -205,9 +224,10 @@ bool TrajectoryChecker::startNavigation(geometry_msgs::msg::PoseStamped pose) {
   return true;
 }
 
-TrajectoryChecker::~TrajectoryChecker() { costmap_thread_.reset(); }
+TrajectoryChecker::~TrajectoryChecker() {costmap_thread_.reset();}
 
-void TrajectoryChecker::controlLoop() {
+void TrajectoryChecker::controlLoop()
+{
   rclcpp::Rate r(controller_frequency_);
 
   while (rclcpp::ok()) {
@@ -239,8 +259,8 @@ void TrajectoryChecker::controlLoop() {
       continue;
     }
 
-    double dth = (theta_range_) / double(num_th_samples_);
-    double dx = desired_vel[0] / double(num_x_samples_);
+    double dth = (theta_range_) / double(num_th_samples_);   // NOLINT
+    double dx = desired_vel[0] / double(num_x_samples_);     // NOLINT
     double start_th = desired_vel[2] - theta_range_ / 2.0;
 
     Eigen::Vector3f best = Eigen::Vector3f::Zero();
@@ -261,7 +281,7 @@ void TrajectoryChecker::controlLoop() {
           // distance to our desired velocity
           Eigen::Vector3f diffs = (desired_vel - check_vel);
           double sq_dist =
-              diffs[0] * diffs[0] + diffs[1] * diffs[1] + diffs[2] * diffs[2];
+            diffs[0] * diffs[0] + diffs[1] * diffs[1] + diffs[2] * diffs[2];
 
           // if we have a trajectory that is better than our best one so
           // far, we'll take it
@@ -273,42 +293,49 @@ void TrajectoryChecker::controlLoop() {
         }
       }
     }
-    RCLCPP_ERROR(get_logger(), "trajectory_found : ------- %d",
-                 trajectory_found);
+    RCLCPP_ERROR(
+      get_logger(), "trajectory_found : ------- %d",
+      trajectory_found);
     // check if best is still zero, if it is... scale the original
     // trajectory based on the collision_speed requested but we only need to
     // do this if the user has set a non-zero collision speed
     if (!trajectory_found &&
-        (collision_trans_speed_ > 0.0 || collision_rot_speed_ > 0.0)) {
+      (collision_trans_speed_ > 0.0 || collision_rot_speed_ > 0.0))
+    {
       double trans_scaling_factor = 0.0;
       double rot_scaling_factor = 0.0;
       double scaling_factor = 0.0;
 
-      if (fabs(desired_vel[0]) > 0 && fabs(desired_vel[1]) > 0)
+      if (fabs(desired_vel[0]) > 0 && fabs(desired_vel[1]) > 0) {
         trans_scaling_factor =
-            std::min(collision_trans_speed_ / fabs(desired_vel[0]),
-                     collision_trans_speed_ / fabs(desired_vel[1]));
-      else if (fabs(desired_vel[0]) > 0)
+          std::min(
+          collision_trans_speed_ / fabs(desired_vel[0]),
+          collision_trans_speed_ / fabs(desired_vel[1]));
+      } else if (fabs(desired_vel[0]) > 0) {
         trans_scaling_factor = collision_trans_speed_ / (fabs(desired_vel[0]));
-      else if (fabs(desired_vel[1]) > 0)
+      } else if (fabs(desired_vel[1]) > 0) {
         trans_scaling_factor = collision_trans_speed_ / (fabs(desired_vel[1]));
+      }
 
-      if (fabs(desired_vel[2]) > 0)
+      if (fabs(desired_vel[2]) > 0) {
         rot_scaling_factor = collision_rot_speed_ / (fabs(desired_vel[2]));
+      }
 
-      if (collision_trans_speed_ > 0.0 && collision_rot_speed_ > 0.0)
+      if (collision_trans_speed_ > 0.0 && collision_rot_speed_ > 0.0) {
         scaling_factor = std::min(trans_scaling_factor, rot_scaling_factor);
-      else if (collision_trans_speed_ > 0.0)
+      } else if (collision_trans_speed_ > 0.0) {
         scaling_factor = trans_scaling_factor;
-      else if (collision_rot_speed_ > 0.0)
+      } else if (collision_rot_speed_ > 0.0) {
         scaling_factor = rot_scaling_factor;
+      }
 
       // apply the scaling factor
       best = scaling_factor * best;
     }
 #ifdef USE_NAV_FOR_AVOIDANCE
-    RCLCPP_INFO(get_logger(), "vx, vy: pose:(%f,%f)", desired_vel[0],
-                desired_vel[1]);
+    RCLCPP_INFO(
+      get_logger(), "vx, vy: pose:(%f,%f)", desired_vel[0],
+      desired_vel[1]);
 
     if (!trajectory_found && ((desired_vel[0] != 0) || (desired_vel[1] != 0))) {
       if (!isGoalSent()) {
@@ -316,9 +343,10 @@ void TrajectoryChecker::controlLoop() {
         if (calcualteGoal(desired_vel[0], desired_vel[1], goal_pose)) {
           goal_pose.header.frame_id = costmap_ros_->getBaseFrameID();
           goal_pose.header.stamp = now();
-          RCLCPP_ERROR(get_logger(),
-                       "switch navigation mode, target pose:(%f,%f)",
-                       goal_pose.pose.position.x, goal_pose.pose.position.y);
+          RCLCPP_ERROR(
+            get_logger(),
+            "switch navigation mode, target pose:(%f,%f)",
+            goal_pose.pose.position.x, goal_pose.pose.position.y);
           startNavigation(goal_pose);
         }
       }
@@ -342,7 +370,8 @@ void TrajectoryChecker::controlLoop() {
 }
 
 nav2_util::CallbackReturn TrajectoryChecker::on_configure(
-    const rclcpp_lifecycle::State &state) {
+  const rclcpp_lifecycle::State & state)
+{
   auto node = shared_from_this();
   get_parameter("min_x_velocity_threshold", min_x_velocity_threshold_);
   get_parameter("min_y_velocity_threshold", min_y_velocity_threshold_);
@@ -351,40 +380,45 @@ nav2_util::CallbackReturn TrajectoryChecker::on_configure(
   costmap_ros_->on_configure(state);
 
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>(
-      "cmd_vel_filter", rclcpp::SystemDefaultsQoS());
+    "cmd_vel_filter", rclcpp::SystemDefaultsQoS());
 
   cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", rclcpp::SystemDefaultsQoS(),
-      std::bind(&TrajectoryChecker::cmd_vell_callback, this,
-                std::placeholders::_1));
+    "cmd_vel", rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &TrajectoryChecker::cmd_vell_callback, this,
+      std::placeholders::_1));
 
   controller_ = std::make_unique<dwb_core::DWBLocalPlanner>();
-  controller_->configure(node, "FollowPath", costmap_ros_->getTfBuffer(),
-                         costmap_ros_);
+  controller_->configure(
+    node, "FollowPath", costmap_ros_->getTfBuffer(),
+    costmap_ros_);
   odom_sub_ = std::make_unique<nav_2d_utils::OdomSubscriber>(node);
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 void TrajectoryChecker::cmd_vell_callback(
-    const geometry_msgs::msg::Twist::SharedPtr msg) {
+  const geometry_msgs::msg::Twist::SharedPtr msg)
+{
   std::lock_guard<std::mutex> lk(mut);
   cmd_vel_ = *msg;
 }
 nav2_util::CallbackReturn TrajectoryChecker::on_activate(
-    const rclcpp_lifecycle::State &state) {
+  const rclcpp_lifecycle::State & state)
+{
   RCLCPP_INFO(get_logger(), "Cyberdog controller Activating");
   costmap_ros_->on_activate(state);
   vel_publisher_->on_activate();
   controller_->activate();
   planning_thread_ =
-      std::make_shared<std::thread>(&TrajectoryChecker::controlLoop, this);
+    std::make_shared<std::thread>(&TrajectoryChecker::controlLoop, this);
   // create bond connection
   createBond();
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 nav2_util::CallbackReturn TrajectoryChecker::on_deactivate(
-    const rclcpp_lifecycle::State &state) {
+  const rclcpp_lifecycle::State & state)
+{
   RCLCPP_INFO(get_logger(), "Deactivating");
   auto node = shared_from_this();
   ControllerMap::iterator it;
@@ -398,7 +432,8 @@ nav2_util::CallbackReturn TrajectoryChecker::on_deactivate(
 }
 
 nav2_util::CallbackReturn TrajectoryChecker::on_cleanup(
-    const rclcpp_lifecycle::State &state) {
+  const rclcpp_lifecycle::State & state)
+{
   RCLCPP_INFO(get_logger(), "Cleaning up");
   costmap_ros_->on_cleanup(state);
 
@@ -407,11 +442,13 @@ nav2_util::CallbackReturn TrajectoryChecker::on_cleanup(
 }
 
 nav2_util::CallbackReturn TrajectoryChecker::on_shutdown(
-    const rclcpp_lifecycle::State &) {
+  const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(get_logger(), "Shutting down");
   return nav2_util::CallbackReturn::SUCCESS;
 }
-bool TrajectoryChecker::getRobotPose(geometry_msgs::msg::PoseStamped &pose) {
+bool TrajectoryChecker::getRobotPose(geometry_msgs::msg::PoseStamped & pose)
+{
   geometry_msgs::msg::PoseStamped current_pose;
   if (!costmap_ros_->getRobotPose(current_pose)) {
     return false;
@@ -420,29 +457,34 @@ bool TrajectoryChecker::getRobotPose(geometry_msgs::msg::PoseStamped &pose) {
   return true;
 }
 
-void TrajectoryChecker::setPlannerPath(const nav_msgs::msg::Path &path) {
+void TrajectoryChecker::setPlannerPath(const nav_msgs::msg::Path & path)
+{
   if (path.poses.empty()) {
     throw nav2_core::PlannerException("Invalid path, Path is empty.");
   }
   controller_->setPlan(path);
 }
 
-double getThresholdedVelocity(double velocity, double threshold) {
+double getThresholdedVelocity(double velocity, double threshold)
+{
   return (std::abs(velocity) > threshold) ? velocity : 0.0;
 }
 
 nav_2d_msgs::msg::Twist2D TrajectoryChecker::getThresholdedTwist(
-    const nav_2d_msgs::msg::Twist2D &twist) {
+  const nav_2d_msgs::msg::Twist2D & twist)
+{
   nav_2d_msgs::msg::Twist2D twist_thresh;
   twist_thresh.x = getThresholdedVelocity(twist.x, min_x_velocity_threshold_);
   twist_thresh.y = getThresholdedVelocity(twist.y, min_y_velocity_threshold_);
   twist_thresh.theta =
-      getThresholdedVelocity(twist.theta, min_theta_velocity_threshold_);
+    getThresholdedVelocity(twist.theta, min_theta_velocity_threshold_);
   return twist_thresh;
 }
 
-bool TrajectoryChecker::checkTrajectory(double vx_samp, double vy_samp,
-                                        double vtheta_samp, bool update_map) {
+bool TrajectoryChecker::checkTrajectory(
+  double vx_samp, double vy_samp,
+  double vtheta_samp, bool update_map)
+{
   geometry_msgs::msg::PoseStamped pose;
   if (getRobotPose(pose)) {
     if (update_map) {
@@ -461,13 +503,15 @@ bool TrajectoryChecker::checkTrajectory(double vx_samp, double vy_samp,
       setPlannerPath(path);
     }
     nav_2d_msgs::msg::Twist2D twist =
-        getThresholdedTwist(odom_sub_->getTwist());
-    return controller_->checkTrajectory(pose, twist, vx_samp, vy_samp,
-                                        vtheta_samp);
+      getThresholdedTwist(odom_sub_->getTwist());
+    return controller_->checkTrajectory(
+      pose, twist, vx_samp, vy_samp,
+      vtheta_samp);
   }
-  RCLCPP_WARN(get_logger(),
-              "Failed to get the pose of the robot. No trajectories will pass "
-              "as legal in this case.");
+  RCLCPP_WARN(
+    get_logger(),
+    "Failed to get the pose of the robot. No trajectories will pass "
+    "as legal in this case.");
   return false;
 }
 }  // namespace cyberdog_controller

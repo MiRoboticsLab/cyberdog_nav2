@@ -54,6 +54,7 @@ NavigationCore::NavigationCore()
     std::bind(&NavigationCore::HandleNavigationGoal, this, _1, _2),
     std::bind(&NavigationCore::HandleNavigationCancel, this, _1),
     std::bind(&NavigationCore::HandleNavigationAccepted, this, _1));
+
   callback_group_ =
     this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_mapping_client_ = create_client<TriggerT>(
@@ -179,6 +180,7 @@ void NavigationCore::FollowExecute(
         INFO("mapping request");
         uint8_t goal_result = HandleMapping(
           goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING);
+
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING .....");
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
@@ -337,6 +339,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = true;
   rclcpp::Client<TriggerT>::SharedPtr client;
+  
   if (start) {
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {

@@ -53,13 +53,13 @@ void signalHandler( int signum )
     // 终止程序  
   client->async_cancel_goal(goal_handle);
 
-   exit(signum);  
+  exit(signum);  
 
 }
 
 int main(int argc, char ** argv)
 {
-  signal(SIGINT, signalHandler);  
+  // signal(SIGINT, signalHandler);  
   rclcpp::init(argc, argv);
 
   if(!client->wait_for_action_server(std::chrono::seconds(1))) {

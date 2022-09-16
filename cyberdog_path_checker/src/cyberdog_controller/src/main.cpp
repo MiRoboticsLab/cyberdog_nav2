@@ -17,7 +17,8 @@
 #include "cyberdog_controller/cyberdog_trajectory_checker.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   auto node = std::make_shared<cyberdog_controller::TrajectoryChecker>();
   rclcpp::spin(node->get_node_base_interface());

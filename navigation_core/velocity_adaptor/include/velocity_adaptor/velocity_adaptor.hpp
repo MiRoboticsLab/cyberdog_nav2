@@ -1,5 +1,19 @@
-#ifndef VELOCITY_ADAPTOR_VELOCITY_ADAPTOR_HPP
-#define VELOCITY_ADAPTOR_VELOCITY_ADAPTOR_HPP
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef VELOCITY_ADAPTOR__VELOCITY_ADAPTOR_HPP_
+#define VELOCITY_ADAPTOR__VELOCITY_ADAPTOR_HPP_
 
 #include <functional>
 #include <memory>
@@ -15,28 +29,30 @@
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
-namespace cyberdog {
+namespace cyberdog
+{
 
-namespace navigation {
+namespace navigation
+{
 
 class VelocityAdaptor : public ::rclcpp::Node
-{ 
- public:
-  explicit VelocityAdaptor();
+{
+public:
+  VelocityAdaptor();
   ~VelocityAdaptor();
 
 private:
   /**
    * @brief Receive Nav2 publish cmd_vel topic data
-   * 
-   * @param msg 
+   *
+   * @param msg
    */
   void HandleNavCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg);
 
   /**
-   * @brief 
-   * 
-   * @param msg 
+   * @brief
+   *
+   * @param msg
    */
   void PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg);
 
@@ -47,4 +63,4 @@ private:
 }  // namespace navigation
 }  // namespace cyberdog
 
-#endif  // VELOCITY_ADAPTOR_VELOCITY_ADAPTOR_HPP
+#endif  // VELOCITY_ADAPTOR__VELOCITY_ADAPTOR_HPP_

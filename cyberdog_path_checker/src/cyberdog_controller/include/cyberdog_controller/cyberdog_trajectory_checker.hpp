@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef cyberdog_controller__cyberdog_controller_HPP_
-#define cyberdog_controller__cyberdog_controller_HPP_
+#ifndef CYBERDOG_CONTROLLER__CYBERDOG_TRAJECTORY_CHECKER_HPP_
+#define CYBERDOG_CONTROLLER__CYBERDOG_TRAJECTORY_CHECKER_HPP_
 
 #include <memory>
 #include <string>
@@ -38,22 +38,24 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "tf2_ros/transform_listener.h"
-using namespace std::chrono_literals;
+using namespace std::chrono_literals;    // NOLINT
 using GoalStatus = action_msgs::msg::GoalStatus;
-namespace cyberdog_controller {
+namespace cyberdog_controller
+{
 /**
  * @class cyberdog_controller::TrajectoryChecker
  * @brief This class hosts variety of plugins of different algorithms to
  * complete control tasks from the exposed FollowPath action server.
  */
-class TrajectoryChecker : public nav2_util::LifecycleNode {
- public:
+class TrajectoryChecker : public nav2_util::LifecycleNode
+{
+public:
   using ControllerMap =
-      std::unordered_map<std::string, nav2_core::Controller::Ptr>;
+    std::unordered_map<std::string, nav2_core::Controller::Ptr>;
   using GoalCheckerMap =
-      std::unordered_map<std::string, nav2_core::GoalChecker::Ptr>;
+    std::unordered_map<std::string, nav2_core::GoalChecker::Ptr>;
   using NavigationGoalHandle =
-      rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
   /**
    * @brief Constructor for cyberdog_controller::TrajectoryChecker
    */
@@ -63,7 +65,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    */
   ~TrajectoryChecker();
 
- protected:
+protected:
   /**
    * @brief Configures controller parameters and member variables
    *
@@ -75,7 +77,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    * plugin
    */
   nav2_util::CallbackReturn on_configure(
-      const rclcpp_lifecycle::State& state) override;
+    const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Activates member variables
    *
@@ -85,7 +87,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    * @return Success or Failure
    */
   nav2_util::CallbackReturn on_activate(
-      const rclcpp_lifecycle::State& state) override;
+    const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Deactivates member variables
    *
@@ -95,7 +97,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    * @return Success or Failure
    */
   nav2_util::CallbackReturn on_deactivate(
-      const rclcpp_lifecycle::State& state) override;
+    const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Calls clean up states and resets member variables.
    *
@@ -105,14 +107,14 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    * @return Success or Failure
    */
   nav2_util::CallbackReturn on_cleanup(
-      const rclcpp_lifecycle::State& state) override;
+    const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Called when in Shutdown state
    * @param state LifeCycle Node's state
    * @return Success or Failure
    */
   nav2_util::CallbackReturn on_shutdown(
-      const rclcpp_lifecycle::State& state) override;
+    const rclcpp_lifecycle::State & state) override;
 
   using Action = nav2_msgs::action::FollowPath;
   using ActionServer = nav2_util::SimpleActionServer<Action>;
@@ -130,7 +132,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
    * @brief Calls velocity publisher to publish the velocity on "cmd_vel" topic
    * @param velocity Twist velocity to be published
    */
-  void publishVelocity(const geometry_msgs::msg::TwistStamped& velocity);
+  void publishVelocity(const geometry_msgs::msg::TwistStamped & velocity);
   /**
    * @brief Calls velocity publisher to publish zero velocity
    */
@@ -142,7 +144,7 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
 
   // Publishers and subscribers;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
-      vel_publisher_;
+    vel_publisher_;
   nav2_core::Controller::Ptr controller_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_sub_;
 
@@ -158,28 +160,30 @@ class TrajectoryChecker : public nav2_util::LifecycleNode {
   double min_x_velocity_threshold_;
   double min_y_velocity_threshold_;
   double min_theta_velocity_threshold_;
-  bool checkTrajectory(double vx_samp, double vy_samp, double vtheta_samp,
-                       bool update_map);
-  bool getRobotPose(geometry_msgs::msg::PoseStamped& pose);
-  void setPlannerPath(const nav_msgs::msg::Path& path);
+  bool checkTrajectory(
+    double vx_samp, double vy_samp, double vtheta_samp,
+    bool update_map);
+  bool getRobotPose(geometry_msgs::msg::PoseStamped & pose);
+  void setPlannerPath(const nav_msgs::msg::Path & path);
   nav_2d_msgs::msg::Twist2D getThresholdedTwist(
-      const nav_2d_msgs::msg::Twist2D& twist);
+    const nav_2d_msgs::msg::Twist2D & twist);
   std::unique_ptr<nav_2d_utils::OdomSubscriber> odom_sub_;
 
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
-      navigation_action_client_;
+    navigation_action_client_;
   rclcpp::Node::SharedPtr client_node_;
   bool startNavigation(geometry_msgs::msg::PoseStamped pose);
   NavigationGoalHandle::SharedPtr navigation_goal_handle_;
   std::chrono::milliseconds server_timeout_;
-  bool calcualteGoal(double vx, double vy,
-                     geometry_msgs::msg::PoseStamped& pose);
+  bool calcualteGoal(
+    double vx, double vy,
+    geometry_msgs::msg::PoseStamped & pose);
   bool cancleGoal();
   bool isGoalSent();
-  bool poseValid(const geometry_msgs::msg::PoseStamped& pose);
+  bool poseValid(const geometry_msgs::msg::PoseStamped & pose);
   bool isValidCost(const unsigned char cost);
 };
 
 }  // namespace cyberdog_controller
 
-#endif  // cyberdog_controller__cyberdog_controller_HPP_
+#endif  // CYBERDOG_CONTROLLER__CYBERDOG_TRAJECTORY_CHECKER_HPP_
