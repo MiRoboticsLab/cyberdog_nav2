@@ -1,5 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights
-// reserved.
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +23,7 @@
 #include "nav2_msgs/action/follow_waypoints.hpp"
 #include "nav2_msgs/action/navigate_through_poses.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
+#include "mcr_msgs/action/target_tracking.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "protocol/action/navigation.hpp"
 #include "protocol/msg/follow_points.hpp"
@@ -69,6 +69,8 @@ public:
     rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
   using NavThroughPosesGoalHandle =
     rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
+  using TargetTrackingGoalHandle =
+    rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
 
   using GoalStatus = action_msgs::msg::GoalStatus;
   using Navigation = protocol::action::Navigation;
@@ -82,6 +84,9 @@ public:
 
   // start a2b navigation
   uint8_t StartNavigation(geometry_msgs::msg::PoseStamped pose);
+
+  // start a2b navigation
+  uint8_t StartTracking(uint8_t relative_pos, float keep_distance);
 
   // cancel a navigation request
   void OnCancel();
@@ -109,7 +114,8 @@ private:
     waypoint_follower_action_client_;
   rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SharedPtr
     nav_through_poses_action_client_;
-
+  rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
+    target_tracking_action_client_;
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr reloc_sub_;
 
   // Navigation action feedback subscribers
@@ -133,6 +139,7 @@ private:
   nav2_msgs::action::NavigateToPose::Goal navigation_goal_;
   nav2_msgs::action::FollowWaypoints::Goal waypoint_follower_goal_;
   nav2_msgs::action::NavigateThroughPoses::Goal nav_through_poses_goal_;
+  mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
 
   rclcpp::Node::SharedPtr client_node_;
   std::chrono::milliseconds server_timeout_;
@@ -141,12 +148,14 @@ private:
   NavigationGoalHandle::SharedPtr navigation_goal_handle_;
   WaypointFollowerGoalHandle::SharedPtr waypoint_follower_goal_handle_;
   NavThroughPosesGoalHandle::SharedPtr nav_through_poses_goal_handle_;
+  TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
 
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
+  nav2_lifecycle_manager::LifecycleManagerClient client_mcr_uwb_;
   rclcpp::TimerBase::SharedPtr nav_timer_;
   rclcpp::TimerBase::SharedPtr loc_timer_;
   rclcpp::TimerBase::SharedPtr waypoint_follow_timer_;
@@ -157,19 +166,19 @@ private:
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
     reloc_status_ = static_cast<RelocStatus>(msg->data);
-    INFO("%d", reloc_status_);
-    if(reloc_topic_waiting_) {
+    INFO("%d", msg->data);
+    if (reloc_topic_waiting_) {
       INFO("notify");
       reloc_cv_.notify_one();
       reloc_topic_waiting_ = false;
     }
   }
-  
+
   void ResetReloc()
   {
     auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
     request->data = true;
-    if(!ServiceImpl(stop_loc_client_, request)) {
+    if (!ServiceImpl(stop_loc_client_, request)) {
       ERROR("Failed to cancel Reloc because stopping service failed");
     }
     if (client_loc_.is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
@@ -201,7 +210,8 @@ private:
   rclcpp::Publisher<protocol::msg::FollowPoints>::SharedPtr points_pub_;
   rclcpp::Subscription<protocol::msg::FollowPoints>::SharedPtr
     points_subscriber_;
-  bool ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr,
+  bool ServiceImpl(
+    const rclcpp::Client<TriggerT>::SharedPtr,
     const std_srvs::srv::SetBool_Request::SharedPtr);
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
