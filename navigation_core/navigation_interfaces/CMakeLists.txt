@@ -13,6 +13,7 @@ find_package(nav2_util REQUIRED)
 find_package(nav2_lifecycle_manager REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_map_server REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
@@ -21,6 +22,9 @@ find_package(protocol REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(cyberdog_common REQUIRED)
+find_package(mcr_msgs REQUIRED)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -28,10 +32,12 @@ add_compile_options(-g)
 set(dependencies
   rclcpp
   geometry_msgs
+  cyberdog_common
   nav2_util
   nav2_lifecycle_manager
   nav2_msgs
   nav_msgs
+  nav2_map_server
   rclcpp_lifecycle
   std_msgs
   builtin_interfaces
@@ -39,6 +45,7 @@ set(dependencies
   protocol
   rclcpp_action
   rclcpp_components
+  mcr_msgs
 )
 
 set(sources
@@ -50,6 +57,11 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
+add_executable(core_client test/motioncore_client.cpp)
+ament_target_dependencies(${PROJECT_NAME}
+  ${dependencies}
+)
+target_link_libraries(core_client ${PROJECT_NAME}_lib)
 
 set(library_name ${PROJECT_NAME}_lib)
 add_library(${library_name} SHARED
@@ -70,7 +82,7 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} core_client
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)

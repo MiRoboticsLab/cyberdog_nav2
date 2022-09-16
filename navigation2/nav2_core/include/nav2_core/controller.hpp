@@ -49,6 +49,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/transform_listener.h"
+#include "protocol/msg/motion_servo_cmd.hpp"
+#include "protocol/msg/motion_servo_response.hpp"
 
 namespace nav2_core {
 

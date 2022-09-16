@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Intel Corporation
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,12 @@
 
 #include <memory>
 
-#include "cyberdog_controller/cyberdog_trajectory_checker.hpp"
-#include "rclcpp/rclcpp.hpp"
+#include "velocity_adaptor/velocity_adaptor.hpp"
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<cyberdog_controller::TrajectoryChecker>();
-  rclcpp::spin(node->get_node_base_interface());
+  rclcpp::spin(std::make_shared<cyberdog::navigation::VelocityAdaptor>());
   rclcpp::shutdown();
-
   return 0;
 }
