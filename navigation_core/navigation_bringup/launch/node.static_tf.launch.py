@@ -47,7 +47,7 @@ def generate_launch_description():
                                 executable='static_transform_publisher',
                                 name='static_tf_pub_depth_optical',
                                 namespace=namespace,
-                                arguments=['0.275309', '0.025', '0.114282','-0.545621', '0.545621', '-0.4497752', '0.4497752','base_link','camera_depth_optical_frame'],
+                                arguments=['0.275309', '0.025', '0.114282','-0.545621', '0.545621', '-0.4497752', '0.4497752','base_link','camera_link'],
                                 )
     tf2_node_base_to_tof_left_head = Node(package='tf2_ros',
                                 executable='static_transform_publisher',
@@ -80,6 +80,53 @@ def generate_launch_description():
                                 namespace=namespace,
                                 arguments=['0', '0', '0','0', '0', '0', '1','map','odom'],
                                 )
+    # TODO：腿式里程计的位置
+    tf2_node_map_to_vodom = Node(package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_map_to_vodom',
+                                namespace=namespace,
+                                arguments=['0', '0', '0','0', '0', '0', '1','map','vodom'],
+                                )
+
+    tf2_node_base_to_uwb = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_base_to_uwb',
+                                namespace=namespace,
+                                arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'uwb'],
+                                )        
+    tf2_node_uwb_to_head = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_uwb_to_head_uwb',
+                                namespace=namespace,
+                                arguments=['0.2185', '0', '-0.00495', '0', '0', '0', 'uwb', 'head_uwb']
+                                )
+
+    tf2_node_uwb_to_head_tof = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_uwb_to_head_tof',
+                                namespace=namespace,
+                                arguments=['0.17', '0', '0.164', '3.14159', '0', '0', 'uwb', 'head_tof']
+                                )
+
+    tf2_node_uwb_to_rear = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_uwb_to_rear_uwb',
+                                namespace=namespace,
+                                arguments=['-0.023', '0.0845', '-0.00325', '1.5708', '0', '0', 'uwb', 'rear_uwb']
+                                )
+
+    tf2_node_uwb_to_rear_tof = Node(
+                                package='tf2_ros',
+                                executable='static_transform_publisher',
+                                name='static_tf_uwb_to_rear_tof',
+                                namespace=namespace,
+                                arguments=['-0.0235', '-0.0845', '-0.00325', '-1.5708', '0', '0', 'uwb', 'rear_tof']
+                                )
+
     # lds
     ld = launch.LaunchDescription([
         namespace_declare,
@@ -89,7 +136,13 @@ def generate_launch_description():
         tf2_node_base_to_tof_right_head,
         tf2_node_base_to_tof_left_rear,
         tf2_node_base_to_tof_right_rear,
-        # tf2_node_map_to_odom,
+        tf2_node_map_to_odom,
+        tf2_node_map_to_vodom,
+        tf2_node_base_to_uwb,
+        tf2_node_uwb_to_head,
+        tf2_node_uwb_to_head_tof,
+        tf2_node_uwb_to_rear,
+        tf2_node_uwb_to_rear_tof
     ])
     return ld
     

@@ -30,6 +30,8 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
+from launch.actions import GroupAction 
+from launch_ros.actions import PushRosNamespace
 
 def generate_launch_description():
     
@@ -42,10 +44,12 @@ def generate_launch_description():
     realsense_dir = FindPackageShare(package='realsense2_camera').find('realsense2_camera') 
     nav2_realsense_dir = os.path.join(realsense_dir, 'launch')
    
-    start_realsense_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'on_dog.py')),
-        launch_arguments={'camera_name': namespace}.items()
+    start_realsense_cmd = GroupAction([
+        PushRosNamespace(namespace=namespace),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'on_dog.py'))
         )   
+    ])
 
     ld = launch.LaunchDescription([
         namespace_declare,
