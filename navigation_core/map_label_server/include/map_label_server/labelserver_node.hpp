@@ -69,6 +69,17 @@ private:
 
   void PrintMapData();
 
+  bool LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid& map);
+
+  /** 
+   * @brief Delete  map that given the name
+   * 
+   * @param map_name 
+   * @return true 
+   * @return false 
+   */
+  bool DeleteMap(const std::string & map_name);
+
   std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV

@@ -74,7 +74,7 @@ NavigationCore::NavigationCore()
     "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::FollwPointCallback, this, _1));
   reloc_sub_ = create_subscription<std_msgs::msg::Int32>(
-    "laser_reloc_result",
+    "reloc_result",
     rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::HandleRelocCallback, this, _1));
 }
@@ -145,6 +145,7 @@ void NavigationCore::FollowExecute(
   const auto goal = goal_handle->get_goal();
   auto result = std::make_shared<Navigation::Result>();
   RCLCPP_INFO(this->get_logger(), "Executing goal: %d", goal->nav_type);
+
   switch (goal->nav_type) {
     case Navigation::Goal::NAVIGATION_TYPE_START_AB:
       {
@@ -154,6 +155,10 @@ void NavigationCore::FollowExecute(
           INFO("empty pose ");
           goal_handle->succeed(result);
         }
+      
+        INFO("Goal pose : [x = %f, y = %f]", 
+          goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
+
 
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
@@ -258,6 +263,7 @@ void NavigationCore::OnInitialize()
         // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel());
       }
     });
+
   nav_through_poses_goal_status_sub_ =
     this->create_subscription<action_msgs::msg::GoalStatusArray>(
     "navigate_through_poses/_action/status", rclcpp::SystemDefaultsQoS(),
@@ -278,9 +284,11 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
   // start navigation stack
   if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!client_nav_.startup()) {
+      WARN("navigation client startup failed.");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   }
+
   auto is_action_server_ready =
     navigation_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
@@ -295,6 +303,8 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
 
   // Send the goal pose
   navigation_goal_.pose = pose;
+  navigation_goal_.pose.header.frame_id = "map";
+  navigation_goal_.pose.pose.orientation.w = 1;
 
   INFO("NavigateToPose will be called using the BT Navigator's default behavior tree.");
 
@@ -319,6 +329,7 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
 
+  INFO("Send goal success.");
   // Get the goal handle and save so that we can check on completion in the
   // timer callback
   navigation_goal_handle_ = future_goal_handle.get();
@@ -613,11 +624,11 @@ void NavigationCore::GetCurrentNavStatus()
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
       nav_timer_->cancel();
+      nav_timer_->reset();
       SenResult();
     }
   }
 }
-
 
 void NavigationCore::GetCurrentLocStatus()
 {
@@ -625,7 +636,7 @@ void NavigationCore::GetCurrentLocStatus()
   while(rclcpp::ok()) {
     reloc_topic_waiting_ = true;
     std::unique_lock<std::mutex> lk(reloc_mutex_);
-    if(reloc_cv_.wait_for(lk, std::chrono::seconds(2)) == std::cv_status::timeout) {
+    if(reloc_cv_.wait_for(lk, std::chrono::seconds(5)) == std::cv_status::timeout) {
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED; 
       goal_handle_->abort(result);

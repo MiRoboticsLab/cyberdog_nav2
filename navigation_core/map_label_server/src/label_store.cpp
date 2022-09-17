@@ -24,7 +24,7 @@ namespace cyberdog
 namespace navigation
 {
 
-const std::string kMapLabelDirectory = "/home/quan/Downloads/mapping/";   // NOLINT
+const std::string kMapLabelDirectory = "/home/mi/mapping/";   // NOLINT
 
 LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
@@ -63,7 +63,9 @@ bool LabelStore::CreateMapLabelFile(
   const std::string & filename)
 {
   std::string label_filename = map_label_directory() + filename;
-  if (IsExist(label_filename)) {
+
+  if (filesystem::exists(filesystem::path(label_filename))) {
+    INFO("Current label file  %s is exist", label_filename.c_str());
     return false;
   }
 
@@ -87,8 +89,9 @@ bool LabelStore::DeleteMapLabelFile(const std::string & filename)
 
 bool LabelStore::IsExist(const std::string & filename)
 {
-  return filesystem::exists(
-    filesystem::path(map_label_directory() + filename));
+  std::string path = map_label_directory() + filename;
+  INFO("path : %s", path.c_str());
+  return filesystem::exists(filesystem::path(path));
 }
 
 std::string LabelStore::GetLabelsFilenameFromMap(const std::string & map_name)
@@ -161,6 +164,7 @@ void LabelStore::Read(
     auto label = std::make_shared<protocol::msg::Label>();
     label->set__physic_x(it->value["x"].GetFloat());
     label->set__physic_y(it->value["y"].GetFloat());
+    label->set__label_name(it->name.GetString());
     labels.emplace_back(*label.get());
   }
 }

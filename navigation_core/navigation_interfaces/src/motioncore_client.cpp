@@ -45,21 +45,8 @@ void feedback_callback(
 }
 
 
-void signalHandler( int signum )
-{
-  std::cout << "Interrupt signal (" << signum << ") received.\n";
-
-    // 清理并关闭
-    // 终止程序  
-  client->async_cancel_goal(goal_handle);
-
-  exit(signum);  
-
-}
-
 int main(int argc, char ** argv)
 {
-  // signal(SIGINT, signalHandler);  
   rclcpp::init(argc, argv);
 
   if(!client->wait_for_action_server(std::chrono::seconds(1))) {
