@@ -59,6 +59,12 @@ def generate_launch_description():
             os.path.join(package_dir, 'params'),
             'follow_params.yaml')
     )
+    auto_charings_file = LaunchConfiguration(
+        'auto_charing_file',
+        default=os.path.join(
+            os.path.join(package_dir, 'params'),
+            'auto_charging.yaml')
+        )
     default_target_tracking_bt_xml = LaunchConfiguration(
         'default_target_tracking_bt_xml',
         default=os.path.join(
@@ -86,13 +92,18 @@ def generate_launch_description():
             param_rewrites=param_substitutions,
             convert_types=True
             )
+    configured_params_a = RewrittenYaml(
+            source_file=auto_charings_file,
+            root_key=namespace,
+            param_rewrites=param_substitutions,
+            convert_types=True)
     controller_cmd = Node(
             package='mcr_controller',
             executable='controller_server',
             name='controller_server',
             namespace=namespace,
             output='screen',
-            parameters=[{configured_params},{configured_params_f}],
+            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
             remappings=remappings
             )
     planner_cmd = Node(
@@ -101,7 +112,7 @@ def generate_launch_description():
             name='planner_server',
             namespace=namespace,
             output='screen',
-            parameters=[{configured_params},{configured_params_f}],
+            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
             remappings=remappings
             )
     recoveries_cmd = Node(
@@ -110,7 +121,7 @@ def generate_launch_description():
             name='recoveries_server',
             namespace=namespace,
             output='screen',
-            parameters=[{configured_params},{configured_params_f}],
+            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
             remappings=remappings
             )
     bt_navigator_cmd = Node(
@@ -119,7 +130,7 @@ def generate_launch_description():
             name='bt_navigator',
             namespace=namespace,
             output='screen',
-            parameters=[{configured_params},{configured_params_f}],
+            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
             remappings=remappings
             )
     map_server_cmd = Node(
