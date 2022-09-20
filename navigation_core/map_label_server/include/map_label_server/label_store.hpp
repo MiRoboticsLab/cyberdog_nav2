@@ -19,7 +19,6 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
-#include <forward_list>
 
 #include "rclcpp/rclcpp.hpp"
 #include "cyberdog_common/cyberdog_json.hpp"
@@ -221,7 +220,6 @@ public:
   void Debug();
 
 private:
-
   struct Label
   {
     Label(const std::string & tag_, 
@@ -245,7 +243,9 @@ private:
     double quaternion_w = 1.0;
   };
 
-  using Labels = std::forward_list<Label>;
+  using Labels = std::vector<Label>;
+
+  Labels ToLabels(const std::vector<protocol::msg::Label> & protocol_labels);
 
   /**
    * @brief protocol::msg::Label convert to json format

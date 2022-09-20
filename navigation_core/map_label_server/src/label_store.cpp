@@ -29,7 +29,7 @@ const std::string kMapLabelDirectory = "/home/mi/mapping/";   // NOLINT
 LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
 {
-  // LoadLabels(map_label_directory_);
+  LoadLabels(map_label_directory_);
   Debug();
 }
 
@@ -195,8 +195,13 @@ bool LabelStore::LoadLabels(const std::string & directory)
   for (auto filename : filesystem::directory_iterator(path)) {
     if (std::regex_match(filename.path().c_str(), file_suffix)) {
       INFO("filename : %s", filename.path().c_str());
+
+      std::vector<protocol::msg::Label> labels;
+      Read(filename.path(), labels);
+      labels_table_.insert(std::make_pair(filename.path(), ToLabels(labels)));
     }
   }
+
   return true;
 }
 
@@ -207,7 +212,20 @@ void LabelStore::Write(const std::string & label_filename, const rapidjson::Docu
 
 bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
 {
+  auto it = labels_table_.find(label_filename);
+  if (it == labels_table_.end()) {
+    INFO("Can't find label filename : %s", label_filename.c_str());
+    return false;
+  }
 
+  auto &labels = labels_table_[label_filename];
+  for (std::size_t index = 0; index < labels.size(); ++index) {
+    if (labels[index].tag == label_name) {
+      labels.erase(labels.begin() + index);
+    }
+  }
+
+  return true;
 }
 
 void LabelStore::Read(
@@ -286,6 +304,24 @@ rapidjson::Document LabelStore::ToJson(const protocol::msg::Label::SharedPtr lab
   common::CyberdogJson::Add(label_json, "x", label->physic_x);
   common::CyberdogJson::Add(label_json, "y", label->physic_y);
   return label_json;
+}
+
+LabelStore::Labels LabelStore::ToLabels(const std::vector<protocol::msg::Label> & protocol_labels)
+{
+  LabelStore::Labels convert_labels;
+
+  for (const auto & label : protocol_labels) {
+    convert_labels.push_back(Label {
+      label.label_name,
+      label.physic_x,
+      label.physic_y,
+      0.0,
+      0.0, 
+      0.0, 
+      0.0
+    });
+  }
+  return convert_labels;
 }
 
 }   //  namespace navigation
