@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from cgi import parse_multipart
 import os
 import sys
+from tkinter.tix import Tree
 
 import launch
 import subprocess
@@ -46,6 +48,10 @@ def generate_launch_description():
             executable='odom_out_publisher',
             name='odom_out_publisher',
             namespace=namespace,
+            parameters=[{'odom_frame': LaunchConfiguration('odom_frame', default='odom'),
+                        'base_frame': LaunchConfiguration('base_frame', default='base_link_leg'),
+                        'map_frame': LaunchConfiguration('map_frame', default='map'),
+                        'tf_pub': LaunchConfiguration('tf_pub', default=True)}]
             )
     motion_manager_cmd = Node(
             package='motion_manager',
