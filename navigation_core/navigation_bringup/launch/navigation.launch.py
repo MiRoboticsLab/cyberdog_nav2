@@ -31,7 +31,7 @@ sys.path.append(os.path.join(get_package_share_directory('cyberdog_bringup'), 'b
 from manual import get_namespace
 
 def generate_launch_description():
-    namespace = LaunchConfiguration('namespace', default='')
+    namespace = LaunchConfiguration('namespace', default=get_namespace())
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
