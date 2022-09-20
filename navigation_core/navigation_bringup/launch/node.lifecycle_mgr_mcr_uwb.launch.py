@@ -45,6 +45,7 @@ def generate_launch_description():
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_mcr_uwb',
+            namespace=namespace,
             output='screen',
             parameters=[{'use_sim_time': False},
                         {'autostart': False},
