@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <forward_list>
 
 #include "rclcpp/rclcpp.hpp"
 #include "cyberdog_common/cyberdog_json.hpp"
@@ -69,7 +70,39 @@ public:
    * @param filename
    * @param label_name
    */
-  void DeleteLabel(const std::string & filename, const std::string & label_name);
+   void DeleteLabel(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc);
+
+  /**
+   * @brief change map's label
+   *
+   * @param filename
+   * @param label_name
+   * @param new_label_name
+   * @param label
+   */
+  void ChangeLable(
+    const std::string & old_label_name,
+    const std::string & new_label_name,
+    const protocol::msg::Label::SharedPtr & new_label,
+     rapidjson::Document & existed_doc);
+
+
+  /**
+   * @brief Check map's label exist
+   * 
+   * @param filename 
+   * @param label_name 
+   * @param existed_doc 
+   * @return true 
+   * @return false 
+   */
+  bool IsLabelExist(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc);
 
   /**
    * @brief Check map's label exist
@@ -164,6 +197,16 @@ public:
   void Write(const std::string & label_filename, const rapidjson::Document & doc);
 
   /**
+   * @brief Remove label
+   * 
+   * @param label_filename 
+   * @param label_name 
+   * @return true 
+   * @return false 
+   */
+  bool RemoveLabel(const std::string & label_filename, const std::string & label_name);
+
+  /**
    * @brief Read label from json filename
    *
    * @param label_filename
@@ -178,6 +221,32 @@ public:
   void Debug();
 
 private:
+
+  struct Label
+  {
+    Label(const std::string & tag_, 
+          double position_x_, double position_y_,
+          double quaternion_x_, double quaternion_y_, double quaternion_z_, double quaternion_w_)
+    : tag {tag_},
+      position_x{position_x_},
+      position_y{position_y_},
+      quaternion_x{quaternion_x_},
+      quaternion_y{quaternion_y_},
+      quaternion_z{quaternion_z_},
+      quaternion_w{quaternion_w_}
+    {}
+
+    std::string tag;
+    double position_x = 0.0;
+    double position_y = 0.0;
+    double quaternion_x = 0.0;
+    double quaternion_y = 0.0;
+    double quaternion_z = 0.0;
+    double quaternion_w = 1.0;
+  };
+
+  using Labels = std::forward_list<Label>;
+
   /**
    * @brief protocol::msg::Label convert to json format
    *
@@ -187,6 +256,10 @@ private:
   rapidjson::Document ToJson(const protocol::msg::Label::SharedPtr label);
 
   std::unordered_map<std::string, std::string> labels_name_;
+
+  // key: map's name
+  // value: labels
+  std::unordered_map<std::string, Labels> labels_table_;
   std::string map_label_directory_;
 };
 }   //  namespace navigation

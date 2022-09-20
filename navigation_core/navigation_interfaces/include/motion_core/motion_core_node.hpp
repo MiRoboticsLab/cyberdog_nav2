@@ -32,6 +32,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "motion_core/realsense_lifecycle_manager.hpp"
 
 enum ActionType
 {
@@ -74,6 +75,8 @@ public:
   using Navigation = protocol::action::Navigation;
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
   using TriggerT = std_srvs::srv::SetBool;
+  using RealSenseClient = RealSenseLifecycleServiceClient;
+
   NavigationCore();
   ~NavigationCore() = default;
 
@@ -145,6 +148,8 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
+  std::unique_ptr<RealSenseClient> client_realsense_{nullptr};
+
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
   rclcpp::TimerBase::SharedPtr nav_timer_;
@@ -205,6 +210,7 @@ private:
     const std_srvs::srv::SetBool_Request::SharedPtr);
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
+
   rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;

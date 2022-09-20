@@ -41,7 +41,7 @@ void feedback_callback(
   rclcpp_action::ClientGoalHandle<protocol::action::Navigation>::SharedPtr,
   const std::shared_ptr<const protocol::action::Navigation_Feedback> feedback)
 {
-  std::cout << feedback->status << std::endl;
+  std::cout << feedback->feedback_code << std::endl;
 }
 
 

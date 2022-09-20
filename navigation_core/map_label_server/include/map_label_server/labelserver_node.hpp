@@ -72,13 +72,13 @@ private:
   bool LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid& map);
 
   /** 
-   * @brief Delete  map that given the name
-   * 
-   * @param map_name 
-   * @return true 
-   * @return false 
+   * @brief Delete map that given the name
+   *
+   * @param map_name Map's name
+   * @return true Remove map success
+   * @return false Remove map failed
    */
-  bool DeleteMap(const std::string & map_name);
+  bool RemoveMap(const std::string & map_name);
 
   std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
 };

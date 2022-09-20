@@ -48,6 +48,9 @@ NavigationCore::NavigationCore()
   navigation_goal_ = nav2_msgs::action::NavigateToPose::Goal();
   waypoint_follower_goal_ = nav2_msgs::action::FollowWaypoints::Goal();
   nav_through_poses_goal_ = nav2_msgs::action::NavigateThroughPoses::Goal();
+  // client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
+  // client_realsense_->init();
+
 
   navigation_server_ = rclcpp_action::create_server<Navigation>(
     this, "CyberdogNavigation",
@@ -158,7 +161,6 @@ void NavigationCore::FollowExecute(
       
         INFO("Goal pose : [x = %f, y = %f]", 
           goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
-
 
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
@@ -352,12 +354,19 @@ uint8_t NavigationCore::HandleMapping(bool start)
   rclcpp::Client<TriggerT>::SharedPtr client;
   
   if (start) {
+    // real sense
+    // if (!client_realsense_->Startup()) {
+    //   ERROR("Realsense lifecycle start failed");
+    //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    // }
+
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {
         ERROR("Lifecycle start failed");
         return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       }
     }
+
     client = start_mapping_client_;
     if(!ServiceImpl(client, request)) {
       ERROR("Service failed");
@@ -377,6 +386,11 @@ uint8_t NavigationCore::HandleMapping(bool start)
       ERROR("Lifecycle pause failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
+
+    // if (!client_realsense_->Pause()) {
+    //   ERROR("Realsense lifecycle pause failed");
+    //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    // }
   }
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
@@ -388,12 +402,19 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
   request->data = true;
   rclcpp::Client<TriggerT>::SharedPtr client;
   if (start) {
+    // real sense
+    // if (!client_realsense_->Startup()) {
+    //   ERROR("Realsense lifecycle start failed");
+    //   return ActionExecStage::kFailed;
+    // }
+
     if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_loc_.startup()) {
-        ERROR("Lifecycle start failed");
+        ERROR("Localization lifecycle start failed");
         return ActionExecStage::kFailed;
       }
     }
+
     client = start_loc_client_;
     if(!ServiceImpl(client, request)) {
       ERROR("Service failed");
@@ -406,15 +427,24 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
       INFO("Failed to stop mapping because node not active");
       return ActionExecStage::kFailed;
     }
+
     client = stop_loc_client_;
     if(!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return ActionExecStage::kFailed;
     }
+
     if (!client_loc_.pause()) {
-      ERROR("Lifecycle pause failed");
+      ERROR("Localization lifecycle pause failed");
       return ActionExecStage::kFailed;
     }
+
+    // if (!client_realsense_->Pause()) {
+    //   ERROR("Realsense lifecycle pause failed");
+    //   return ActionExecStage::kFailed;
+    // }
+
+    INFO("Localization success.");
     reloc_status_ = RelocStatus::kIdle;
     return ActionExecStage::kSuccess;
   }
@@ -617,7 +647,7 @@ void NavigationCore::GetCurrentNavStatus()
     if (status_ == GoalStatus::STATUS_ACCEPTED ||
       status_ == GoalStatus::STATUS_EXECUTING)
     {
-      feedback->status = 1;
+      feedback->feedback_code = Navigation::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB;
       goal_handle_->publish_feedback(feedback);
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
     } else {
@@ -653,14 +683,14 @@ void NavigationCore::GetCurrentLocStatus()
     }
     static auto feedback = std::make_shared<Navigation::Feedback>();
     if (reloc_status_ == RelocStatus::kRetrying) {
-      feedback->reloc = static_cast<int32_t>(reloc_status_);
+      feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       goal_handle_->publish_feedback(feedback);
       INFO("feeding back");
       // std::this_thread::sleep_for(std::chrono::milliseconds(20));
       continue;
     }
     if(reloc_status_ == RelocStatus::kFailed) {
-      feedback->reloc = static_cast<int32_t>(reloc_status_);
+      feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       goal_handle_->abort(result);

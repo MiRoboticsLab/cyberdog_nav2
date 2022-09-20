@@ -48,7 +48,9 @@ set(dependencies
 
 set(sources
   src/motion_core_node.cpp
+  src/realsense_lifecycle_manager.cpp
 )
+
 add_executable(${PROJECT_NAME} src/motioncore.cpp)
 ament_target_dependencies(${PROJECT_NAME}
   ${dependencies}

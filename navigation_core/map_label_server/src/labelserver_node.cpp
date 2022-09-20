@@ -120,6 +120,21 @@ void LabelServer::handle_set_label(
     return;
   }
   
+  // remove map and label tag
+  if (request->only_delete && request->label.labels.size() == 0) {
+    INFO("Remove map : %s", request->label.map_name.c_str());
+    RemoveMap(map_filename);
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  } 
+
+  // remove label
+  if (request->only_delete && request->label.labels.size()) {
+    // TODO
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
   std::string label_filename_suffix = request->label.map_name + ".json";
   std::string label_filename = map_label_store_ptr_->map_label_directory() + label_filename_suffix;
 
@@ -251,7 +266,7 @@ bool LabelServer::LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::O
   return true;
 }
 
-bool LabelServer::DeleteMap(const std::string & map_name)
+bool LabelServer::RemoveMap(const std::string & map_name)
 {
   filesystem::remove_all(map_label_store_ptr_->map_label_directory());
   return true;

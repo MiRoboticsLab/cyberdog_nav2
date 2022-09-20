@@ -81,6 +81,72 @@ bool LabelStore::CreateMapLabelFile(
   return true;
 }
 
+void LabelStore::DeleteLabel(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc)
+{
+  //check current "*.json" is existed or not
+  std::string label_filename = map_label_directory() + filename;
+
+  if (IsExist(label_filename)) {
+    return ;
+  }
+
+  for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it)  {
+    if (it->name.GetString() == label_name) {
+      // delete labelName,physicX and physicY
+      // label_name is key， but func " RemoveMember(ch*) " just accept " ch* ", so "std::string" must be convertd to " char* " by func " c_str() "  
+      existed_doc.RemoveMember( (char*)label_name.c_str() ); 
+      break;
+    }
+  }
+}
+
+void LabelStore::ChangeLable(
+    const std::string & old_label_name,
+    const std::string & new_label_name,
+    const protocol::msg::Label::SharedPtr & new_label,
+     rapidjson::Document & existed_doc)
+{
+  std::string label_filename = map_label_directory() + "test.json";
+
+  // 若label_filename存在 则返回false，不执行return
+  if ( IsExist(label_filename)) {
+    return ;
+  }
+
+  //change a label
+  existed_doc.RemoveMember( (char*)old_label_name.c_str() );
+  AddLabel(label_filename, new_label_name, new_label, existed_doc);
+}
+
+bool LabelStore::IsLabelExist(
+    const std::string & filename, 
+    const std::string & label_name,
+    rapidjson::Document & existed_doc)
+{
+  std::string label_filename = map_label_directory() + filename;
+ 
+  // if label_filename exist, the func "IsExist(label_filename)" would return false.
+  if ( IsExist(label_filename)) {
+    INFO("The .json is not existed" );
+    return false;
+  }
+
+  for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
+    if (it->name.GetString() == label_name) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "the label is existed in the .json" );
+      return true;
+    }
+
+    if (it == (existed_doc.MemberEnd()-1)) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "the label is not existed in the .json" );
+      return false;
+    }
+  }
+}
+
 bool LabelStore::DeleteMapLabelFile(const std::string & filename)
 {
   return filesystem::remove(
@@ -137,6 +203,11 @@ bool LabelStore::LoadLabels(const std::string & directory)
 void LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
 {
   common::CyberdogJson::WriteJsonToFile(label_filename, doc);
+}
+
+bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
+{
+
 }
 
 void LabelStore::Read(
