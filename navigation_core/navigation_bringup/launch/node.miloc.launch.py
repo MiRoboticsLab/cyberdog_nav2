@@ -14,10 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cgi import parse_multipart
 import os
 import sys
-from tkinter.tix import Tree
 
 import launch
 import subprocess
@@ -32,49 +30,39 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
-from launch.actions import GroupAction 
-from launch_ros.actions import PushRosNamespace
 
 def generate_launch_description():
-    
-    namespace = LaunchConfiguration('namespace')
+
+    namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
 
-    odom_out_cmd = Node(
-            package='motion_bridge',
-            executable='odom_out_publisher',
-            name='odom_out_publisher',
-            namespace=namespace,
-            parameters=[{'odom_frame': LaunchConfiguration('odom_frame', default='odom'),
-                        'base_frame': LaunchConfiguration('base_frame', default='base_link_leg'),
-                        'map_frame': LaunchConfiguration('map_frame', default='map'),
-                        'tf_pub': LaunchConfiguration('tf_pub', default=True)}]
-            )
-    motion_manager_cmd = Node(
-            package='motion_manager',
-            executable='motion_manager',
-            name='motion_manager',
-            namespace=namespace,
-            )
-    sensor_manager_cmd = Node(
-            package='sensor_manager',
-            executable='sensor_manager',
-            name='sensor_manager',
+    config_file = os.path.join(get_package_share_directory('cyberdog_miloc'), 'config/config.yml')
+    mivins_vo_cmd = Node(
+            package="cyberdog_miloc",
+            executable="miloc_server",
+            name="miloc_server",
+            emulate_tty=True,
             namespace=namespace,
             parameters=[
-            {
-                'simulator': LaunchConfiguration('simulator', default='[tof, gps, ultrasonic]'),
-            },],
-            )
+                {
+                 "config_path": config_file,
+                 "cam0_topic": "/image_rgb",
+                 "cam1_topic": "/image_left",
+                 "cam2_topic": "/image_right",
+                 "odom_slam": "/mivins/odom_slam",
+                 "odom_out": "/odom_out",
+                 "reloc_failure_threshold": 10,
+                 "immediately_reconstruct": False
+                }
+            ]
+        )
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        odom_out_cmd,
-        motion_manager_cmd,
-        sensor_manager_cmd
+        mivins_vo_cmd,
     ])
 
     return ld
