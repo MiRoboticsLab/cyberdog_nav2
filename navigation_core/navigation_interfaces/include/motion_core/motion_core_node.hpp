@@ -103,7 +103,8 @@ public:
     std::vector<geometry_msgs::msg::PoseStamped> poses);
 
   // get current navstatus.
-  void GetCurrentNavStatus();
+  void NavigationStatusFeedbackMonitor();
+
   void GetCurrentLocStatus();
 
   // mapping
@@ -167,6 +168,7 @@ private:
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
   ActionType action_type_;
+
   void GetNavStatus(int & status, ActionType & action_type);
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
@@ -239,6 +241,10 @@ private:
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
 
+  void set_running_navigation(bool state);
+  bool running_navigation();
+
+  bool running_navigation_ {false};
   rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;

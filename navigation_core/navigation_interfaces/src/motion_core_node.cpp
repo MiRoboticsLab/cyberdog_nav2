@@ -115,6 +115,16 @@ std_msgs::msg::Header NavigationCore::ReturnHeader()
   return msg;
 }
 
+void NavigationCore::set_running_navigation(bool state)
+{
+  running_navigation_ = state;
+}
+
+bool NavigationCore::running_navigation()
+{
+  return running_navigation_;
+}
+
 rclcpp_action::GoalResponse NavigationCore::HandleNavigationGoal(
   const rclcpp_action::GoalUUID & uuid,
   std::shared_ptr<const Navigation::Goal> goal)
@@ -175,11 +185,6 @@ void NavigationCore::FollowExecute(
           result->result = goal_result;
           goal_handle->succeed(result);
         }
-
-        // trigger robot's realtime pose
-        if (!ReportRealtimeRobotPose(true)) {
-          WARN("Start robot's realtime pose failed.");
-        }
       }
       break;
 
@@ -190,15 +195,11 @@ void NavigationCore::FollowExecute(
         bool cancel_state = CancelNavigation();
         if (cancel_state) {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          set_running_navigation(false);
         } else {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
         }
         goal_handle->succeed(result);
-
-        // trigger robot's realtime pose
-        if (!ReportRealtimeRobotPose(false)) {
-          INFO("Stop robot's realtime pose failed.");
-        }
       }
       break;
 
@@ -429,7 +430,7 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
   }
 
   nav_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -496,6 +497,8 @@ uint8_t NavigationCore::StartTracking(uint8_t relative_pos, float keep_distance)
 
   // nav_timer_ = this->create_wall_timer(
   //   200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+  nav_timer_ = this->create_wall_timer(
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -604,7 +607,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     }
 
     if (!ReportRealtimeRobotPose(start)) {
-      INFO("Start robot's realtime pose failed.");
+      WARN("Start robot's realtime pose failed.");
     }
 
     INFO("Localization success.");
@@ -693,7 +696,8 @@ uint8_t NavigationCore::StartNavThroughPoses(
   }
 
   through_pose_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -752,7 +756,7 @@ uint8_t NavigationCore::StartWaypointFollowing(
   }
 
   waypoint_follow_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -762,9 +766,10 @@ void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
   action_type = action_type_;
 }
 
-void NavigationCore::GetCurrentNavStatus()
+
+void NavigationCore::NavigationStatusFeedbackMonitor()
 {
-  RCLCPP_ERROR(client_node_->get_logger(), "GetCurrentNavStatus ");
+  RCLCPP_ERROR(client_node_->get_logger(), "Navigation status monitor ...");
   static auto feedback = std::make_shared<Navigation::Feedback>();
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_)
@@ -818,7 +823,6 @@ void NavigationCore::GetCurrentNavStatus()
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
       SenResult();
-      nav_timer_->cancel();
     }
   }
 }
