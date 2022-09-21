@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <utility>
 
 #include "map_label_server/label_store.hpp"
 
@@ -86,7 +87,7 @@ void LabelStore::DeleteLabel(
   const std::string & label_name,
   rapidjson::Document & existed_doc)
 {
-  //check current "*.json" is existed or not
+  // check current "*.json" is existed or not
   std::string label_filename = map_label_directory() + filename;
 
   if (IsExist(label_filename)) {
@@ -96,8 +97,7 @@ void LabelStore::DeleteLabel(
   for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
     if (it->name.GetString() == label_name) {
       // delete labelName,physicX and physicY
-      // label_name is key， but func " RemoveMember(ch*) " just accept " ch* ", so "std::string" must be convertd to " char* " by func " c_str() "
-      existed_doc.RemoveMember( (char *)label_name.c_str() );
+      existed_doc.RemoveMember(static_cast<char *>(label_name.c_str()));
       break;
     }
   }
@@ -116,8 +116,8 @@ void LabelStore::ChangeLable(
     return;
   }
 
-  //change a label
-  existed_doc.RemoveMember( (char *)old_label_name.c_str() );
+  // change a label
+  existed_doc.RemoveMember(static_cast<char *>(old_label_name.c_str()));
   AddLabel(label_filename, new_label_name, new_label, existed_doc);
 }
 

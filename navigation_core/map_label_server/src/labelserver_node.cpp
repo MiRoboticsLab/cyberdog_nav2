@@ -24,6 +24,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
 #define GLOBAL_MAP_LOCATION "/home/mi/mapping/"
 
@@ -130,7 +131,6 @@ void LabelServer::handle_set_label(
 
   // remove label
   if (request->only_delete && request->label.labels.size()) {
-    // TODO
     std::string label_filename_suffix = request->label.map_name + ".json";
     std::string label_filename = map_label_store_ptr_->map_label_directory() +
       label_filename_suffix;
