@@ -51,23 +51,26 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-namespace dwb_core {
+namespace dwb_core
+{
 
 /**
  * @class DWBLocalPlanner
  * @brief Plugin-based flexible controller
  */
-class DWBLocalPlanner : public nav2_core::Controller {
- public:
+class DWBLocalPlanner : public nav2_core::Controller
+{
+public:
   /**
    * @brief Constructor that brings up pluginlib loaders
    */
   DWBLocalPlanner();
 
-  void configure(const rclcpp_lifecycle::LifecycleNode::WeakPtr& parent,
-                 std::string name, const std::shared_ptr<tf2_ros::Buffer>& tf,
-                 const std::shared_ptr<nav2_costmap_2d::Costmap2DROS>&
-                     costmap_ros) override;
+  void configure(
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
+    std::string name, const std::shared_ptr<tf2_ros::Buffer> & tf,
+    const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> &
+    costmap_ros) override;
 
   virtual ~DWBLocalPlanner() {}
 
@@ -90,7 +93,7 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * @brief nav2_core setPlan - Sets the global plan
    * @param path The global plan
    */
-  void setPlan(const nav_msgs::msg::Path& path) override;
+  void setPlan(const nav_msgs::msg::Path & path) override;
 
   /**
    * @brief nav2_core computeVelocityCommands - calculates the best command
@@ -108,9 +111,9 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * @return The best command for the robot to drive
    */
   geometry_msgs::msg::TwistStamped computeVelocityCommands(
-      const geometry_msgs::msg::PoseStamped& pose,
-      const geometry_msgs::msg::Twist& velocity,
-      nav2_core::GoalChecker* /*goal_checker*/) override;
+    const geometry_msgs::msg::PoseStamped & pose,
+    const geometry_msgs::msg::Twist & velocity,
+    nav2_core::GoalChecker * /*goal_checker*/) override;
 
   /**
    * @brief Score a given command. Can be used for testing.
@@ -124,7 +127,7 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * @return The full scoring of the input trajectory
    */
   virtual dwb_msgs::msg::TrajectoryScore scoreTrajectory(
-      const dwb_msgs::msg::Trajectory2D& traj, double best_score = -1);
+    const dwb_msgs::msg::Trajectory2D & traj, double best_score = -1);
 
   /**
    * @brief Compute the best command given the current pose and velocity, with
@@ -141,9 +144,9 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * @return          Best command
    */
   virtual nav_2d_msgs::msg::Twist2DStamped computeVelocityCommands(
-      const nav_2d_msgs::msg::Pose2DStamped& pose,
-      const nav_2d_msgs::msg::Twist2D& velocity,
-      std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation>& results);
+    const nav_2d_msgs::msg::Pose2DStamped & pose,
+    const nav_2d_msgs::msg::Twist2D & velocity,
+    std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation> & results);
 
   /**
    * @brief Limits the maximum linear speed of the robot.
@@ -152,18 +155,21 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * @param percentage Setting speed limit in percentage if true
    * or in absolute values in false case.
    */
-  void setSpeedLimit(const double& speed_limit,
-                     const bool& percentage) override {
+  void setSpeedLimit(
+    const double & speed_limit,
+    const bool & percentage) override
+  {
     if (traj_generator_) {
       traj_generator_->setSpeedLimit(speed_limit, percentage);
     }
   }
-  bool checkTrajectory(const geometry_msgs::msg::PoseStamped& pose,
-                       const nav_2d_msgs::msg::Twist2D& velocity,
-                       double vx_samp, double vy_samp,
-                       double vtheta_samp) override;
+  bool checkTrajectory(
+    const geometry_msgs::msg::PoseStamped & pose,
+    const nav_2d_msgs::msg::Twist2D & velocity,
+    double vx_samp, double vy_samp,
+    double vtheta_samp) override;
 
- protected:
+protected:
   /**
    * @brief Helper method for two common operations for the operating on the
    * global_plan
@@ -172,18 +178,19 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * and saves it in transformed_plan and possibly publishes it. Then it takes
    * the last pose and transforms it to match the local costmap's frame
    */
-  void prepareGlobalPlan(const nav_2d_msgs::msg::Pose2DStamped& pose,
-                         nav_2d_msgs::msg::Path2D& transformed_plan,
-                         nav_2d_msgs::msg::Pose2DStamped& goal_pose,
-                         bool publish_plan = true);
+  void prepareGlobalPlan(
+    const nav_2d_msgs::msg::Pose2DStamped & pose,
+    nav_2d_msgs::msg::Path2D & transformed_plan,
+    nav_2d_msgs::msg::Pose2DStamped & goal_pose,
+    bool publish_plan = true);
 
   /**
    * @brief Iterate through all the twists and find the best one
    */
   virtual dwb_msgs::msg::TrajectoryScore coreScoringAlgorithm(
-      const geometry_msgs::msg::Pose2D& pose,
-      const nav_2d_msgs::msg::Twist2D velocity,
-      std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation>& results);
+    const geometry_msgs::msg::Pose2D & pose,
+    const nav_2d_msgs::msg::Twist2D velocity,
+    std::shared_ptr<dwb_msgs::msg::LocalPlanEvaluation> & results);
 
   /**
    * @brief Transforms global plan into same frame as pose, clips far away poses
@@ -204,7 +211,7 @@ class DWBLocalPlanner : public nav2_core::Controller {
    * to try to get on to the path generated by the global planner.
    */
   virtual nav_2d_msgs::msg::Path2D transformGlobalPlan(
-      const nav_2d_msgs::msg::Pose2DStamped& pose);
+    const nav_2d_msgs::msg::Pose2DStamped & pose);
   nav_2d_msgs::msg::Path2D global_plan_;  ///< Saved Global Plan
   bool prune_plan_;
   double prune_distance_;

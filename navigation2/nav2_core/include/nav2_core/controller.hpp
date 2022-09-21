@@ -52,15 +52,17 @@
 #include "protocol/msg/motion_servo_cmd.hpp"
 #include "protocol/msg/motion_servo_response.hpp"
 
-namespace nav2_core {
+namespace nav2_core
+{
 
 /**
  * @class Controller
  * @brief controller interface that acts as a virtual base class for all
  * controller plugins
  */
-class Controller {
- public:
+class Controller
+{
+public:
   using Ptr = std::shared_ptr<nav2_core::Controller>;
 
   /**
@@ -73,9 +75,9 @@ class Controller {
    * @param  costmap_ros A pointer to the costmap
    */
   virtual void configure(
-      const rclcpp_lifecycle::LifecycleNode::WeakPtr &, std::string name,
-      const std::shared_ptr<tf2_ros::Buffer> &,
-      const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> &) = 0;
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr &, std::string name,
+    const std::shared_ptr<tf2_ros::Buffer> &,
+    const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> &) = 0;
 
   /**
    * @brief Method to cleanup resources.
@@ -96,7 +98,7 @@ class Controller {
    * @brief local setPlan - Sets the global plan
    * @param path The global plan
    */
-  virtual void setPlan(const nav_msgs::msg::Path &path) = 0;
+  virtual void setPlan(const nav_msgs::msg::Path & path) = 0;
 
   /**
    * @brief Controller computeVelocityCommands - calculates the best command
@@ -114,9 +116,9 @@ class Controller {
    * @return The best command for the robot to drive
    */
   virtual geometry_msgs::msg::TwistStamped computeVelocityCommands(
-      const geometry_msgs::msg::PoseStamped &pose,
-      const geometry_msgs::msg::Twist &velocity,
-      nav2_core::GoalChecker *goal_checker) = 0;
+    const geometry_msgs::msg::PoseStamped & pose,
+    const geometry_msgs::msg::Twist & velocity,
+    nav2_core::GoalChecker * goal_checker) = 0;
 
   /**
    * @brief Controller computeVelocityCommands - calculates the best command
@@ -145,14 +147,17 @@ class Controller {
    * @param percentage Setting speed limit in percentage if true
    * or in absolute values in false case.
    */
-  virtual void setSpeedLimit(const double &speed_limit,
-                             const bool &percentage) = 0;
+  virtual void setSpeedLimit(
+    const double & speed_limit,
+    const bool & percentage) = 0;
 
-  virtual bool checkTrajectory(const geometry_msgs::msg::PoseStamped &pose,
-                               const nav_2d_msgs::msg::Twist2D &velocity,
-                               double vx_samp, double vy_samp,
-                               double vtheta_samp) {
-    (void)(pose),(void)(velocity),(void)(vx_samp),(void)(vy_samp),(void)(vtheta_samp);
+  virtual bool checkTrajectory(
+    const geometry_msgs::msg::PoseStamped & pose,
+    const nav_2d_msgs::msg::Twist2D & velocity,
+    double vx_samp, double vy_samp,
+    double vtheta_samp)
+  {
+    (void)(pose), (void)(velocity), (void)(vx_samp), (void)(vy_samp), (void)(vtheta_samp);
     return true;
   }
 };

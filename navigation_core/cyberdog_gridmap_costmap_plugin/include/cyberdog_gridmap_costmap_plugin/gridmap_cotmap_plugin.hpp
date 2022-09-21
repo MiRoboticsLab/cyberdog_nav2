@@ -46,7 +46,6 @@ public:
 
   virtual void reset()
   {
-    return;
   }
 
   virtual void onFootprintChanged();
@@ -62,9 +61,9 @@ private:
   std::string global_frame_;
 
   rclcpp::Subscription<grid_map_msgs::msg::GridMap>::SharedPtr mapSubscriber_;
-void
+  void
   ScanCallback(
-  grid_map_msgs::msg::GridMap::ConstSharedPtr message);
+    grid_map_msgs::msg::GridMap::ConstSharedPtr message);
   grid_map::GridMap map_;
   // Indicates that the entire gradient should be recalculated next time.
   bool need_recalculation_;

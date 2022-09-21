@@ -69,9 +69,9 @@ private:
 
   void PrintMapData();
 
-  bool LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid& map);
+  bool LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid & map);
 
-  /** 
+  /**
    * @brief Delete map that given the name
    *
    * @param map_name Map's name

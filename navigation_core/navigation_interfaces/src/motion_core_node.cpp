@@ -1,5 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights
-// reserved.
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,8 +47,7 @@ NavigationCore::NavigationCore()
   navigation_goal_ = nav2_msgs::action::NavigateToPose::Goal();
   waypoint_follower_goal_ = nav2_msgs::action::FollowWaypoints::Goal();
   nav_through_poses_goal_ = nav2_msgs::action::NavigateThroughPoses::Goal();
-  // client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
-  // client_realsense_->init();
+  client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
 
 
   navigation_server_ = rclcpp_action::create_server<Navigation>(
@@ -68,6 +66,8 @@ NavigationCore::NavigationCore()
     "start_location", rmw_qos_profile_services_default, callback_group_);
   stop_loc_client_ = create_client<TriggerT>(
     "stop_location", rmw_qos_profile_services_default, callback_group_);
+  realtime_pose_client_ = create_client<TriggerT>(
+    "PoseEnable", rmw_qos_profile_services_default, callback_group_);
 
   OnInitialize();
   points_pub_ = this->create_publisher<protocol::msg::FollowPoints>(
@@ -123,7 +123,7 @@ rclcpp_action::CancelResponse NavigationCore::HandleNavigationCancel(
 {
   INFO("Received request to cancel goal");
   (void)goal_handle;
-  if(reloc_topic_waiting_) {
+  if (reloc_topic_waiting_) {
     INFO("notify");
     reloc_cv_.notify_one();
     reloc_topic_waiting_ = false;
@@ -152,15 +152,21 @@ void NavigationCore::FollowExecute(
   switch (goal->nav_type) {
     case Navigation::Goal::NAVIGATION_TYPE_START_AB:
       {
-        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
+        INFO("robot[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
         result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
         if (goal->poses.empty()) {
           INFO("empty pose ");
           goal_handle->succeed(result);
         }
-      
-        INFO("Goal pose : [x = %f, y = %f]", 
+
+        INFO(
+          "Goal pose : [x = %f, y = %f]",
           goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
+
+        // trigger robot's realtime pose
+        if (!ReportRealtimeRobotPose(true)) {
+          INFO("Start robot's realtime pose failed.");
+        }
 
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
@@ -168,6 +174,24 @@ void NavigationCore::FollowExecute(
           result->result = goal_result;
           goal_handle->succeed(result);
         }
+      }
+      break;
+
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
+        // trigger robot's realtime pose
+        if (!ReportRealtimeRobotPose(false)) {
+          INFO("Stop robot's realtime pose failed.");
+        }
+
+        bool cancel_state = CancelNavigation();
+        if (cancel_state) {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+        } else {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+        }
+        goal_handle->succeed(result);
       }
       break;
 
@@ -207,7 +231,7 @@ void NavigationCore::FollowExecute(
         INFO("loc request");
         auto goal_result = HandleLocalization(
           goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION);
-        if(goal_result == ActionExecStage::kFailed) {
+        if (goal_result == ActionExecStage::kFailed) {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
           goal_handle->abort(result);
         } else if (goal_result == ActionExecStage::kSuccess) {
@@ -229,6 +253,44 @@ void NavigationCore::FollowExecute(
       goal_handle->succeed(result);
       break;
   }
+}
+
+bool NavigationCore::CancelNavigation()
+{
+  INFO("Start cancel navigation...");
+  bool run_result = false;
+
+  if (navigation_goal_handle_) {
+    auto future_cancel =
+      navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
+
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    } else {
+      navigation_goal_handle_.reset();
+      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+      run_result = true;
+    }
+    if (!nav_timer_->is_canceled()) {
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "canceled navigation goal timer");
+      nav_timer_->cancel();
+    }
+  }
+
+  return run_result;
+}
+
+bool NavigationCore::ReportRealtimeRobotPose(bool start)
+{
+  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  request->data = start;
+  return  ServiceImpl(realtime_pose_client_, request);
 }
 
 void NavigationCore::OnInitialize()
@@ -352,13 +414,13 @@ uint8_t NavigationCore::HandleMapping(bool start)
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = true;
   rclcpp::Client<TriggerT>::SharedPtr client;
-  
+
   if (start) {
     // real sense
-    // if (!client_realsense_->Startup()) {
-    //   ERROR("Realsense lifecycle start failed");
-    //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-    // }
+    if (!client_realsense_->Startup()) {
+      ERROR("Realsense lifecycle start failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
 
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {
@@ -368,7 +430,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
     }
 
     client = start_mapping_client_;
-    if(!ServiceImpl(client, request)) {
+    if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
@@ -378,7 +440,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
     client = stop_mapping_client_;
-    if(!ServiceImpl(client, request)) {
+    if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
@@ -387,11 +449,16 @@ uint8_t NavigationCore::HandleMapping(bool start)
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
-    // if (!client_realsense_->Pause()) {
-    //   ERROR("Realsense lifecycle pause failed");
-    //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-    // }
+    if (!client_realsense_->Pause()) {
+      ERROR("Realsense lifecycle pause failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
   }
+
+  if (!ReportRealtimeRobotPose(start)) {
+    INFO("Start robot's realtime pose failed.");
+  }
+
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
@@ -403,10 +470,10 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
   rclcpp::Client<TriggerT>::SharedPtr client;
   if (start) {
     // real sense
-    // if (!client_realsense_->Startup()) {
-    //   ERROR("Realsense lifecycle start failed");
-    //   return ActionExecStage::kFailed;
-    // }
+    if (!client_realsense_->Startup()) {
+      ERROR("Realsense lifecycle start failed");
+      return ActionExecStage::kFailed;
+    }
 
     if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_loc_.startup()) {
@@ -416,7 +483,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     }
 
     client = start_loc_client_;
-    if(!ServiceImpl(client, request)) {
+    if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return ActionExecStage::kFailed;
     }
@@ -429,7 +496,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     }
 
     client = stop_loc_client_;
-    if(!ServiceImpl(client, request)) {
+    if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return ActionExecStage::kFailed;
     }
@@ -439,10 +506,14 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
       return ActionExecStage::kFailed;
     }
 
-    // if (!client_realsense_->Pause()) {
-    //   ERROR("Realsense lifecycle pause failed");
-    //   return ActionExecStage::kFailed;
-    // }
+    if (!client_realsense_->Pause()) {
+      ERROR("Realsense lifecycle pause failed");
+      return ActionExecStage::kFailed;
+    }
+
+    if (!ReportRealtimeRobotPose(start)) {
+      INFO("Start robot's realtime pose failed.");
+    }
 
     INFO("Localization success.");
     reloc_status_ = RelocStatus::kIdle;
@@ -450,7 +521,8 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
   }
 }
 
-bool NavigationCore::ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr client,
+bool NavigationCore::ServiceImpl(
+  const rclcpp::Client<TriggerT>::SharedPtr client,
   const std_srvs::srv::SetBool_Request::SharedPtr request)
 {
   while (!client->wait_for_service(5s)) {
@@ -462,7 +534,7 @@ bool NavigationCore::ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr clien
   }
   auto future = client->async_send_request(request);
   // Wait for the result.
-  if(future.wait_for(5s) == std::future_status::timeout) {
+  if (future.wait_for(5s) == std::future_status::timeout) {
     ERROR("Service timeout");
     return false;
   }
@@ -653,9 +725,8 @@ void NavigationCore::GetCurrentNavStatus()
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
-      nav_timer_->cancel();
-      nav_timer_->reset();
       SenResult();
+      nav_timer_->cancel();
     }
   }
 }
@@ -663,18 +734,18 @@ void NavigationCore::GetCurrentNavStatus()
 void NavigationCore::GetCurrentLocStatus()
 {
   INFO("GetCurrentLocStatus");
-  while(rclcpp::ok()) {
+  while (rclcpp::ok()) {
     reloc_topic_waiting_ = true;
     std::unique_lock<std::mutex> lk(reloc_mutex_);
-    if(reloc_cv_.wait_for(lk, std::chrono::seconds(5)) == std::cv_status::timeout) {
+    if (reloc_cv_.wait_for(lk, std::chrono::seconds(5)) == std::cv_status::timeout) {
       auto result = std::make_shared<Navigation::Result>();
-      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED; 
+      result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       goal_handle_->abort(result);
       ResetReloc();
       ERROR("Topic timeout");
       return;
     }
-    if(goal_handle_->is_canceling()) {
+    if (goal_handle_->is_canceling()) {
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
       goal_handle_->canceled(result);
@@ -689,7 +760,7 @@ void NavigationCore::GetCurrentLocStatus()
       // std::this_thread::sleep_for(std::chrono::milliseconds(20));
       continue;
     }
-    if(reloc_status_ == RelocStatus::kFailed) {
+    if (reloc_status_ == RelocStatus::kFailed) {
       feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
@@ -697,7 +768,7 @@ void NavigationCore::GetCurrentLocStatus()
       ResetReloc();
       return;
     }
-    if(reloc_status_ == RelocStatus::kSuccess) {
+    if (reloc_status_ == RelocStatus::kSuccess) {
       SenResult();
       reloc_status_ = RelocStatus::kIdle;
       return;
@@ -715,12 +786,12 @@ void NavigationCore::SenResult()
 void NavigationCore::OnCancel()
 {
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
-    !navigation_goal_handle_ && reloc_status_  != RelocStatus::kRetrying)
+    !navigation_goal_handle_ && reloc_status_ != RelocStatus::kRetrying)
   {
     ERROR("nothing to cancel");
   }
-  if(reloc_status_ == RelocStatus::kRetrying) {
-    ResetReloc(); 
+  if (reloc_status_ == RelocStatus::kRetrying) {
+    ResetReloc();
   }
   if (navigation_goal_handle_) {
     auto future_cancel =

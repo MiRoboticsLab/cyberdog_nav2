@@ -1,5 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights
-// reserved.
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,18 +162,18 @@ private:
   {
     reloc_status_ = static_cast<RelocStatus>(msg->data);
     INFO("%d", reloc_status_);
-    if(reloc_topic_waiting_) {
+    if (reloc_topic_waiting_) {
       INFO("notify");
       reloc_cv_.notify_one();
       reloc_topic_waiting_ = false;
     }
   }
-  
+
   void ResetReloc()
   {
     auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
     request->data = true;
-    if(!ServiceImpl(stop_loc_client_, request)) {
+    if (!ServiceImpl(stop_loc_client_, request)) {
       ERROR("Failed to cancel Reloc because stopping service failed");
     }
     if (client_loc_.is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
@@ -199,6 +198,23 @@ private:
 
   void FollowExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
+  /**
+   * @brief Cancel robot's navigation
+   *
+   * @return true
+   * @return false
+   */
+  bool CancelNavigation();
+
+  /**
+   * @brief Whether to report the dog's position in real time
+   *
+   * @param start If true report, false not report
+   * @return true Report pose
+   * @return false Not report pose
+   */
+  bool ReportRealtimeRobotPose(bool start);
+
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
   void SenResult();
@@ -206,7 +222,8 @@ private:
   rclcpp::Publisher<protocol::msg::FollowPoints>::SharedPtr points_pub_;
   rclcpp::Subscription<protocol::msg::FollowPoints>::SharedPtr
     points_subscriber_;
-  bool ServiceImpl(const rclcpp::Client<TriggerT>::SharedPtr,
+  bool ServiceImpl(
+    const rclcpp::Client<TriggerT>::SharedPtr,
     const std_srvs::srv::SetBool_Request::SharedPtr);
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
@@ -215,6 +232,9 @@ private:
   rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
+
+  // robot's realtime pose client
+  rclcpp::Client<TriggerT>::SharedPtr realtime_pose_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   RelocStatus reloc_status_{RelocStatus::kIdle};
   std::mutex reloc_mutex_;

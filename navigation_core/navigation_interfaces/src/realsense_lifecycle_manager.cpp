@@ -1,15 +1,4 @@
-/*
- * @Author: your name
- * @Date: 2022-09-19 16:29:37
- * @LastEditTime: 2022-09-20 12:28:01
- * @LastEditors: quan-Blade-15-Mid-2019-Base
- * @Description: In User Settings Edit
- * @FilePath: /cyberdog/src/cyberdog_nav2/navigation_core/navigation_interfaces/src/realsense_lifecycle_service_client.cpp
- */
-
-
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights
-// reserved.
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <memory>
 
 #include "motion_core/realsense_lifecycle_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
@@ -56,8 +47,26 @@ std::future_status wait_for_result(FutureT & future, WaitTimeT time_to_wait)
 }
 
 RealSenseLifecycleServiceClient::RealSenseLifecycleServiceClient(const std::string & node_name)
-  : Node(node_name)
+: Node(node_name)
 {
+  callback_group_ = this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive, false);
+
+  callback_group_executor_.add_callback_group(callback_group_, this->get_node_base_interface());
+
+  client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(
+    node_get_state_topic,
+    rmw_qos_profile_services_default,
+    callback_group_);
+
+  client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
+    node_change_state_topic,
+    rmw_qos_profile_services_default,
+    callback_group_);
+
+  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
+    INFO("RealSense set configure state error.");
+  }
 }
 
 RealSenseLifecycleServiceClient::~RealSenseLifecycleServiceClient()
@@ -94,9 +103,10 @@ unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time
   auto future_status = wait_for_result(future_result, time_out);
   INFO("GetState() future_status : %d", future_status);
 
-  if (future_status != std::future_status::timeout) {
-    RCLCPP_ERROR(
-      get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
+  if (callback_group_executor_.spin_until_future_complete(future_result) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    WARN("Function GetState() error.");
     return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
   }
 
@@ -113,7 +123,9 @@ unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time
   }
 }
 
-bool RealSenseLifecycleServiceClient::ChangeState(std::uint8_t transition, std::chrono::seconds time_out)
+bool RealSenseLifecycleServiceClient::ChangeState(
+  std::uint8_t transition,
+  std::chrono::seconds time_out)
 {
   auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
   request->transition.id = transition;
@@ -131,11 +143,9 @@ bool RealSenseLifecycleServiceClient::ChangeState(std::uint8_t transition, std::
   auto future_status = wait_for_result(future_result, time_out);
   INFO("ChangeState() future_status : %d", future_status);
 
-  
-
-  if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(
-      get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
+  if (callback_group_executor_.spin_until_future_complete(future_result) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
     return false;
   }
 
@@ -153,12 +163,12 @@ bool RealSenseLifecycleServiceClient::ChangeState(std::uint8_t transition, std::
 
 bool RealSenseLifecycleServiceClient::Startup()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {;
+  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
     return true;
   }
 
   // activate
-  if (ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
+  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
     INFO("RealSense set activate state error.");
     return false;
   }
@@ -172,7 +182,7 @@ bool RealSenseLifecycleServiceClient::Pause()
   }
 
   // deactivate
-  if (ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
+  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
     INFO("RealSense set deactivate state error.");
     return false;
   }
@@ -186,7 +196,7 @@ bool RealSenseLifecycleServiceClient::Cleanup()
   }
 
   // cleanup
-  if (ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP)) {
+  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP)) {
     INFO("RealSense set cleanup state error.");
     return false;
   }
@@ -194,4 +204,3 @@ bool RealSenseLifecycleServiceClient::Cleanup()
 }
 
 }  // namespace carpo_navigation
-

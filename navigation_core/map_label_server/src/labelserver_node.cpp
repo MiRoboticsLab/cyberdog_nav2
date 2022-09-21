@@ -77,7 +77,7 @@ void LabelServer::handle_get_label(
 
   // Load map's yaml config
   nav_msgs::msg::OccupancyGrid map;
-  bool ok = LoadMapMetaInfo(request->map_name , map);
+  bool ok = LoadMapMetaInfo(request->map_name, map);
   if (!ok) {
     WARN("Map yaml config file not exist.");
     response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
@@ -93,7 +93,7 @@ void LabelServer::handle_get_label(
       response->label.labels.push_back(label);
     }
   }
- 
+
   // Set response result.
   response->label.map.info.resolution = map.info.resolution;
   response->label.map.info.width = map.info.width;
@@ -119,18 +119,25 @@ void LabelServer::handle_set_label(
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
   }
-  
+
   // remove map and label tag
   if (request->only_delete && request->label.labels.size() == 0) {
     INFO("Remove map : %s", request->label.map_name.c_str());
     RemoveMap(map_filename);
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
-  } 
+  }
 
   // remove label
   if (request->only_delete && request->label.labels.size()) {
     // TODO
+    std::string label_filename_suffix = request->label.map_name + ".json";
+    std::string label_filename = map_label_store_ptr_->map_label_directory() +
+      label_filename_suffix;
+
+    for (auto label : request->label.labels) {
+      map_label_store_ptr_->RemoveLabel(label_filename, label.label_name.c_str());
+    }
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
@@ -140,17 +147,18 @@ void LabelServer::handle_set_label(
 
   if (!map_label_store_ptr_->IsExist(label_filename)) {
     bool exist = map_label_store_ptr_->CreateMapLabelFile(
-    map_label_store_ptr_->map_label_directory(), label_filename_suffix);
+      map_label_store_ptr_->map_label_directory(), label_filename_suffix);
     if (!exist) {
       WARN("Current map label json file has exist.");
     }
   }
-  
+
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
-    INFO("label [%s] : [%f, %f]",
+    INFO(
+      "label [%s] : [%f, %f]",
       request->label.labels[i].label_name.c_str(),
       request->label.labels[i].physic_x,
       request->label.labels[i].physic_y);

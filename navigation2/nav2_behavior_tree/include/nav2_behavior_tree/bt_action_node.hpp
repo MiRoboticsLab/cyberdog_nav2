@@ -431,5 +431,3 @@ protected:
 }  // namespace nav2_behavior_tree
 
 #endif  // NAV2_BEHAVIOR_TREE__BT_ACTION_NODE_HPP_
-
-

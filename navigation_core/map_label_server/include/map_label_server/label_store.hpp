@@ -69,8 +69,8 @@ public:
    * @param filename
    * @param label_name
    */
-   void DeleteLabel(
-    const std::string & filename, 
+  void DeleteLabel(
+    const std::string & filename,
     const std::string & label_name,
     rapidjson::Document & existed_doc);
 
@@ -86,20 +86,20 @@ public:
     const std::string & old_label_name,
     const std::string & new_label_name,
     const protocol::msg::Label::SharedPtr & new_label,
-     rapidjson::Document & existed_doc);
+    rapidjson::Document & existed_doc);
 
 
   /**
    * @brief Check map's label exist
-   * 
-   * @param filename 
-   * @param label_name 
-   * @param existed_doc 
-   * @return true 
-   * @return false 
+   *
+   * @param filename
+   * @param label_name
+   * @param existed_doc
+   * @return true
+   * @return false
    */
   bool IsLabelExist(
-    const std::string & filename, 
+    const std::string & filename,
     const std::string & label_name,
     rapidjson::Document & existed_doc);
 
@@ -197,11 +197,11 @@ public:
 
   /**
    * @brief Remove label
-   * 
-   * @param label_filename 
-   * @param label_name 
-   * @return true 
-   * @return false 
+   *
+   * @param label_filename
+   * @param label_name
+   * @return true
+   * @return false
    */
   bool RemoveLabel(const std::string & label_filename, const std::string & label_name);
 
@@ -222,10 +222,11 @@ public:
 private:
   struct Label
   {
-    Label(const std::string & tag_, 
-          double position_x_, double position_y_,
-          double quaternion_x_, double quaternion_y_, double quaternion_z_, double quaternion_w_)
-    : tag {tag_},
+    Label(
+      const std::string & tag_,
+      double position_x_, double position_y_,
+      double quaternion_x_, double quaternion_y_, double quaternion_z_, double quaternion_w_)
+    : tag{tag_},
       position_x{position_x_},
       position_y{position_y_},
       quaternion_x{quaternion_x_},

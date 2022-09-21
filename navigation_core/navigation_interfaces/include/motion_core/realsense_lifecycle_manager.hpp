@@ -1,5 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights
-// reserved.
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +29,7 @@
 #include "rcutils/logging_macros.h"
 #include "nav2_util/service_client.hpp"
 
-using namespace std::chrono_literals;
+using namespace std::chrono_literals;    // NOLINT
 
 namespace carpo_navigation
 {
@@ -78,31 +77,34 @@ public:
 
   /**
    * @brief configure
-   * 
-   * @return true 
-   * @return false 
+   *
+   * @return true
+   * @return false
    */
   bool Startup();
 
   /**
    * @brief deactivate
-   * 
-   * @return true 
-   * @return false 
+   *
+   * @return true
+   * @return false
    */
   bool Pause();
 
   /**
    * @brief cleanup
-   * 
-   * @return true 
-   * @return false 
+   *
+   * @return true
+   * @return false
    */
   bool Cleanup();
 
 private:
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> client_get_state_;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> client_change_state_;
+
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
+  rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
 };
 
 }  // namespace carpo_navigation

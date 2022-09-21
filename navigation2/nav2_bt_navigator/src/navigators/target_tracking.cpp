@@ -127,7 +127,7 @@ TargetTrackingNavigator::onLoop()
   feedback_msg->number_of_recoveries = recovery_count;
   feedback_msg->tracking_time = clock_->now() - start_time_;
   unsigned int exception_code = 0;
-  blackboard->get<unsigned int> ("exception_code", exception_code);
+  blackboard->get<unsigned int>("exception_code", exception_code);
   feedback_msg->exception_code = exception_code;
 
   bt_action_server_->publishFeedback(feedback_msg);
