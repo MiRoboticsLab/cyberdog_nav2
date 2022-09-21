@@ -14,27 +14,23 @@
 
 #include <time.h>
 #include <unistd.h>
-
-#include <csignal>
-#include <iostream>
 #include <algorithm>
 #include <memory>
 #include <queue>
 #include <string>
 #include <unordered_set>
-
-#include "rclcpp_action/client.hpp"
-#include "protocol/action/navigation.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
+#include <iostream>
+#include <csignal>
 #include "motion_core/motion_core_node.hpp"
-
+#include <rclcpp_action/client.hpp>
+#include <protocol/action/navigation.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("client");
 auto client = rclcpp_action::create_client<protocol::action::Navigation>(
   node, "CyberdogNavigation");
 
 std::shared_ptr<rclcpp_action::ClientGoalHandle<protocol::action::Navigation>> goal_handle;
-
 
 void feedback_callback(
   rclcpp_action::ClientGoalHandle<protocol::action::Navigation>::SharedPtr,
@@ -43,9 +39,19 @@ void feedback_callback(
   std::cout << feedback->feedback_code << std::endl;
 }
 
+void signalHandler(int signum)
+{
+  std::cout << "Interrupt signal (" << signum << ") received.\n";
+
+  // 清理并关闭
+  // 终止程序
+  client->async_cancel_goal(goal_handle);
+  exit(signum);
+}
 
 int main(int argc, char ** argv)
 {
+  // signal(SIGINT, signalHandler);
   rclcpp::init(argc, argv);
 
   if (!client->wait_for_action_server(std::chrono::seconds(1))) {
@@ -112,3 +118,4 @@ int main(int argc, char ** argv)
   rclcpp::shutdown();
   return 0;
 }
+

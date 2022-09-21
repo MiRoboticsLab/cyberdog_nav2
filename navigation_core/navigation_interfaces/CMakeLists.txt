@@ -23,6 +23,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
+find_package(mcr_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -44,6 +45,7 @@ set(dependencies
   protocol
   rclcpp_action
   rclcpp_components
+  mcr_msgs
 )
 
 set(sources
@@ -57,7 +59,7 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
-add_executable(core_client src/motioncore_client.cpp)
+add_executable(core_client test/motioncore_client.cpp)
 ament_target_dependencies(${PROJECT_NAME}
   ${dependencies}
 )
