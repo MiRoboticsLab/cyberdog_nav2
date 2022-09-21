@@ -169,16 +169,16 @@ void NavigationCore::FollowExecute(
           "Goal pose : [x = %f, y = %f]",
           goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
 
-        // trigger robot's realtime pose
-        if (!ReportRealtimeRobotPose(true)) {
-          INFO("Start robot's realtime pose failed.");
-        }
-
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           // goal process failed
           result->result = goal_result;
           goal_handle->succeed(result);
+        }
+
+        // trigger robot's realtime pose
+        if (!ReportRealtimeRobotPose(true)) {
+          WARN("Start robot's realtime pose failed.");
         }
       }
       break;
@@ -186,10 +186,6 @@ void NavigationCore::FollowExecute(
     case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
       {
         INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
-        // trigger robot's realtime pose
-        if (!ReportRealtimeRobotPose(false)) {
-          INFO("Stop robot's realtime pose failed.");
-        }
 
         bool cancel_state = CancelNavigation();
         if (cancel_state) {
@@ -198,6 +194,11 @@ void NavigationCore::FollowExecute(
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
         }
         goal_handle->succeed(result);
+
+        // trigger robot's realtime pose
+        if (!ReportRealtimeRobotPose(false)) {
+          INFO("Stop robot's realtime pose failed.");
+        }
       }
       break;
 
@@ -313,6 +314,7 @@ bool NavigationCore::ReportRealtimeRobotPose(bool start)
 {
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = start;
+  INFO("realtime_pose_client_ service name: %s", realtime_pose_client_->get_service_name());
   return ServiceImpl(realtime_pose_client_, request);
 }
 

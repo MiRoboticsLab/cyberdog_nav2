@@ -97,7 +97,7 @@ void LabelStore::DeleteLabel(
   for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
     if (it->name.GetString() == label_name) {
       // delete labelName,physicX and physicY
-      existed_doc.RemoveMember(static_cast<char *>(label_name.c_str()));
+      existed_doc.RemoveMember(static_cast<const char *>(label_name.c_str()));
       break;
     }
   }
@@ -117,7 +117,7 @@ void LabelStore::ChangeLable(
   }
 
   // change a label
-  existed_doc.RemoveMember(static_cast<char *>(old_label_name.c_str()));
+  existed_doc.RemoveMember(static_cast<const char *>(old_label_name.c_str()));
   AddLabel(label_filename, new_label_name, new_label, existed_doc);
 }
 

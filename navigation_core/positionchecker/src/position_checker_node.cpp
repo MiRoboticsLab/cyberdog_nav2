@@ -52,7 +52,7 @@ void PositionChecker::loop()
   std::string global_frame_, robot_base_frame_;
 
   while (true) {
-    RCLCPP_WARN(get_logger(), "Lopping.");
+    // RCLCPP_WARN(get_logger(), "Lopping.");
     if (!nav2_util::getCurrentPose(
         pose_based_on_global_frame, *tf_buffer_,
         "map", "base_link"))
@@ -60,9 +60,10 @@ void PositionChecker::loop()
       RCLCPP_WARN(
         get_logger(),
         "Failed to obtain current pose based on map coordinate system.");
+      continue;
     } else {
       RCLCPP_INFO(
-        get_logger(), "current pose (%f,%f)",
+        get_logger(), "robot current pose (%f,%f)",
         pose_based_on_global_frame.pose.position.x,
         pose_based_on_global_frame.pose.position.y);
       pos_pub_->publish(pose_based_on_global_frame);
