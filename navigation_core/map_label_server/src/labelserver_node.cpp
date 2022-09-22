@@ -40,8 +40,17 @@ LabelServer::LabelServer()
   PrintMapData();
   map_label_store_ptr_ = std::make_shared<cyberdog::navigation::LabelStore>();
 
-  callback_group_ =
-    this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
+  // map name handle
+  map_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "map_name",
+    std::bind(
+      &LabelServer::HandleRequestUserSaveMapName, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
+
+  // set map label
   set_label_server_ = this->create_service<protocol::srv::SetMapLabel>(
     "set_label",
     std::bind(
@@ -49,6 +58,7 @@ LabelServer::LabelServer()
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
+  // get map and map's labels
   get_label_server_ = this->create_service<protocol::srv::GetMapLabel>(
     "get_label",
     std::bind(
@@ -278,6 +288,32 @@ bool LabelServer::RemoveMap(const std::string & map_name)
 {
   filesystem::remove_all(map_label_store_ptr_->map_label_directory());
   return true;
+}
+
+void LabelServer::HandleRequestUserSaveMapName(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  INFO("request save map's name.");
+
+  if (request->data) {
+    response->message = robot_map_name();
+    response->success = true;
+  }
+
+  response->message = "";
+  response->success = false;
+}
+
+void LabelServer::set_robot_map_name(const std::string & name)
+{
+  robot_map_name_ = name;
+}
+
+std::string LabelServer::robot_map_name() const
+{
+  return robot_map_name_;
 }
 
 }  // namespace CYBERDOG_NAV

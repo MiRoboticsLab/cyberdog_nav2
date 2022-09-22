@@ -55,7 +55,7 @@ def generate_launch_description():
         'lifecycle_mgr_nav',
         'lifecycle_mgr_mapping',
         'lifecycle_mgr_mcr_uwb',
-        'navigation_interfaces'
+        # 'navigation_interfaces'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),

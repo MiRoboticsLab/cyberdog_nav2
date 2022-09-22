@@ -33,6 +33,7 @@
 #include "std_msgs/msg/int32.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "motion_core/realsense_lifecycle_manager.hpp"
+#include "visualization/srv/stop.hpp"
 
 enum ActionType
 {
@@ -228,6 +229,11 @@ private:
    */
   bool ReportRealtimeRobotPose(bool start);
 
+  /**
+   * @brief Manager all task's status
+   */
+  void TaskManager();
+
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
   void SenResult();
@@ -247,6 +253,7 @@ private:
   bool running_navigation_ {false};
   rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
 
@@ -257,6 +264,11 @@ private:
   std::mutex reloc_mutex_;
   std::condition_variable reloc_cv_;
   bool reloc_topic_waiting_{false};
+
+  std::mutex navigation_mutex_;
+  std::condition_variable navigation_cond_;
+  bool navigation_finished_ {false};
+  std::shared_ptr<std::thread> task_managers_ {nullptr};
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_

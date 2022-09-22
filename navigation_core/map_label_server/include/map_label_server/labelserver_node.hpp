@@ -21,6 +21,7 @@
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 
 #include "nav2_map_server/map_server.hpp"
 #include "nav2_map_server/map_io.hpp"
@@ -40,11 +41,6 @@ public:
   LabelServer();
   ~LabelServer();
 
-private:
-  std::mutex mut;
-  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
-  rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
   void handle_set_label(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
@@ -80,6 +76,39 @@ private:
    */
   bool RemoveMap(const std::string & map_name);
 
+  /**
+   * @brief Handle user save mapping map's name
+   * @param request_header
+   * @param request If true get current map's name
+   * @param response Return user set map's name
+   */
+  void HandleRequestUserSaveMapName(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
+  /**
+   * @brief Set the robot map name object
+   * @param name Map's name
+   */
+  void set_robot_map_name(const std::string & name);
+
+  /**
+   * @brief Get robot current map's name
+   * @return std::string Return map's name
+   */
+  std::string robot_map_name() const;
+
+private:
+  std::mutex mut;
+  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
+  rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
+
+  // User save robot's map name
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr map_server_;
+  std::string robot_map_name_;
+
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
   std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV
