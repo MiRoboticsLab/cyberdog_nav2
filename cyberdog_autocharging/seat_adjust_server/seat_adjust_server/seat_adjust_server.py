@@ -12,32 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import rclpy
 import time
 
-import std_msgs.msg as std_msgs
-from rclpy.node import Node
 import numpy as np
 
-import sensor_msgs.msg as sensor_msgs
-
+from protocol.action import SeatAdjust
 from protocol.msg import HeadTofPayload  # CHANGE
 from protocol.msg import RearTofPayload  # CHANGE
 from protocol.msg import SingleTofPayload  # CHANGE
 from protocol.srv import MotionResultCmd  # CHANGE
-from protocol.action import SeatAdjust
+import rclpy
 
-# from protocol.lcm import tof_lcmt    # CHANGE
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.node import Node
+import sensor_msgs.msg as sensor_msgs
+
+import std_msgs.msg as std_msgs
 
 z_array = [0] * 64
 x_array = [0] * 64
 y_array = [0] * 64
 r_array = [0] * 64
-indensity = [0] * 64
-
+intensity = [0] * 64
+use_tof_intensity = False
 
 def GetRotationMatrix(theta_x, theta_y, theta_z):
     sx = np.sin(theta_x)
@@ -72,8 +71,8 @@ col_depth_sum = np.zeros((4, 8))
 
 every_point_depth = np.zeros((4, 64))
 
-row_indensity_sum = np.zeros((4, 8))
-col_indensity_sum = np.zeros((4, 8))
+row_intensity_sum = np.zeros((4, 8))
+col_intensity_sum = np.zeros((4, 8))
 
 points_depth = np.zeros((4, 64))
 
@@ -113,12 +112,13 @@ adjust_times = (int)(10 / timer_period)
 
 
 class SeatAdjustServer(Node):
+
     def __init__(self):
-        super().__init__("seat_adjust_server")
+        super().__init__('seat_adjust_server')
         self._action_server = ActionServer(
             self,
             SeatAdjust,
-            "seatadjust",
+            'seatadjust',
             execute_callback=self.execute_callback,
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback,
@@ -126,18 +126,18 @@ class SeatAdjustServer(Node):
         )
 
         self.head_subscription = self.create_subscription(
-            HeadTofPayload, "head_tof_payload", self.head_listener_callback, 10
+            HeadTofPayload, 'head_tof_payload', self.head_listener_callback, 10
         )
 
         self.rear_subscription = self.create_subscription(
-            RearTofPayload, "rear_tof_payload", self.rear_listener_callback, 10
+            RearTofPayload, 'rear_tof_payload', self.rear_listener_callback, 10
         )
 
         self.motion_result_client_ = self.create_client(
-            MotionResultCmd, "/motion_result_cmd"
+            MotionResultCmd, '/motion_result_cmd'
         )
         while not self.motion_result_client_.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info("motion service not available, waiting again...")
+            self.get_logger().info('motion service not available, waiting again...')
 
         compute_trig_coeffs()
 
@@ -146,10 +146,10 @@ class SeatAdjustServer(Node):
 
         self.timer_nums = 0
         self.pcd_topic = []
-        self.pcd_topic.append("left_head_pcd")
-        self.pcd_topic.append("right_head_pcd")
-        self.pcd_topic.append("left_rear_pcd")
-        self.pcd_topic.append("right_rear_pcd")
+        self.pcd_topic.append('left_head_pcd')
+        self.pcd_topic.append('right_head_pcd')
+        self.pcd_topic.append('left_rear_pcd')
+        self.pcd_topic.append('right_rear_pcd')
 
         self.trans_R = []
         self.trans_R.append(left_head_R)
@@ -174,14 +174,14 @@ class SeatAdjustServer(Node):
         self.timer_count = 0
         self.action_start = 0
         self.action_complete = 0
-        self.get_logger().info("__init__ complete")
+        self.get_logger().info('__init__ complete')
 
     def goal_callback(self, goal_request):
         """Accept or reject a client request to begin an action."""
         # This server allows multiple goals in parallel
         self.action_start = 1
         self.action_complete = 0
-        self.get_logger().info("Received goal request")
+        self.get_logger().info('Received goal request')
 
         self.motion_req = MotionResultCmd.Request()
         self.motion_req.motion_id = 111
@@ -199,7 +199,7 @@ class SeatAdjustServer(Node):
 
     def cancel_callback(self, goal_handle):
         """Accept or reject a client request to cancel an action."""
-        self.get_logger().info("Received cancel request")
+        self.get_logger().info('Received cancel request')
         return CancelResponse.ACCEPT
 
     def destroy(self):
@@ -208,7 +208,7 @@ class SeatAdjustServer(Node):
 
     async def execute_callback(self, goal_handle):
         """Execute a goal."""
-        self.get_logger().info("Executing goal...")
+        self.get_logger().info('Executing goal...')
 
         # Append the seeds for the Fibonacci sequence
         feedback_msg = SeatAdjust.Feedback()
@@ -219,11 +219,11 @@ class SeatAdjustServer(Node):
         while self.action_complete == 0:
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
-                self.get_logger().info("Goal canceled")
+                self.get_logger().info('Goal canceled')
                 return SeatAdjust.Result()
 
             self.get_logger().info(
-                "Publishing feedback: {0}".format(feedback_msg.count)
+                'Publishing feedback: {0}'.format(feedback_msg.count)
             )
 
             # Publish the feedback
@@ -238,7 +238,7 @@ class SeatAdjustServer(Node):
         result = SeatAdjust.Result()
         result.result = result.SEATADJUST_RESULT_TYPE_SUCCESS
 
-        self.get_logger().info("Returning result: {0}".format(result.result))
+        self.get_logger().info('Returning result: {0}'.format(result.result))
 
         return result
 
@@ -263,7 +263,7 @@ class SeatAdjustServer(Node):
         self.future = self.motion_result_client_.call_async(self.motion_req)
 
     def tof_pcd_generate(self, tof_msg):
-        indensity_threshold = 3
+        intensity_threshold = 3
         intensity_set_value = -0.2
         tof_position = tof_msg.tof_position
         # tof_time = (
@@ -273,11 +273,12 @@ class SeatAdjustServer(Node):
             if (tof_position == SingleTofPayload.RIGHT_HEAD) or (
                 tof_position == SingleTofPayload.LEFT_HEAD
             ):
-                indensity[idx] = (
-                    intensity_set_value
-                    if ((tof_msg.intensity[idx]) > indensity_threshold)
-                    else 0
-                )
+                if (use_tof_intensity):
+                    intensity[idx] = (
+                        intensity_set_value
+                        if ((tof_msg.intensity[idx]) > intensity_threshold)
+                        else 0
+                    )
                 z_array[idx] = -tof_msg.data[idx]
                 x_array[idx] = (
                     compute_xy(1000 * z_array[idx], trig_coeffs[7 - (int)(idx % 8)])
@@ -287,11 +288,12 @@ class SeatAdjustServer(Node):
                     compute_xy(1000 * z_array[idx], trig_coeffs[(int)(idx / 8)]) / 1000
                 )
             else:
-                indensity[idx] = (
-                    intensity_set_value
-                    if ((tof_msg.intensity[63 - idx]) > indensity_threshold)
-                    else 0
-                )
+                if (use_tof_intensity):
+                    intensity[idx] = (
+                        intensity_set_value
+                        if ((tof_msg.intensity[63 - idx]) > intensity_threshold)
+                        else 0
+                    )
                 z_array[idx] = -tof_msg.data[63 - idx]
                 x_array[idx] = (
                     compute_xy(1000 * z_array[idx], trig_coeffs[7 - (int)(idx % 8)])
@@ -310,15 +312,17 @@ class SeatAdjustServer(Node):
         points_depth = np.vstack(
             (np.asarray(x_array), np.asarray(y_array), np.asarray(z_array))
         ).T
-        points_indensity = np.vstack(
-            (np.asarray(x_array), (np.asarray(y_array) - 0.5), np.asarray(indensity))
+        points_intensity = np.vstack(
+            (np.asarray(x_array), (np.asarray(y_array) - 0.5), np.asarray(intensity))
         ).T
-        points = np.vstack((points_depth, points_indensity))
-
-        pcd = point_cloud(points, "base_link")
+        if (use_tof_intensity):
+            points = np.vstack((points_depth, points_intensity))
+        else:
+            points = points_depth
+        pcd = point_cloud(points, 'base_link')
         self.pcd_publisher[tof_position].publish(pcd)
         self.point_depth_compute(points_depth, tof_msg)
-        self.point_indensity_compute(indensity, tof_msg)
+        self.point_intensity_compute(intensity, tof_msg)
 
     def head_listener_callback(self, msg):
         self.tof_pcd_generate(msg.left_head)
@@ -334,7 +338,7 @@ class SeatAdjustServer(Node):
         points_num_threshold = 5
         move_step_length = 0.002
         for idx in range(0, 8):
-            points_num = row_indensity_sum[2, idx] + row_indensity_sum[3, idx]
+            points_num = row_intensity_sum[2, idx] + row_intensity_sum[3, idx]
             tag_row_idx = (
                 idx
                 if (
@@ -344,7 +348,7 @@ class SeatAdjustServer(Node):
                 else tag_row_idx
             )
             max_points_num = points_num
-            self.get_logger().info("idx:%d  " % idx + "points_num:%d  " % points_num)
+            self.get_logger().info('idx:%d  ' % idx + 'points_num:%d  ' % points_num)
         self.motion_req.pos_des[0] = move_step_length * (tag_row_idx - 4)
 
     def y_pose_adjust(self):
@@ -404,8 +408,8 @@ class SeatAdjustServer(Node):
         ) + sum((diff_right_tof_depth.flatten()) < -1 * depth_threshold)
 
         self.get_logger().info(
-            "diff_left_points_num:%d  " % deviation_left_num
-            + "diff_right_points_num:%d  " % deviation_right_num
+            'diff_left_points_num:%d  ' % deviation_left_num
+            + 'diff_right_points_num:%d  ' % deviation_right_num
         )
         need_adjust_points = max(deviation_left_num, deviation_right_num)
         delta_yaw = need_adjust_points / 2
@@ -447,28 +451,28 @@ class SeatAdjustServer(Node):
                         + points[point_idx, 2]
                     )
 
-    def point_indensity_compute(self, indensity, tof_msg):
+    def point_intensity_compute(self, intensity, tof_msg):
         for row_col_idx in range(0, 8):
-            row_indensity_sum[tof_msg.tof_position, row_col_idx] = 0
-            col_indensity_sum[tof_msg.tof_position, row_col_idx] = 0
+            row_intensity_sum[tof_msg.tof_position, row_col_idx] = 0
+            col_intensity_sum[tof_msg.tof_position, row_col_idx] = 0
             for point_idx in range(0, 64):
                 if int(point_idx % 8) == row_col_idx:
-                    row_indensity_sum[
+                    row_intensity_sum[
                         tof_msg.tof_position, int(point_idx % 8)
-                    ] = row_indensity_sum[tof_msg.tof_position, int(point_idx % 8)] + (
-                        indensity[point_idx] < -0.1
+                    ] = row_intensity_sum[tof_msg.tof_position, int(point_idx % 8)] + (
+                        intensity[point_idx] < -0.1
                     )
                 if int(point_idx / 8) == row_col_idx:
-                    col_indensity_sum[
+                    col_intensity_sum[
                         tof_msg.tof_position, int(point_idx / 8)
-                    ] = col_indensity_sum[tof_msg.tof_position, int(point_idx / 8)] + (
-                        indensity[point_idx] < -0.1
+                    ] = col_intensity_sum[tof_msg.tof_position, int(point_idx / 8)] + (
+                        intensity[point_idx] < -0.1
                     )
 
     def timer_callback(self):
         if self.action_start and (self.timer_count < adjust_times):
             self.timer_count = self.timer_count + 1
-            self.get_logger().info("timer_callback: %d " % (self.timer_count))
+            self.get_logger().info('timer_callback: %d ' % (self.timer_count))
             # self.x_pose_adjust()
             self.y_pose_adjust()
             self.yaw_adjust()
@@ -523,7 +527,7 @@ def point_cloud(points, parent_frame):
     # represents the x-coordinate, the next 4 the y-coordinate, etc.
     fields = [
         sensor_msgs.PointField(name=n, offset=i * itemsize, datatype=ros_dtype, count=1)
-        for i, n in enumerate("xyz")
+        for i, n in enumerate('xyz')
     ]
 
     # The PointCloud2 message also has a header which specifies which
@@ -557,5 +561,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
