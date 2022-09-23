@@ -66,7 +66,7 @@ void FollowPathAction::on_wait_for_result()
   }
   std::string new_progress_checker_id;
   getInput("progress_checker_id", new_progress_checker_id);
-  if(goal_.progress_checker_id != new_progress_checker_id){
+  if (goal_.progress_checker_id != new_progress_checker_id) {
     goal_.progress_checker_id = new_progress_checker_id;
     goal_updated_ = true;
   }

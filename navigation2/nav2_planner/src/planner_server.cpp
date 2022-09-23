@@ -437,7 +437,7 @@ PlannerServer::computePlanSplinePoses()
       action_server_spline_poses_->terminate_current();
       return;
     }
-    
+
     waitForCostmap();
 
     result->path = getPlan(goal->poses, goal->planner_id);
@@ -447,7 +447,7 @@ PlannerServer::computePlanSplinePoses()
         goal->planner_id))
     {
       RCLCPP_WARN(get_logger(), "Path is invalid for executing.");
-      action_server_spline_poses_->terminate_current();      
+      action_server_spline_poses_->terminate_current();
       return;
     }
     // Publish the plan for visualization purposes

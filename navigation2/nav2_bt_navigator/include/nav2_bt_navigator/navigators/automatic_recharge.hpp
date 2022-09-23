@@ -29,21 +29,24 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
-namespace nav2_bt_navigator {
+namespace nav2_bt_navigator
+{
 
 /**
  * @class AutomaticRechargeNavigator
  * @brief A navigator for tracking target
  */
 class AutomaticRechargeNavigator
-    : public nav2_bt_navigator::Navigator<mcr_msgs::action::AutomaticRecharge> {
- public:
+  : public nav2_bt_navigator::Navigator<mcr_msgs::action::AutomaticRecharge>
+{
+public:
   using ActionT = mcr_msgs::action::AutomaticRecharge;
 
   /**
    * @brief A constructor for AutomaticRechargeNavigator
    */
-  AutomaticRechargeNavigator() : Navigator() {}
+  AutomaticRechargeNavigator()
+  : Navigator() {}
 
   /**
    * @brief A configure state transition to configure navigator's state
@@ -62,13 +65,13 @@ class AutomaticRechargeNavigator
    * @param pose Pose received via atopic
    */
   void onGoalPoseReceived(
-      const geometry_msgs::msg::PoseStamped::SharedPtr pose);
+    const geometry_msgs::msg::PoseStamped::SharedPtr pose);
 
   /**
    * @brief Get action name for this navigator
    * @return string Name of action server
    */
-  std::string getName() { return std::string("automatic_recharge"); }
+  std::string getName() {return std::string("automatic_recharge");}
 
   /**
    * @brief Get navigator's default BT
@@ -76,9 +79,9 @@ class AutomaticRechargeNavigator
    * @return string Filepath to default XML
    */
   std::string getDefaultBTFilepath(
-      rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
+    rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
 
- protected:
+protected:
   /**
    * @brief A callback to be called when a new goal is received by the BT action
    * server Can be used to check if goal is valid and put values on the

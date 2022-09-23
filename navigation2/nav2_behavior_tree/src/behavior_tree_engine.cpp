@@ -22,19 +22,23 @@
 #include "behaviortree_cpp_v3/utils/shared_library.h"
 #include "rclcpp/rclcpp.hpp"
 
-namespace nav2_behavior_tree {
+namespace nav2_behavior_tree
+{
 
 BehaviorTreeEngine::BehaviorTreeEngine(
-    const std::vector<std::string>& plugin_libraries) {
+  const std::vector<std::string> & plugin_libraries)
+{
   BT::SharedLibrary loader;
-  for (const auto& p : plugin_libraries) {
+  for (const auto & p : plugin_libraries) {
     factory_.registerFromPlugin(loader.getOSName(p));
   }
 }
 
-BtStatus BehaviorTreeEngine::run(BT::Tree* tree, std::function<void()> onLoop,
-                                 std::function<bool()> cancelRequested,
-                                 std::chrono::milliseconds loopTimeout) {
+BtStatus BehaviorTreeEngine::run(
+  BT::Tree * tree, std::function<void()> onLoop,
+  std::function<bool()> cancelRequested,
+  std::chrono::milliseconds loopTimeout)
+{
   rclcpp::WallRate loopRate(loopTimeout);
   BT::NodeStatus result = BT::NodeStatus::RUNNING;
 
@@ -52,37 +56,43 @@ BtStatus BehaviorTreeEngine::run(BT::Tree* tree, std::function<void()> onLoop,
 
       loopRate.sleep();
     }
-  } catch (const std::exception& ex) {
-    RCLCPP_ERROR(rclcpp::get_logger("BehaviorTreeEngine"),
-                 "Behavior tree threw exception: %s. Exiting with failure.",
-                 ex.what());
+  } catch (const std::exception & ex) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("BehaviorTreeEngine"),
+      "Behavior tree threw exception: %s. Exiting with failure.",
+      ex.what());
     return BtStatus::FAILED;
   }
 
-  return (result == BT::NodeStatus::SUCCESS) ? BtStatus::SUCCEEDED
-                                             : BtStatus::FAILED;
+  return (result == BT::NodeStatus::SUCCESS) ? BtStatus::SUCCEEDED :
+         BtStatus::FAILED;
 }
 
 BT::Tree BehaviorTreeEngine::createTreeFromText(
-    const std::string& xml_string, BT::Blackboard::Ptr blackboard) {
+  const std::string & xml_string, BT::Blackboard::Ptr blackboard)
+{
   return factory_.createTreeFromText(xml_string, blackboard);
 }
 
 BT::Tree BehaviorTreeEngine::createTreeFromFile(
-    const std::string& file_path, BT::Blackboard::Ptr blackboard) {
+  const std::string & file_path, BT::Blackboard::Ptr blackboard)
+{
   return factory_.createTreeFromFile(file_path, blackboard);
 }
 //   asd
-void BehaviorTreeEngine::addGrootMonitoring(BT::Tree* tree,
-                                            uint16_t publisher_port,
-                                            uint16_t server_port,
-                                            uint16_t max_msg_per_second) {
+void BehaviorTreeEngine::addGrootMonitoring(
+  BT::Tree * tree,
+  uint16_t publisher_port,
+  uint16_t server_port,
+  uint16_t max_msg_per_second)
+{
   // This logger publish status changes using ZeroMQ. Used by Groot
   groot_monitor_ = std::make_unique<BT::PublisherZMQ>(
-      *tree, max_msg_per_second, publisher_port, server_port);
+    *tree, max_msg_per_second, publisher_port, server_port);
 }
 
-void BehaviorTreeEngine::resetGrootMonitor() {
+void BehaviorTreeEngine::resetGrootMonitor()
+{
   if (groot_monitor_) {
     groot_monitor_.reset();
   }
@@ -90,16 +100,17 @@ void BehaviorTreeEngine::resetGrootMonitor() {
 
 // In order to re-run a Behavior Tree, we must be able to reset all nodes to the
 // initial state
-void BehaviorTreeEngine::haltAllActions(BT::TreeNode* root_node) {
+void BehaviorTreeEngine::haltAllActions(BT::TreeNode * root_node)
+{
   // this halt signal should propagate through the entire tree.
   root_node->halt();
 
   // but, just in case...
-  auto visitor = [](BT::TreeNode* node) {
-    if (node->status() == BT::NodeStatus::RUNNING) {
-      node->halt();
-    }
-  };
+  auto visitor = [](BT::TreeNode * node) {
+      if (node->status() == BT::NodeStatus::RUNNING) {
+        node->halt();
+      }
+    };
   BT::applyRecursiveVisitor(root_node, visitor);
 }
 

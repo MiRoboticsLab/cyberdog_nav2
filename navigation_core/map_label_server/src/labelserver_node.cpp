@@ -24,11 +24,13 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
-#define GLOBAL_MAP_LOCATION "/home/quan/Downloads/mapping/"
+#define GLOBAL_MAP_LOCATION "/home/mi/mapping/"
 
 #include "map_label_server/labelserver_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "filesystem/filesystem.hpp"
 
 namespace CYBERDOG_NAV
 {
@@ -38,8 +40,17 @@ LabelServer::LabelServer()
   PrintMapData();
   map_label_store_ptr_ = std::make_shared<cyberdog::navigation::LabelStore>();
 
-  callback_group_ =
-    this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
+  // map name handle
+  map_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "map_name",
+    std::bind(
+      &LabelServer::HandleRequestUserSaveMapName, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
+
+  // set map label
   set_label_server_ = this->create_service<protocol::srv::SetMapLabel>(
     "set_label",
     std::bind(
@@ -47,6 +58,7 @@ LabelServer::LabelServer()
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
+  // get map and map's labels
   get_label_server_ = this->create_service<protocol::srv::GetMapLabel>(
     "get_label",
     std::bind(
@@ -54,7 +66,9 @@ LabelServer::LabelServer()
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 }
+
 LabelServer::~LabelServer() {}
+
 void LabelServer::handle_get_label(
   const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<protocol::srv::GetMapLabel::Request> request,
@@ -64,71 +78,42 @@ void LabelServer::handle_get_label(
   std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
 
   INFO("map_name : %s", map_name.c_str());
+
+  std::string map_filename = request->map_name + ".pgm";
+  if (!map_label_store_ptr_->IsExist(map_filename)) {
+    WARN("Map not exist.");
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  // Load map's yaml config
+  nav_msgs::msg::OccupancyGrid map;
+  bool ok = LoadMapMetaInfo(request->map_name, map);
+  if (!ok) {
+    WARN("Map yaml config file not exist.");
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  // Load map's labels
+  std::string label_filename = request->map_name + ".json";
+  std::vector<protocol::msg::Label> labels;
+  map_label_store_ptr_->Read(map_label_store_ptr_->map_label_directory() + label_filename, labels);
+  if (!labels.empty()) {
+    for (auto label : labels) {
+      response->label.labels.push_back(label);
+    }
+  }
+
+  // Set response result.
+  response->label.map.info.resolution = map.info.resolution;
+  response->label.map.info.width = map.info.width;
+  response->label.map.info.height = map.info.height;
+  response->label.map.info.origin = map.info.origin;
+  response->label.map.data = map.data;
+
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
-
-  return;
-
-  if (isFolderExist(map_name)) {
-    RCLCPP_ERROR(get_logger(), "found map %s", map_name.c_str());
-    // response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
-
-    DIR * dirp = opendir(map_name.c_str());
-    struct dirent * dp;
-    while ((dp = readdir(dirp)) != NULL) {
-      LabelT label;
-      protocol::msg::Label l;
-
-      RCLCPP_ERROR(get_logger(), "file: %s", dp->d_name);
-      if (!strncmp(dp->d_name, ".", 1) || !strncmp(dp->d_name, "..", 2)) {
-        continue;
-      }
-      read_map_label(map_name + "/" + dp->d_name, label);
-      l.label_name = dp->d_name;
-      l.physic_x = label.x;
-      l.physic_y = label.y;
-      response->label.labels.push_back(l);
-    }
-  }
-
-
-  nav_msgs::msg::OccupancyGrid map;
-  std::string yaml_map = "/home/quan/Downloads/mapping/map.yaml";
-  auto status = nav2_map_server::loadMapFromYaml(yaml_map, map);
-  if (nav2_map_server::LOAD_MAP_STATUS::LOAD_MAP_SUCCESS == status) {
-    INFO("Get yaml map success.");
-    // response->label.resolution = map.info.resolution;
-    // response->label.width = map.info.width;
-    // response->label.height = map.info.height;
-    // response->label.origin = map.info.origin;
-    // response->label.data = map.data;
-
-
-    response->label.map.info.resolution = map.info.resolution;
-    response->label.map.info.width = map.info.width;
-    response->label.map.info.height = map.info.height;
-    response->label.map.info.origin = map.info.origin;
-    response->label.map.data = map.data;
-
-    // for (int i = 0; i < 25; i++) {
-    //   response->label.map.data.push_back(i % 100);
-    // }
-
-    INFO("resolution : %f", response->label.map.info.resolution);
-    INFO("width : %d", response->label.map.info.width);
-    INFO("height : %d", response->label.map.info.height);
-    INFO("map.data size : %d", response->label.map.data.size());
-
-    std::cout << "\n\n";
-    std::cout << "[" << std::endl;
-    for (int i = 0; i < map.data.size(); i++) {
-      std::cout << map.data[i] << ",";
-    }
-    std::cout << "]" << std::endl;
-  }
-
-  // closedir(dirp);
-  // response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
 }
 
 void LabelServer::handle_set_label(
@@ -138,33 +123,68 @@ void LabelServer::handle_set_label(
 {
   INFO("LabelServer::handle_set_label ");
 
-  std::unique_lock<std::mutex> ulk(mut);
-  std::string map_path =
-    std::string(GLOBAL_MAP_LOCATION) + request->label.map_name;
-  if (!isFolderExist(map_path)) {
-    makeMapFolder(map_path);
+  std::string map_filename = request->label.map_name + ".pgm";
+  INFO("map name: %s", map_filename.c_str());
+  if (!map_label_store_ptr_->IsExist(map_filename)) {
+    INFO("Map not exist, not set label function.");
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
+    return;
   }
-  // remove exist label
-  for (size_t i = 0; i < request->label.labels.size(); i++) {
-    RCLCPP_ERROR(
-      get_logger(), "map_path: %s, label_name:%s", map_path.c_str(),
-      request->label.labels[i].label_name.c_str());
-    std::string label_name =
-      map_path + "/" + request->label.labels[i].label_name;
-    if (isFileExixt(label_name)) {
-      removeFile(label_name);
-    }
 
-    if (!request->only_delete) {
-      RCLCPP_ERROR(get_logger(), "new label:%s", label_name.c_str());
-      LABEL label;
-      label.x = request->label.labels[i].physic_x;
-      label.y = request->label.labels[i].physic_y;
-      writ_map_label(label_name, label);
+  // remove map and label tag
+  if (request->only_delete && request->label.labels.size() == 0) {
+    INFO("Remove map : %s", request->label.map_name.c_str());
+    RemoveMap(map_filename);
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  // remove label
+  if (request->only_delete && request->label.labels.size()) {
+    std::string label_filename_suffix = request->label.map_name + ".json";
+    std::string label_filename = map_label_store_ptr_->map_label_directory() +
+      label_filename_suffix;
+
+    for (auto label : request->label.labels) {
+      map_label_store_ptr_->RemoveLabel(label_filename, label.label_name.c_str());
+    }
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  std::string label_filename_suffix = request->label.map_name + ".json";
+  std::string label_filename = map_label_store_ptr_->map_label_directory() + label_filename_suffix;
+
+  if (!map_label_store_ptr_->IsExist(label_filename)) {
+    bool exist = map_label_store_ptr_->CreateMapLabelFile(
+      map_label_store_ptr_->map_label_directory(), label_filename_suffix);
+    if (!exist) {
+      WARN("Current map label json file has exist.");
     }
   }
+
+  rapidjson::Document doc(rapidjson::kObjectType);
+  map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
+  for (size_t i = 0; i < request->label.labels.size(); i++) {
+    // print
+    INFO(
+      "label [%s] : [%f, %f]",
+      request->label.labels[i].label_name.c_str(),
+      request->label.labels[i].physic_x,
+      request->label.labels[i].physic_y);
+
+    // save label
+    auto label = std::make_shared<protocol::msg::Label>();
+    label->set__physic_x(request->label.labels[i].physic_x);
+    label->set__physic_y(request->label.labels[i].physic_y);
+    map_label_store_ptr_->AddLabel(label_filename, request->label.labels[i].label_name, label, doc);
+  }
+
+  // save
+  map_label_store_ptr_->Write(label_filename, doc);
   response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
 }
+
 void LabelServer::read_map_label(std::string filename, LABEL & label)
 {
   FILE * infile;
@@ -243,6 +263,57 @@ void LabelServer::PrintMapData()
     }
     std::cout << "]" << std::endl;
   }
+}
+
+bool LabelServer::LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid & map)
+{
+  std::string map_yaml_config = "/home/mi/mapping/" + map_name + ".yaml";
+  auto status = nav2_map_server::loadMapFromYaml(map_yaml_config, map);
+
+  if (status != nav2_map_server::LOAD_MAP_STATUS::LOAD_MAP_SUCCESS) {
+    WARN("Load map yaml config error.");
+    return false;
+  }
+
+  INFO("Get yaml map success.");
+  INFO("resolution : %f", map.info.resolution);
+  INFO("width : %d", map.info.width);
+  INFO("height : %d", map.info.height);
+  INFO("map.data size : %d", map.data.size());
+
+  return true;
+}
+
+bool LabelServer::RemoveMap(const std::string & map_name)
+{
+  filesystem::remove_all(map_label_store_ptr_->map_label_directory());
+  return true;
+}
+
+void LabelServer::HandleRequestUserSaveMapName(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  INFO("request save map's name.");
+
+  if (request->data) {
+    response->message = robot_map_name();
+    response->success = true;
+  }
+
+  response->message = "";
+  response->success = false;
+}
+
+void LabelServer::set_robot_map_name(const std::string & name)
+{
+  robot_map_name_ = name;
+}
+
+std::string LabelServer::robot_map_name() const
+{
+  return robot_map_name_;
 }
 
 }  // namespace CYBERDOG_NAV

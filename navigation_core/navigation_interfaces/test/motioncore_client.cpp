@@ -32,14 +32,12 @@ auto client = rclcpp_action::create_client<protocol::action::Navigation>(
 
 std::shared_ptr<rclcpp_action::ClientGoalHandle<protocol::action::Navigation>> goal_handle;
 
-
 void feedback_callback(
   rclcpp_action::ClientGoalHandle<protocol::action::Navigation>::SharedPtr,
   const std::shared_ptr<const protocol::action::Navigation_Feedback> feedback)
 {
   std::cout << feedback->feedback_code << std::endl;
 }
-
 
 void signalHandler(int signum)
 {
@@ -120,3 +118,4 @@ int main(int argc, char ** argv)
   rclcpp::shutdown();
   return 0;
 }
+

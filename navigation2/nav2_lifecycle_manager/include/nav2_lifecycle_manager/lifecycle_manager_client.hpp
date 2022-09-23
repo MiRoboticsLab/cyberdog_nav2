@@ -126,6 +126,8 @@ protected:
 
   std::shared_ptr<nav2_util::ServiceClient<ManageLifecycleNodes>> manager_client_;
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::Trigger>> is_active_client_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
+  rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
   std::string manage_service_name_;
   std::string active_service_name_;
 };

@@ -32,6 +32,8 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "motion_core/realsense_lifecycle_manager.hpp"
+#include "visualization/srv/stop.hpp"
 
 enum ActionType
 {
@@ -76,6 +78,8 @@ public:
   using Navigation = protocol::action::Navigation;
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
   using TriggerT = std_srvs::srv::SetBool;
+  using RealSenseClient = RealSenseLifecycleServiceClient;
+
   NavigationCore();
   ~NavigationCore() = default;
 
@@ -100,7 +104,8 @@ public:
     std::vector<geometry_msgs::msg::PoseStamped> poses);
 
   // get current navstatus.
-  void GetCurrentNavStatus();
+  void NavigationStatusFeedbackMonitor();
+
   void GetCurrentLocStatus();
 
   // mapping
@@ -153,6 +158,8 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
+  std::unique_ptr<RealSenseClient> client_realsense_{nullptr};
+
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mcr_uwb_;
@@ -162,11 +169,13 @@ private:
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
   ActionType action_type_;
+
   void GetNavStatus(int & status, ActionType & action_type);
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
     reloc_status_ = static_cast<RelocStatus>(msg->data);
-    INFO("%d", msg->data);
+    INFO("%d", reloc_status_);
+
     if (reloc_topic_waiting_) {
       INFO("notify");
       reloc_cv_.notify_one();
@@ -203,6 +212,35 @@ private:
 
   void FollowExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
+  /**
+   * @brief Cancel robot's navigation
+   *
+   * @return true
+   * @return false
+   */
+  bool CancelNavigation();
+
+  /**
+   * @brief Whether to report the dog's position in real time
+   *
+   * @param start If true report, false not report
+   * @return true Report pose
+   * @return false Not report pose
+   */
+  bool ReportRealtimeRobotPose(bool start);
+
+  /**
+   * @brief Stop build mapping
+   * @return true
+   * @return false
+   */
+  bool StopMapping();
+
+  /**
+   * @brief Manager all task's status
+   */
+  void TaskManager();
+
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
   void SenResult();
@@ -215,15 +253,29 @@ private:
     const std_srvs::srv::SetBool_Request::SharedPtr);
   void FollwPointCallback(const protocol::msg::FollowPoints::SharedPtr msg);
   std_msgs::msg::Header ReturnHeader();
+
+  void set_running_navigation(bool state);
+  bool running_navigation();
+
+  bool running_navigation_ {false};
   rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
-  rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  // rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
+
+  // robot's realtime pose client
+  rclcpp::Client<TriggerT>::SharedPtr realtime_pose_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   RelocStatus reloc_status_{RelocStatus::kIdle};
   std::mutex reloc_mutex_;
   std::condition_variable reloc_cv_;
   bool reloc_topic_waiting_{false};
+
+  std::mutex navigation_mutex_;
+  std::condition_variable navigation_cond_;
+  bool navigation_finished_ {false};
+  std::shared_ptr<std::thread> task_managers_ {nullptr};
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_

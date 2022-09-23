@@ -54,6 +54,8 @@ NavigationCore::NavigationCore()
   nav_through_poses_goal_ = nav2_msgs::action::NavigateThroughPoses::Goal();
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
+  client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
+
   navigation_server_ = rclcpp_action::create_server<Navigation>(
     this, "CyberdogNavigation",
     std::bind(&NavigationCore::HandleNavigationGoal, this, _1, _2),
@@ -64,12 +66,16 @@ NavigationCore::NavigationCore()
     this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_mapping_client_ = create_client<TriggerT>(
     "start_mapping", rmw_qos_profile_services_default, callback_group_);
-  stop_mapping_client_ = create_client<TriggerT>(
+  stop_mapping_client_ = create_client<visualization::srv::Stop>(
     "stop_mapping", rmw_qos_profile_services_default, callback_group_);
+  // stop_mapping_client_ = create_client<TriggerT>(
+  //   "stop_mapping", rmw_qos_profile_services_default, callback_group_);
   start_loc_client_ = create_client<TriggerT>(
     "start_location", rmw_qos_profile_services_default, callback_group_);
   stop_loc_client_ = create_client<TriggerT>(
     "stop_location", rmw_qos_profile_services_default, callback_group_);
+  realtime_pose_client_ = create_client<TriggerT>(
+    "PoseEnable", rmw_qos_profile_services_default, callback_group_);
 
   OnInitialize();
   points_pub_ = this->create_publisher<protocol::msg::FollowPoints>(
@@ -79,9 +85,11 @@ NavigationCore::NavigationCore()
     "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::FollwPointCallback, this, _1));
   reloc_sub_ = create_subscription<std_msgs::msg::Int32>(
-    "laser_reloc_result",
+    "reloc_result",
     rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::HandleRelocCallback, this, _1));
+
+  task_managers_ = std::make_shared<std::thread>(&NavigationCore::TaskManager, this);
 }
 
 void NavigationCore::FollwPointCallback(
@@ -109,6 +117,16 @@ std_msgs::msg::Header NavigationCore::ReturnHeader()
   msg.frame_id = "NavigationCore";
   msg.stamp = this->get_clock()->now();
   return msg;
+}
+
+void NavigationCore::set_running_navigation(bool state)
+{
+  running_navigation_ = state;
+}
+
+bool NavigationCore::running_navigation()
+{
+  return running_navigation_;
 }
 
 rclcpp_action::GoalResponse NavigationCore::HandleNavigationGoal(
@@ -150,22 +168,46 @@ void NavigationCore::FollowExecute(
   const auto goal = goal_handle->get_goal();
   auto result = std::make_shared<Navigation::Result>();
   RCLCPP_INFO(this->get_logger(), "Executing goal: %d", goal->nav_type);
+
   switch (goal->nav_type) {
     case Navigation::Goal::NAVIGATION_TYPE_START_AB:
       {
-        INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
+        INFO("robot[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
         result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
         if (goal->poses.empty()) {
           INFO("empty pose ");
+          INFO("goal_handle->succeed(result) ### 4");
           goal_handle->succeed(result);
         }
+
+        INFO(
+          "Goal pose : [x = %f, y = %f]",
+          goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
 
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           // goal process failed
+          INFO("goal_handle->succeed(result) ### 3");
           result->result = goal_result;
           goal_handle->succeed(result);
         }
+      }
+      break;
+
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
+
+        bool cancel_state = CancelNavigation();
+        if (cancel_state) {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          set_running_navigation(false);
+        } else {
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+        }
+
+        INFO("goal_handle->succeed(result) ### 2");
+        goal_handle->succeed(result);
       }
       break;
 
@@ -174,6 +216,7 @@ void NavigationCore::FollowExecute(
         INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_FOLLOW .....");
         uint8_t goal_result = StartNavThroughPoses(goal->poses);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+          INFO("goal_handle->succeed(result) ### 1");
           goal_handle->succeed(result);
         }
       }
@@ -209,6 +252,7 @@ void NavigationCore::FollowExecute(
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
           goal_handle->abort(result);
         } else if (goal_result == ActionExecStage::kSuccess) {
+          INFO("result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS");
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
           goal_handle->succeed(result);
         }
@@ -233,6 +277,7 @@ void NavigationCore::FollowExecute(
         uint8_t goal_result = StartTracking(goal->relative_pos, goal->keep_distance);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           // goal process failed
+          INFO("goal process failed");
           result->result = goal_result;
           goal_handle->succeed(result);
         }
@@ -241,8 +286,93 @@ void NavigationCore::FollowExecute(
 
     default:
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
+      INFO("goal_handle->succeed(result) ### 5");
       goal_handle->succeed(result);
       break;
+  }
+}
+
+bool NavigationCore::CancelNavigation()
+{
+  INFO("Start cancel navigation...");
+  bool run_result = false;
+
+  if (navigation_goal_handle_) {
+    auto future_cancel =
+      navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
+
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    } else {
+      navigation_goal_handle_.reset();
+      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+      run_result = true;
+    }
+    if (!nav_timer_->is_canceled()) {
+      RCLCPP_ERROR(
+        client_node_->get_logger(),
+        "canceled navigation goal timer");
+      nav_timer_->cancel();
+    }
+  }
+
+  return run_result;
+}
+
+bool NavigationCore::ReportRealtimeRobotPose(bool start)
+{
+  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  request->data = start;
+  INFO("realtime_pose_client_ service name: %s", realtime_pose_client_->get_service_name());
+  return ServiceImpl(realtime_pose_client_, request);
+}
+
+bool NavigationCore::StopMapping()
+{
+  visualization::srv::Stop_Request::SharedPtr request;
+  request->map_name = "map";
+  request->finish = true;
+
+  while (!stop_mapping_client_->wait_for_service(5s)) {
+    if (!rclcpp::ok()) {
+      ERROR("Interrupted while waiting for the service. Exiting.");
+      return false;
+    }
+    WARN("service not available, waiting again...");
+  }
+  auto future = stop_mapping_client_->async_send_request(request);
+  // Wait for the result.
+  if (future.wait_for(5s) == std::future_status::timeout) {
+    ERROR("Stop build mapping service timeout");
+    return false;
+  }
+  return future.get()->success;
+}
+
+void NavigationCore::TaskManager()
+{
+  // Control task run frequency 20Hz
+  constexpr int task_frequency = 20;
+  rclcpp::Rate rate(task_frequency);
+
+  while (rclcpp::ok()) {
+    std::unique_lock<std::mutex> locker(navigation_mutex_);
+    if (navigation_cond_.wait_for(locker, std::chrono::seconds(2)) == std::cv_status::timeout) {
+      continue;
+    }
+
+    if (navigation_finished_) {
+      nav_timer_->cancel();
+      SenResult();
+      navigation_finished_ = false;
+      INFO("Send navigation AB point success.");
+    }
+
+    rate.sleep();
   }
 }
 
@@ -280,6 +410,7 @@ void NavigationCore::OnInitialize()
         // navigation_feedback_indicator_->setText(getNavToPoseFeedbackLabel());
       }
     });
+
   nav_through_poses_goal_status_sub_ =
     this->create_subscription<action_msgs::msg::GoalStatusArray>(
     "navigate_through_poses/_action/status", rclcpp::SystemDefaultsQoS(),
@@ -300,9 +431,11 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
   // start navigation stack
   if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!client_nav_.startup()) {
+      WARN("navigation client startup failed.");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   }
+
   auto is_action_server_ready =
     navigation_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
@@ -317,15 +450,18 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
 
   // Send the goal pose
   navigation_goal_.pose = pose;
+  navigation_goal_.pose.header.frame_id = "map";
+  navigation_goal_.pose.pose.orientation.w = 1;
 
   INFO("NavigateToPose will be called using the BT Navigator's default behavior tree.");
 
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
     nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+
   send_goal_options.result_callback = [this](auto) {
       ERROR("Get navigate to poses result");
-      SenResult();
+      // SenResult();
       navigation_goal_handle_.reset();
     };
 
@@ -341,6 +477,7 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
 
+  INFO("Send goal success.");
   // Get the goal handle and save so that we can check on completion in the
   // timer callback
   navigation_goal_handle_ = future_goal_handle.get();
@@ -351,7 +488,7 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
   }
 
   nav_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -418,6 +555,8 @@ uint8_t NavigationCore::StartTracking(uint8_t relative_pos, float keep_distance)
 
   // nav_timer_ = this->create_wall_timer(
   //   200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+  nav_timer_ = this->create_wall_timer(
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -430,12 +569,19 @@ uint8_t NavigationCore::HandleMapping(bool start)
   rclcpp::Client<TriggerT>::SharedPtr client;
 
   if (start) {
+    // real sense
+    if (!client_realsense_->Startup()) {
+      ERROR("Realsense lifecycle start failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {
         ERROR("Lifecycle start failed");
         return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       }
     }
+
     client = start_mapping_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
@@ -446,16 +592,28 @@ uint8_t NavigationCore::HandleMapping(bool start)
       INFO("Failed to stop mapping because node not active");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
-    client = stop_mapping_client_;
-    if (!ServiceImpl(client, request)) {
-      ERROR("Service failed");
+
+    if (!StopMapping()) {
+      ERROR("stop mapping service failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
+
+
     if (!client_mapping_.pause()) {
       ERROR("Lifecycle pause failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
+
+    if (!client_realsense_->Pause()) {
+      ERROR("Realsense lifecycle pause failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
   }
+
+  if (!ReportRealtimeRobotPose(start)) {
+    INFO("Start robot's realtime pose failed.");
+  }
+
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
@@ -466,12 +624,19 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
   request->data = true;
   rclcpp::Client<TriggerT>::SharedPtr client;
   if (start) {
+    // real sense
+    if (!client_realsense_->Startup()) {
+      ERROR("Realsense lifecycle start failed");
+      return ActionExecStage::kFailed;
+    }
+
     if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_loc_.startup()) {
-        ERROR("Lifecycle start failed");
+        ERROR("Localization lifecycle start failed");
         return ActionExecStage::kFailed;
       }
     }
+
     client = start_loc_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
@@ -484,15 +649,28 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
       INFO("Failed to stop mapping because node not active");
       return ActionExecStage::kFailed;
     }
+
     client = stop_loc_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
       return ActionExecStage::kFailed;
     }
+
     if (!client_loc_.pause()) {
-      ERROR("Lifecycle pause failed");
+      ERROR("Localization lifecycle pause failed");
       return ActionExecStage::kFailed;
     }
+
+    if (!client_realsense_->Pause()) {
+      ERROR("Realsense lifecycle pause failed");
+      return ActionExecStage::kFailed;
+    }
+
+    if (!ReportRealtimeRobotPose(start)) {
+      WARN("Start robot's realtime pose failed.");
+    }
+
+    INFO("Localization success.");
     reloc_status_ = RelocStatus::kIdle;
     return ActionExecStage::kSuccess;
   }
@@ -578,7 +756,8 @@ uint8_t NavigationCore::StartNavThroughPoses(
   }
 
   through_pose_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -637,7 +816,7 @@ uint8_t NavigationCore::StartWaypointFollowing(
   }
 
   waypoint_follow_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::GetCurrentNavStatus, this));
+    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 
@@ -647,9 +826,10 @@ void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
   action_type = action_type_;
 }
 
-void NavigationCore::GetCurrentNavStatus()
+
+void NavigationCore::NavigationStatusFeedbackMonitor()
 {
-  RCLCPP_ERROR(client_node_->get_logger(), "GetCurrentNavStatus ");
+  RCLCPP_ERROR(client_node_->get_logger(), "Navigation status monitor ...");
   static auto feedback = std::make_shared<Navigation::Feedback>();
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_)
@@ -702,12 +882,14 @@ void NavigationCore::GetCurrentNavStatus()
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
-      nav_timer_->cancel();
-      SenResult();
+      // SenResult();
+      // nav_timer_->cancel();
+      // navigation_finished_ = false;
+      navigation_finished_ = true;
+      navigation_cond_.notify_one();
     }
   }
 }
-
 
 void NavigationCore::GetCurrentLocStatus()
 {
@@ -718,7 +900,7 @@ void NavigationCore::GetCurrentLocStatus()
     if (reloc_cv_.wait_for(lk, std::chrono::seconds(2)) == std::cv_status::timeout) {
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      goal_handle_->abort(result);
+      // goal_handle_->abort(result);
       ResetReloc();
       ERROR("Topic timeout");
       return;
@@ -742,7 +924,7 @@ void NavigationCore::GetCurrentLocStatus()
       feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      goal_handle_->abort(result);
+      // goal_handle_->abort(result);
       ResetReloc();
       return;
     }
@@ -758,7 +940,10 @@ void NavigationCore::SenResult()
 {
   auto result = std::make_shared<Navigation::Result>();
   result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+
+  INFO("goal_handle->succeed(result) ### 6");
   goal_handle_->succeed(result);
+
   action_type_ = kActionNone;
 }
 void NavigationCore::OnCancel()

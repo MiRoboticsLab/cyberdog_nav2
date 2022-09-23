@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <utility>
 
 #include "map_label_server/label_store.hpp"
 
@@ -24,12 +25,12 @@ namespace cyberdog
 namespace navigation
 {
 
-const std::string kMapLabelDirectory = "/home/quan/Downloads/mapping/";   // NOLINT
+const std::string kMapLabelDirectory = "/home/mi/mapping/";   // NOLINT
 
 LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
 {
-  // LoadLabels(map_label_directory_);
+  LoadLabels(map_label_directory_);
   Debug();
 }
 
@@ -63,7 +64,9 @@ bool LabelStore::CreateMapLabelFile(
   const std::string & filename)
 {
   std::string label_filename = map_label_directory() + filename;
-  if (IsExist(label_filename)) {
+
+  if (filesystem::exists(filesystem::path(label_filename))) {
+    INFO("Current label file  %s is exist", label_filename.c_str());
     return false;
   }
 
@@ -79,6 +82,71 @@ bool LabelStore::CreateMapLabelFile(
   return true;
 }
 
+void LabelStore::DeleteLabel(
+  const std::string & filename,
+  const std::string & label_name,
+  rapidjson::Document & existed_doc)
+{
+  // check current "*.json" is existed or not
+  std::string label_filename = map_label_directory() + filename;
+
+  if (IsExist(label_filename)) {
+    return;
+  }
+
+  for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
+    if (it->name.GetString() == label_name) {
+      // delete labelName,physicX and physicY
+      existed_doc.RemoveMember(static_cast<const char *>(label_name.c_str()));
+      break;
+    }
+  }
+}
+
+void LabelStore::ChangeLable(
+  const std::string & old_label_name,
+  const std::string & new_label_name,
+  const protocol::msg::Label::SharedPtr & new_label,
+  rapidjson::Document & existed_doc)
+{
+  std::string label_filename = map_label_directory() + "test.json";
+
+  // 若label_filename存在 则返回false，不执行return
+  if (IsExist(label_filename)) {
+    return;
+  }
+
+  // change a label
+  existed_doc.RemoveMember(static_cast<const char *>(old_label_name.c_str()));
+  AddLabel(label_filename, new_label_name, new_label, existed_doc);
+}
+
+bool LabelStore::IsLabelExist(
+  const std::string & filename,
+  const std::string & label_name,
+  rapidjson::Document & existed_doc)
+{
+  std::string label_filename = map_label_directory() + filename;
+
+  // if label_filename exist, the func "IsExist(label_filename)" would return false.
+  if (IsExist(label_filename)) {
+    INFO("The .json is not existed");
+    return false;
+  }
+
+  for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
+    if (it->name.GetString() == label_name) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "the label is existed in the .json");
+      return true;
+    }
+
+    if (it == (existed_doc.MemberEnd() - 1)) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "the label is not existed in the .json");
+      return false;
+    }
+  }
+}
+
 bool LabelStore::DeleteMapLabelFile(const std::string & filename)
 {
   return filesystem::remove(
@@ -87,8 +155,9 @@ bool LabelStore::DeleteMapLabelFile(const std::string & filename)
 
 bool LabelStore::IsExist(const std::string & filename)
 {
-  return filesystem::exists(
-    filesystem::path(map_label_directory() + filename));
+  std::string path = map_label_directory() + filename;
+  INFO("path : %s", path.c_str());
+  return filesystem::exists(filesystem::path(path));
 }
 
 std::string LabelStore::GetLabelsFilenameFromMap(const std::string & map_name)
@@ -126,14 +195,51 @@ bool LabelStore::LoadLabels(const std::string & directory)
   for (auto filename : filesystem::directory_iterator(path)) {
     if (std::regex_match(filename.path().c_str(), file_suffix)) {
       INFO("filename : %s", filename.path().c_str());
+
+      std::vector<protocol::msg::Label> labels;
+      Read(filename.path(), labels);
+      labels_table_.insert(std::make_pair(filename.path(), ToLabels(labels)));
     }
   }
+
   return true;
 }
 
 void LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
 {
   common::CyberdogJson::WriteJsonToFile(label_filename, doc);
+}
+
+// bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
+// {
+//   auto it = labels_table_.find(label_filename);
+//   if (it == labels_table_.end()) {
+//     INFO("Can't find label filename : %s", label_filename.c_str());
+//     return false;
+//   }
+
+//   auto &labels = labels_table_[label_filename];
+//   for (std::size_t index = 0; index < labels.size(); ++index) {
+//     if (labels[index].tag == label_name) {
+//       labels.erase(labels.begin() + index);
+//     }
+//   }
+
+//   return true;
+// }
+
+bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
+{
+  rapidjson::Document doc;
+  bool load = common::CyberdogJson::ReadJsonFromFile(label_filename, doc);
+  if (!load) {
+    INFO("Load %s label filename error", label_filename.c_str());
+    return false;
+  }
+
+  DeleteLabel(label_filename, label_name, doc);
+  Write(label_filename, doc);
+  return true;
 }
 
 void LabelStore::Read(
@@ -161,6 +267,7 @@ void LabelStore::Read(
     auto label = std::make_shared<protocol::msg::Label>();
     label->set__physic_x(it->value["x"].GetFloat());
     label->set__physic_y(it->value["y"].GetFloat());
+    label->set__label_name(it->name.GetString());
     labels.emplace_back(*label.get());
   }
 }
@@ -211,6 +318,25 @@ rapidjson::Document LabelStore::ToJson(const protocol::msg::Label::SharedPtr lab
   common::CyberdogJson::Add(label_json, "x", label->physic_x);
   common::CyberdogJson::Add(label_json, "y", label->physic_y);
   return label_json;
+}
+
+LabelStore::Labels LabelStore::ToLabels(const std::vector<protocol::msg::Label> & protocol_labels)
+{
+  LabelStore::Labels convert_labels;
+
+  for (const auto & label : protocol_labels) {
+    convert_labels.push_back(
+      Label {
+          label.label_name,
+          label.physic_x,
+          label.physic_y,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        });
+  }
+  return convert_labels;
 }
 
 }   //  namespace navigation

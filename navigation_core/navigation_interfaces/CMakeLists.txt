@@ -24,6 +24,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(mcr_msgs REQUIRED)
+find_package(visualization REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -46,11 +47,14 @@ set(dependencies
   rclcpp_action
   rclcpp_components
   mcr_msgs
+  visualization
 )
 
 set(sources
   src/motion_core_node.cpp
+  src/realsense_lifecycle_manager.cpp
 )
+
 add_executable(${PROJECT_NAME} src/motioncore.cpp)
 ament_target_dependencies(${PROJECT_NAME}
   ${dependencies}

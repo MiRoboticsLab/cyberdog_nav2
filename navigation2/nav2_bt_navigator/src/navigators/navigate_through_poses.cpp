@@ -213,7 +213,7 @@ bool NavigateThroughPosesNavigator::onGoalUpdate(FollowPoses::SharedPtr msg)
   Goals goal_poses;
   auto blackboard = bt_action_server_->getBlackboard();
   blackboard->get<Goals>(goals_blackboard_id_, goal_poses);
-  goal_poses.insert(goal_poses.end(),msg->poses.begin(),msg->poses.end());
+  goal_poses.insert(goal_poses.end(), msg->poses.begin(), msg->poses.end());
   blackboard->set<Goals>(goals_blackboard_id_, goal_poses);
   return true;
 }
