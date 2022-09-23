@@ -39,30 +39,15 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
-    config_file = os.path.join(get_package_share_directory('cyberdog_miloc'), 'config/config.yml')
-    mivins_vo_cmd = Node(
-            package="cyberdog_miloc",
-            executable="miloc_server",
-            name="miloc_server",
-            emulate_tty=True,
-            namespace=namespace,
-            parameters=[
-                {
-                 "config_path": config_file,
-                 "cam0_topic": "/image_rgb",
-                 "cam1_topic": "/image_left",
-                 "cam2_topic": "/image_right",
-                 "odom_slam": "/mivins/odom_slam",
-                 "odom_out": "/odom_out",
-                 "reloc_failure_threshold": 10,
-                 "immediately_reconstruct": False
-                }
-            ]
-        )
+    miloc_dir = FindPackageShare(package='cyberdog_miloc').find('cyberdog_miloc') 
+    miloc_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(miloc_dir, 'launch/miloc_server_launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        mivins_vo_cmd,
+        miloc_cmd,
     ])
 
     return ld
