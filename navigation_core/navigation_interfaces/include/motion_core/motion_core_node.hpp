@@ -230,6 +230,13 @@ private:
   bool ReportRealtimeRobotPose(bool start);
 
   /**
+   * @brief Stop build mapping
+   * @return true
+   * @return false
+   */
+  bool StopMapping();
+
+  /**
    * @brief Manager all task's status
    */
   void TaskManager();
@@ -252,8 +259,8 @@ private:
 
   bool running_navigation_ {false};
   rclcpp::Client<TriggerT>::SharedPtr start_mapping_client_;
-  rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
-  // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_mapping_client_;
+  // rclcpp::Client<TriggerT>::SharedPtr stop_mapping_client_;
+  rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_mapping_client_;
   rclcpp::Client<TriggerT>::SharedPtr start_loc_client_;
   rclcpp::Client<TriggerT>::SharedPtr stop_loc_client_;
 

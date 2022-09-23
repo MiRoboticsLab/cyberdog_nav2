@@ -66,10 +66,10 @@ NavigationCore::NavigationCore()
     this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_mapping_client_ = create_client<TriggerT>(
     "start_mapping", rmw_qos_profile_services_default, callback_group_);
-  // stop_mapping_client_ = create_client<visualization::srv::Stop>(
-  //   "stop_mapping", rmw_qos_profile_services_default, callback_group_);
-  stop_mapping_client_ = create_client<TriggerT>(
+  stop_mapping_client_ = create_client<visualization::srv::Stop>(
     "stop_mapping", rmw_qos_profile_services_default, callback_group_);
+  // stop_mapping_client_ = create_client<TriggerT>(
+  //   "stop_mapping", rmw_qos_profile_services_default, callback_group_);
   start_loc_client_ = create_client<TriggerT>(
     "start_location", rmw_qos_profile_services_default, callback_group_);
   stop_loc_client_ = create_client<TriggerT>(
@@ -331,6 +331,28 @@ bool NavigationCore::ReportRealtimeRobotPose(bool start)
   return ServiceImpl(realtime_pose_client_, request);
 }
 
+bool NavigationCore::StopMapping()
+{
+  visualization::srv::Stop_Request::SharedPtr request;
+  request->map_name = "map";
+  request->finish = true;
+
+  while (!stop_mapping_client_->wait_for_service(5s)) {
+    if (!rclcpp::ok()) {
+      ERROR("Interrupted while waiting for the service. Exiting.");
+      return false;
+    }
+    WARN("service not available, waiting again...");
+  }
+  auto future = stop_mapping_client_->async_send_request(request);
+  // Wait for the result.
+  if (future.wait_for(5s) == std::future_status::timeout) {
+    ERROR("Stop build mapping service timeout");
+    return false;
+  }
+  return future.get()->success;
+}
+
 void NavigationCore::TaskManager()
 {
   // Control task run frequency 20Hz
@@ -571,9 +593,8 @@ uint8_t NavigationCore::HandleMapping(bool start)
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
-    client = stop_mapping_client_;
-    if (!ServiceImpl(client, request)) {
-      ERROR("Service failed");
+    if (!StopMapping()) {
+      ERROR("stop mapping service failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
