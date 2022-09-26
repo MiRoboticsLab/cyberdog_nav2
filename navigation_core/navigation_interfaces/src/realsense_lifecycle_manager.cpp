@@ -50,9 +50,9 @@ RealSenseLifecycleServiceClient::RealSenseLifecycleServiceClient(const std::stri
 : Node(node_name)
 {
   callback_group_ = this->create_callback_group(
-    rclcpp::CallbackGroupType::MutuallyExclusive, false);
+    rclcpp::CallbackGroupType::Reentrant, false);
 
-  callback_group_executor_.add_callback_group(callback_group_, this->get_node_base_interface());
+  // callback_group_executor_.add_callback_group(callback_group_, this->get_node_base_interface());
 
   client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(
     node_get_state_topic,
@@ -64,9 +64,7 @@ RealSenseLifecycleServiceClient::RealSenseLifecycleServiceClient(const std::stri
     rmw_qos_profile_services_default,
     callback_group_);
 
-  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
-    INFO("RealSense set configure state error.");
-  }
+  init();
 }
 
 RealSenseLifecycleServiceClient::~RealSenseLifecycleServiceClient()
@@ -81,10 +79,6 @@ void RealSenseLifecycleServiceClient::init()
 
   client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
     node_change_state_topic);
-
-  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
-    INFO("RealSense set configure state error.");
-  }
 }
 
 unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time_out)
@@ -92,10 +86,7 @@ unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time
   auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
 
   if (!client_get_state_->wait_for_service(time_out)) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "Service %s is not available.",
-      client_get_state_->get_service_name());
+    ERROR("Service %s is not available.", client_get_state_->get_service_name());
     return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
   }
 
@@ -103,38 +94,25 @@ unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time
   auto future_status = wait_for_result(future_result, time_out);
   INFO("GetState() future_status : %d", future_status);
 
-  if (callback_group_executor_.spin_until_future_complete(future_result) !=
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
-    WARN("Function GetState() error.");
-    return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
-  }
-
-  // We have an succesful answer. So let's print the current state.
-  if (future_result.get()) {
-    RCLCPP_INFO(
-      get_logger(), "Node %s has current state %s.",
+  if (future_status == std::future_status::ready) {
+    INFO("Node %s has current state %s.",
       lifecycle_node, future_result.get()->current_state.label.c_str());
     return future_result.get()->current_state.id;
-  } else {
-    RCLCPP_ERROR(
-      get_logger(), "Failed to get current state for node %s", lifecycle_node);
-    return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
   }
+
+ RCLCPP_ERROR(
+      get_logger(), "Failed to get current state for node %s", lifecycle_node);
+  return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
 }
 
 bool RealSenseLifecycleServiceClient::ChangeState(
-  std::uint8_t transition,
-  std::chrono::seconds time_out)
+  std::uint8_t transition, std::chrono::seconds time_out)
 {
   auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
   request->transition.id = transition;
 
   if (!client_change_state_->wait_for_service(time_out)) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "Service %s is not available.",
-      client_change_state_->get_service_name());
+    ERROR("Service %s is not available.", client_change_state_->get_service_name());
     return false;
   }
 
@@ -143,28 +121,19 @@ bool RealSenseLifecycleServiceClient::ChangeState(
   auto future_status = wait_for_result(future_result, time_out);
   INFO("ChangeState() future_status : %d", future_status);
 
-  if (callback_group_executor_.spin_until_future_complete(future_result) !=
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
-    return false;
+  if (future_status == std::future_status::ready) {
+    INFO("Transition %d successfully triggered.", static_cast<int>(transition));
+    return true;
   }
 
-  // We have an answer, let's print our success.
-  if (future_result.get()->success) {
-    RCLCPP_INFO(
-      get_logger(), "Transition %d successfully triggered.", static_cast<int>(transition));
-    return true;
-  } else {
-    RCLCPP_WARN(
-      get_logger(), "Failed to trigger transition %u", static_cast<unsigned int>(transition));
-    return false;
-  }
+  WARN("Failed to trigger transition %u", static_cast<unsigned int>(transition));
+  return false;
 }
 
 bool RealSenseLifecycleServiceClient::Startup()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
-    return true;
+  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
+    INFO("RealSense set configure state error.");
   }
 
   // activate
@@ -177,10 +146,6 @@ bool RealSenseLifecycleServiceClient::Startup()
 
 bool RealSenseLifecycleServiceClient::Pause()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-    return true;
-  }
-
   // deactivate
   if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
     INFO("RealSense set deactivate state error.");
@@ -191,10 +156,6 @@ bool RealSenseLifecycleServiceClient::Pause()
 
 bool RealSenseLifecycleServiceClient::Cleanup()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) {
-    return true;
-  }
-
   // cleanup
   if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP)) {
     INFO("RealSense set cleanup state error.");

@@ -31,7 +31,7 @@ LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
 {
   LoadLabels(map_label_directory_);
-  Debug();
+  // Debug();
 }
 
 LabelStore::~LabelStore()

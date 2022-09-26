@@ -112,6 +112,8 @@ public:
   uint8_t HandleMapping(bool start);
   ActionExecStage HandleLocalization(bool start);
 
+  std::shared_ptr<RealSenseClient> GetRealSenseNode() { return client_realsense_; }
+
 private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
     navigation_action_client_;
@@ -158,7 +160,7 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-  std::unique_ptr<RealSenseClient> client_realsense_{nullptr};
+  std::shared_ptr<RealSenseClient> client_realsense_{nullptr};
 
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
@@ -241,6 +243,9 @@ private:
    */
   void TaskManager();
 
+
+  
+
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
   void SenResult();
@@ -266,6 +271,7 @@ private:
 
   // robot's realtime pose client
   rclcpp::Client<TriggerT>::SharedPtr realtime_pose_client_;
+
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   RelocStatus reloc_status_{RelocStatus::kIdle};
   std::mutex reloc_mutex_;

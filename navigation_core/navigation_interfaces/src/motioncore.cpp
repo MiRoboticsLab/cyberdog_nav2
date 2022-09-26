@@ -20,13 +20,17 @@
 #include <unordered_set>
 
 #include "motion_core/motion_core_node.hpp"
+#include "cyberdog_debug/backtrace.hpp"
 
 int main(int argc, char ** argv)
 {
+  cyberdog::debug::register_signal();
+  
   rclcpp::init(argc, argv);
   auto node = std::make_shared<carpo_navigation::NavigationCore>();
   rclcpp::executors::MultiThreadedExecutor exec_;
   exec_.add_node(node->get_node_base_interface());
+  exec_.add_node(node->GetRealSenseNode()->get_node_base_interface());
   exec_.spin();
   rclcpp::shutdown();
   return 0;
