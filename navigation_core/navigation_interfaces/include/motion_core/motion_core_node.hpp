@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <deque>
 
 #include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
 #include "nav2_msgs/action/follow_waypoints.hpp"
@@ -58,6 +59,16 @@ enum class RelocStatus : int32_t
   kFailed = 200
 };
 
+enum class TaskTypeWWW
+{
+  Unknown,
+  StartBuildMap,
+  StopBuildMap,
+  StartLocalization,
+  StopLocalization,
+  StartNavigation,
+  StopNavigation
+};
 namespace carpo_navigation
 {
 using std::placeholders::_1;
@@ -112,7 +123,9 @@ public:
   uint8_t HandleMapping(bool start);
   ActionExecStage HandleLocalization(bool start);
 
-  std::shared_ptr<RealSenseClient> GetRealSenseNode() { return client_realsense_; }
+  std::shared_ptr<RealSenseClient> GetRealSenseNode() {return client_realsense_;}
+
+  std::shared_ptr<rclcpp::Node> GetClientNode() {return client_node_;}
 
 private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
@@ -243,9 +256,6 @@ private:
    */
   void TaskManager();
 
-
-  
-
   // save goal handle to local
   std::shared_ptr<GoalHandleNavigation> goal_handle_;
   void SenResult();
@@ -282,6 +292,10 @@ private:
   std::condition_variable navigation_cond_;
   bool navigation_finished_ {false};
   std::shared_ptr<std::thread> task_managers_ {nullptr};
+
+  bool send_result_flag_ = false;
+
+  void set_send_result_flag(bool result);
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_

@@ -95,13 +95,13 @@ unsigned int RealSenseLifecycleServiceClient::GetState(std::chrono::seconds time
   INFO("GetState() future_status : %d", future_status);
 
   if (future_status == std::future_status::ready) {
-    INFO("Node %s has current state %s.",
+    INFO(
+      "Node %s has current state %s.",
       lifecycle_node, future_result.get()->current_state.label.c_str());
     return future_result.get()->current_state.id;
   }
 
- RCLCPP_ERROR(
-      get_logger(), "Failed to get current state for node %s", lifecycle_node);
+  ERROR("Failed to get current state for node %s", lifecycle_node);
   return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
 }
 

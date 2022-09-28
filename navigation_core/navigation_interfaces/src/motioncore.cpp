@@ -25,11 +25,12 @@
 int main(int argc, char ** argv)
 {
   cyberdog::debug::register_signal();
-  
+
   rclcpp::init(argc, argv);
   auto node = std::make_shared<carpo_navigation::NavigationCore>();
   rclcpp::executors::MultiThreadedExecutor exec_;
   exec_.add_node(node->get_node_base_interface());
+  exec_.add_node(node->GetClientNode()->get_node_base_interface());
   exec_.add_node(node->GetRealSenseNode()->get_node_base_interface());
   exec_.spin();
   rclcpp::shutdown();

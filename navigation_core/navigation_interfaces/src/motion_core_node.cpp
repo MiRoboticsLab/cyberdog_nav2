@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "motion_core/motion_core_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
@@ -129,6 +130,11 @@ bool NavigationCore::running_navigation()
   return running_navigation_;
 }
 
+void NavigationCore::set_send_result_flag(bool result)
+{
+  send_result_flag_ = result;
+}
+
 rclcpp_action::GoalResponse NavigationCore::HandleNavigationGoal(
   const rclcpp_action::GoalUUID & uuid,
   std::shared_ptr<const Navigation::Goal> goal)
@@ -192,6 +198,24 @@ void NavigationCore::FollowExecute(
           goal_handle->succeed(result);
         }
       }
+      /* debug0927: call goal cancel */
+      // {
+      //   #if 1
+      //   INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
+
+      //   bool cancel_state = CancelNavigation();
+      //   if (cancel_state) {
+      //     result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+      //     set_running_navigation(false);
+      //   } else {
+      //     result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+      //   }
+
+      //   INFO("goal_handle->succeed(result) ### 2");
+
+      //   goal_handle->succeed(result);
+      //   #endif
+      // }
       break;
 
     case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
@@ -207,6 +231,7 @@ void NavigationCore::FollowExecute(
         }
 
         INFO("goal_handle->succeed(result) ### 2");
+
         goal_handle->succeed(result);
       }
       break;
@@ -254,7 +279,9 @@ void NavigationCore::FollowExecute(
         } else if (goal_result == ActionExecStage::kSuccess) {
           INFO("result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS");
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          ERROR("Debug Test step1");
           goal_handle->succeed(result);
+          ERROR("Debug Test step2");
         }
       }
       break;
@@ -301,21 +328,27 @@ bool NavigationCore::CancelNavigation()
     auto future_cancel =
       navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(
-        client_node_, future_cancel,
-        server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS)
-    {
-      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    // if (rclcpp::spin_until_future_complete(
+    //     client_node_, future_cancel,
+    //     server_timeout_) !=
+    //   rclcpp::FutureReturnCode::SUCCESS)
+    // {
+    //   RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    // } else {
+    //   navigation_goal_handle_.reset();
+    //   RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+    //   run_result = true;
+    // }
+
+    if (future_cancel.wait_for(server_timeout_) == std::future_status::ready) {
+      INFO("Cancel navigation goal success.");
     } else {
-      navigation_goal_handle_.reset();
-      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
-      run_result = true;
+      INFO("Cancel navigation goal failure.");
+      return false;
     }
+
     if (!nav_timer_->is_canceled()) {
-      RCLCPP_ERROR(
-        client_node_->get_logger(),
-        "canceled navigation goal timer");
+      INFO("Canceled navigation goal timer");
       nav_timer_->cancel();
     }
   }
@@ -331,9 +364,9 @@ bool NavigationCore::ReportRealtimeRobotPose(bool start)
   if (start) {
     INFO("%s", start_cmd.c_str());
   } else {
-     INFO("%s", stop_cmd.c_str());
+    INFO("%s", stop_cmd.c_str());
   }
- 
+
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = start;
   INFO("realtime_pose_client_ service name: %s", realtime_pose_client_->get_service_name());
@@ -342,7 +375,7 @@ bool NavigationCore::ReportRealtimeRobotPose(bool start)
 
 bool NavigationCore::StopMapping()
 {
-  visualization::srv::Stop_Request::SharedPtr request;
+  auto request = std::make_shared<visualization::srv::Stop_Request>();
   request->map_name = "map";
   request->finish = true;
 
@@ -473,34 +506,39 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
   send_goal_options.result_callback = [this](auto) {
       ERROR("Get navigate to poses result");
       // SenResult();
-      navigation_goal_handle_.reset();
+      // navigation_goal_handle_.reset();
     };
 
   auto future_goal_handle = navigation_action_client_->async_send_goal(
     navigation_goal_, send_goal_options);
-  if (rclcpp::spin_until_future_complete(
-      client_node_, future_goal_handle,
-      server_timeout_) !=
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
-    ERROR("Send goal call failed");
-    client_nav_.pause();
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  // if (rclcpp::spin_until_future_complete(
+  //     client_node_, future_goal_handle,
+  //     server_timeout_) !=
+  //   rclcpp::FutureReturnCode::SUCCESS)
+  // {
+  //   ERROR("Send goal call failed");
+  //   client_nav_.pause();
+  //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  // }
+
+  if (future_goal_handle.wait_for(server_timeout_) == std::future_status::ready) {
+    INFO("Send goal success.");
+    // Get the goal handle and save so that we can check on completion in the
+    // timer callback
+    navigation_goal_handle_ = future_goal_handle.get();
+    if (!navigation_goal_handle_) {
+      RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by server");
+      client_nav_.pause();
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
+    }
+
+    nav_timer_ = this->create_wall_timer(
+      200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
   }
 
-  INFO("Send goal success.");
-  // Get the goal handle and save so that we can check on completion in the
-  // timer callback
-  navigation_goal_handle_ = future_goal_handle.get();
-  if (!navigation_goal_handle_) {
-    RCLCPP_ERROR(client_node_->get_logger(), "Goal was rejected by server");
-    client_nav_.pause();
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
-  }
-
-  nav_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
-  return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
+  ERROR("Send goal call failed");
+  return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
 }
 
 uint8_t NavigationCore::StartTracking(uint8_t relative_pos, float keep_distance)
@@ -578,9 +616,6 @@ uint8_t NavigationCore::HandleMapping(bool start)
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
   request->data = true;
   rclcpp::Client<TriggerT>::SharedPtr client;
-
-  INFO("%s:%d>>%s()",std::string(__FILE__).c_str(), 
-    static_cast<int>(__LINE__), std::string(__FUNCTION__).c_str());
 
   if (start) {
     // real sense
@@ -896,7 +931,7 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
       SenResult();
     }
   } else if (navigation_goal_handle_) {
-    rclcpp::spin_some(client_node_);
+    // rclcpp::spin_some(client_node_);
     status_ = navigation_goal_handle_->get_status();
     action_type_ = kActionNavigation;
     // Check if the goal is still executing
@@ -914,6 +949,7 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
       // navigation_finished_ = false;
       navigation_finished_ = true;
       navigation_cond_.notify_one();
+      navigation_goal_handle_.reset();
     }
   }
 }
@@ -970,6 +1006,7 @@ void NavigationCore::SenResult()
 
   INFO("goal_handle->succeed(result) ### 6");
   goal_handle_->succeed(result);
+  set_send_result_flag(true);
 
   action_type_ = kActionNone;
 }
@@ -984,24 +1021,30 @@ void NavigationCore::OnCancel()
   if (reloc_status_ == RelocStatus::kRetrying) {
     ResetReloc();
   }
+
   if (navigation_goal_handle_) {
     auto future_cancel =
       navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    if (rclcpp::spin_until_future_complete(
-        client_node_, future_cancel,
-        server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS)
-    {
-      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    // if (rclcpp::spin_until_future_complete(
+    //     client_node_, future_cancel,
+    //     server_timeout_) !=
+    //   rclcpp::FutureReturnCode::SUCCESS)
+    // {
+    //   RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    // } else {
+    //   navigation_goal_handle_.reset();
+    //   RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+    // }
+
+    if (future_cancel.wait_for(server_timeout_) == std::future_status::ready) {
+      INFO("Cancel navigation goal success.");
     } else {
-      navigation_goal_handle_.reset();
-      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+      INFO("Cancel navigation goal failure.");
     }
+
     if (!nav_timer_->is_canceled()) {
-      RCLCPP_ERROR(
-        client_node_->get_logger(),
-        "canceled navigation goal timer");
+      INFO("canceled navigation goal timer");
       nav_timer_->cancel();
     }
   }
