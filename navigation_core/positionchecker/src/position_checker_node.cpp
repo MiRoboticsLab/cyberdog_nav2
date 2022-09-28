@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "positionchecker/position_checker_node.hpp"
-
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +20,10 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "positionchecker/position_checker_node.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+
 using namespace std::chrono_literals;
 namespace CYBERDOG_NAV
 {
@@ -52,7 +54,11 @@ void PositionChecker::loop()
   std::string global_frame_, robot_base_frame_;
 
   while (true) {
-    // RCLCPP_WARN(get_logger(), "Lopping.");
+    if (!looping_) {
+      INFO("Close current robot report realtime pose.");
+      return;
+    }
+
     if (!nav2_util::getCurrentPose(
         pose_based_on_global_frame, *tf_buffer_,
         "map", "base_link"))
@@ -77,21 +83,16 @@ void PositionChecker::serviceCallback(
   const std::shared_ptr<SetBool::Request> request,
   std::shared_ptr<SetBool::Response> response)
 {
-  RCLCPP_WARN(get_logger(), "serviceCallback.");
   if (request->data == true && !looping_) {
     looping_ = true;
-    RCLCPP_WARN(get_logger(), "serviceCallback2.");
-
+    INFO("Request start report robot's realtime pose.");
     loop_thread_ = std::make_shared<std::thread>(&PositionChecker::loop, this);
-    RCLCPP_WARN(get_logger(), "serviceCallback3.");
-    response->success = true;
   } else if (request->data == false) {
-    RCLCPP_WARN(get_logger(), "serviceCallback4.");
+    INFO("Request stop report robot's realtime pose.");
     looping_ = false;
     loop_thread_->join();
-    response->success = true;
   }
-  response->success = false;
+  response->success = true;
 }
 
 }  // namespace CYBERDOG_NAV
