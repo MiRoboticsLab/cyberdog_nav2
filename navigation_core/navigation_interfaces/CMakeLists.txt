@@ -25,7 +25,6 @@ find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
-find_package(cyberdog_debug REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -49,7 +48,6 @@ set(dependencies
   rclcpp_components
   mcr_msgs
   visualization
-  cyberdog_debug
 )
 
 set(sources
