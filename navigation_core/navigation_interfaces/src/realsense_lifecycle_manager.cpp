@@ -64,9 +64,9 @@ RealSenseLifecycleServiceClient::RealSenseLifecycleServiceClient(const std::stri
     rmw_qos_profile_services_default,
     callback_group_);
 
-  if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
-    INFO("RealSense set configure state error.");
-  }
+  // if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
+  //   INFO("RealSense set configure state error.");
+  // }
 }
 
 RealSenseLifecycleServiceClient::~RealSenseLifecycleServiceClient()
@@ -163,10 +163,6 @@ bool RealSenseLifecycleServiceClient::ChangeState(
 
 bool RealSenseLifecycleServiceClient::Startup()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
-    return true;
-  }
-
   // activate
   if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
     INFO("RealSense set activate state error.");
@@ -177,10 +173,6 @@ bool RealSenseLifecycleServiceClient::Startup()
 
 bool RealSenseLifecycleServiceClient::Pause()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-    return true;
-  }
-
   // deactivate
   if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
     INFO("RealSense set deactivate state error.");
@@ -191,10 +183,6 @@ bool RealSenseLifecycleServiceClient::Pause()
 
 bool RealSenseLifecycleServiceClient::Cleanup()
 {
-  if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) {
-    return true;
-  }
-
   // cleanup
   if (!ChangeState(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP)) {
     INFO("RealSense set cleanup state error.");
