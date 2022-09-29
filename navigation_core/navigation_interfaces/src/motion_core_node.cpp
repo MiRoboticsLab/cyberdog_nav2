@@ -51,11 +51,11 @@ NavigationCore::NavigationCore()
   // TODO(PDF):
   client_vision_manager_ =
     std::make_shared<nav2_util::LifecycleServiceClient>("vision_manager");
-  client_tracking_manager_ = 
+  client_tracking_manager_ =
     std::make_shared<nav2_util::LifecycleServiceClient>("tracking");
   client_vision_algo_ =
     client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
-    // Create service server
+  // Create service server
   service_tracking_object_ = create_service<BodyRegionT>(
     "tracking_object_srv", std::bind(
       &NavigationCore::TrackingSrv_callback, this,
@@ -917,7 +917,7 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
 {
   // RCLCPP_INFO(client_node_->get_logger(), "Navigation status monitor ...");
   static auto feedback = std::make_shared<Navigation::Feedback>();
-  if(start_vision_tracking_) {
+  if (start_vision_tracking_) {
     rclcpp::spin_some(client_node_);
     {
       feedback->feedback_code = vision_action_client_feedback_;
@@ -1143,7 +1143,7 @@ void NavigationCore::OnCancel()
   // result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   // goal_handle_->canceled(result);
 }
-  // TODO(PDF):
+// TODO(PDF):
 void NavigationCore::CallVisionTrackAlgo()
 {
   auto request = std::make_shared<protocol::srv::AlgoManager::Request>();
@@ -1181,7 +1181,7 @@ void NavigationCore::CallVisionTrackAlgo()
     ERROR("Failed to call service");
   }
 }
-  // TODO(PDF):
+// TODO(PDF):
 uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_distance)
 {
   // start realsense lifecycle node
@@ -1196,30 +1196,33 @@ uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_dis
     200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
 
   if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-    if ((!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))) {
+    if ((!client_vision_manager_->change_state(
+        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
+    {
       ERROR("vision_manager lifecycle TRANSITION_CONFIGURE failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
-    if (!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
+    if (!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+    {
       ERROR("vision_manager lifecycle TRANSITION_ACTIVATE failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   }
-  
+
   CallVisionTrackAlgo();
 
   vision_action_client_feedback_ = 501;
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
-  // TODO(PDF):
+// TODO(PDF):
 void NavigationCore::TrackingSrv_callback(
   const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<BodyRegionT::Request> req,
   std::shared_ptr<BodyRegionT::Response> res)
 {
   // send tracking_object to cyberdog_vision
-  if(TrackingClient_call_service(client_tracking_object_,req->roi)) {
+  if (TrackingClient_call_service(client_tracking_object_, req->roi)) {
     INFO("TrackingClient_call_service success");
     res->success = true;
   } else {
@@ -1229,12 +1232,17 @@ void NavigationCore::TrackingSrv_callback(
   }
   // start tracking_manager lifecycle node
   if (client_tracking_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-    if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
+    if (!client_tracking_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_CONFIGURE))
+    {
       ERROR("tracking_manager_ lifecycle TRANSITION_CONFIGURE failed");
       res->success = false;
       return;
     }
-    if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
+    if (!client_tracking_manager_->change_state(
+        lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+    {
       ERROR("tracking_manager_ lifecycle TRANSITION_ACTIVATE failed");
       res->success = false;
       return;
@@ -1295,7 +1303,7 @@ void NavigationCore::TrackingSrv_callback(
   }
   vision_action_client_feedback_ = 503;
 }
-  // TODO(PDF):
+// TODO(PDF):
 bool NavigationCore::TrackingClient_call_service(
   rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
   const sensor_msgs::msg::RegionOfInterest & roi)

@@ -142,10 +142,11 @@ public:
   std::shared_ptr<rclcpp::Node> GetClientNode() {return client_node_;}
 
   bool TrackingClient_call_service(
-  rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
-  const sensor_msgs::msg::RegionOfInterest & roi);
+    rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
+    const sensor_msgs::msg::RegionOfInterest & roi);
 
   void CallVisionTrackAlgo();
+
 private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
     navigation_action_client_;
@@ -211,7 +212,7 @@ private:
   rclcpp::Client<BodyRegionT>::SharedPtr client_tracking_object_;
   int32_t vision_action_client_feedback_;
   bool start_vision_tracking_;
-  
+
   void GetNavStatus(int & status, ActionType & action_type);
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
