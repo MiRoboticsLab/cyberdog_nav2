@@ -57,6 +57,9 @@ NavigationCore::NavigationCore()
 
   client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
 
+  std::string realsense_node_name = "camera/camera";
+  realsense_lifecycle_controller_ = std::make_unique<LifecycleController>(realsense_node_name);
+
   navigation_server_ = rclcpp_action::create_server<Navigation>(
     this, "CyberdogNavigation",
     std::bind(&NavigationCore::HandleNavigationGoal, this, _1, _2),
@@ -328,23 +331,16 @@ bool NavigationCore::CancelNavigation()
     auto future_cancel =
       navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    // if (rclcpp::spin_until_future_complete(
-    //     client_node_, future_cancel,
-    //     server_timeout_) !=
-    //   rclcpp::FutureReturnCode::SUCCESS)
-    // {
-    //   RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
-    // } else {
-    //   navigation_goal_handle_.reset();
-    //   RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
-    //   run_result = true;
-    // }
-
-    if (future_cancel.wait_for(server_timeout_) == std::future_status::ready) {
-      INFO("Cancel navigation goal success.");
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
     } else {
-      INFO("Cancel navigation goal failure.");
-      return false;
+      navigation_goal_handle_.reset();
+      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+      run_result = true;
     }
 
     if (!nav_timer_->is_canceled()) {
@@ -511,15 +507,15 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
 
   auto future_goal_handle = navigation_action_client_->async_send_goal(
     navigation_goal_, send_goal_options);
-  // if (rclcpp::spin_until_future_complete(
-  //     client_node_, future_goal_handle,
-  //     server_timeout_) !=
-  //   rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   ERROR("Send goal call failed");
-  //   client_nav_.pause();
-  //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  // }
+  if (rclcpp::spin_until_future_complete(
+      client_node_, future_goal_handle,
+      server_timeout_) !=
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    ERROR("Send goal call failed");
+    client_nav_.pause();
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  }
 
   if (future_goal_handle.wait_for(server_timeout_) == std::future_status::ready) {
     INFO("Send goal success.");
@@ -619,7 +615,12 @@ uint8_t NavigationCore::HandleMapping(bool start)
 
   if (start) {
     // real sense
-    if (!client_realsense_->Startup()) {
+    // if (!client_realsense_->Startup()) {
+    //   ERROR("Realsense lifecycle start failed");
+    //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    // }
+
+    if (!realsense_lifecycle_controller_->Startup()) {
       ERROR("Realsense lifecycle start failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
@@ -657,7 +658,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
-    if (!client_realsense_->Pause()) {
+    if (!realsense_lifecycle_controller_->Pause()) {
       ERROR("Realsense lifecycle pause failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
@@ -680,7 +681,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
 
   if (start) {
     // real sense
-    if (!client_realsense_->Startup()) {
+    if (!realsense_lifecycle_controller_->Startup()) {
       ERROR("Realsense lifecycle start failed");
       return ActionExecStage::kFailed;
     }
@@ -722,7 +723,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
       return ActionExecStage::kFailed;
     }
 
-    if (!client_realsense_->Pause()) {
+    if (!realsense_lifecycle_controller_->Pause()) {
       ERROR("Realsense lifecycle pause failed");
       return ActionExecStage::kFailed;
     }
@@ -1026,16 +1027,16 @@ void NavigationCore::OnCancel()
     auto future_cancel =
       navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
-    // if (rclcpp::spin_until_future_complete(
-    //     client_node_, future_cancel,
-    //     server_timeout_) !=
-    //   rclcpp::FutureReturnCode::SUCCESS)
-    // {
-    //   RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
-    // } else {
-    //   navigation_goal_handle_.reset();
-    //   RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
-    // }
+    if (rclcpp::spin_until_future_complete(
+        client_node_, future_cancel,
+        server_timeout_) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+    } else {
+      navigation_goal_handle_.reset();
+      RCLCPP_ERROR(client_node_->get_logger(), "canceled navigation goal");
+    }
 
     if (future_cancel.wait_for(server_timeout_) == std::future_status::ready) {
       INFO("Cancel navigation goal success.");

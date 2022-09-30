@@ -35,6 +35,7 @@
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "motion_core/realsense_lifecycle_manager.hpp"
 #include "visualization/srv/stop.hpp"
+#include "motion_core/lifecycle_controller.hpp"
 
 enum ActionType
 {
@@ -90,6 +91,7 @@ public:
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
   using TriggerT = std_srvs::srv::SetBool;
   using RealSenseClient = RealSenseLifecycleServiceClient;
+  using LifecycleController = cyberdog::controller::LifecycleController;
 
   NavigationCore();
   ~NavigationCore() = default;
@@ -173,7 +175,9 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-  std::shared_ptr<RealSenseClient> client_realsense_{nullptr};
+  
+  std::shared_ptr<RealSenseClient> client_realsense_ {nullptr};
+  std::shared_ptr<LifecycleController> realsense_lifecycle_controller_{nullptr};
 
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;

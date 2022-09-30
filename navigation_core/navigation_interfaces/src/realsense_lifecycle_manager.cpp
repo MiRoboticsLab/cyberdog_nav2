@@ -63,8 +63,6 @@ RealSenseLifecycleServiceClient::RealSenseLifecycleServiceClient(const std::stri
     node_change_state_topic,
     rmw_qos_profile_services_default,
     callback_group_);
-
-  init();
 }
 
 RealSenseLifecycleServiceClient::~RealSenseLifecycleServiceClient()

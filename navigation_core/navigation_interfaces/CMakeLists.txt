@@ -52,6 +52,7 @@ set(dependencies
 
 set(sources
   src/motion_core_node.cpp
+  src/lifecycle_controller.cpp
   src/realsense_lifecycle_manager.cpp
 )
 

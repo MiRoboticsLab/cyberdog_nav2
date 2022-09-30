@@ -34,7 +34,7 @@ using namespace std::chrono_literals;    // NOLINT
 namespace carpo_navigation
 {
 
-
+//  std::make_shared<LifecycleServiceClient>(node_name, shared_from_this());
 class RealSenseLifecycleServiceClient : public rclcpp::Node
 {
 public:
