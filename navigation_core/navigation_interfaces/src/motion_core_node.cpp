@@ -323,7 +323,7 @@ void NavigationCore::FollowExecute(
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_HUMAN_RECOGNITION:
+    case Navigation::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING:
       {
         INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_START_VISION_TRACKING .....");
         uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
