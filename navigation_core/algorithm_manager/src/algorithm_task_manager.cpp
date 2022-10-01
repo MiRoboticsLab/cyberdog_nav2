@@ -25,18 +25,18 @@ namespace algorithm
 AlgorithmTaskManager::AlgorithmTaskManager()
 : rclcpp::Node("AlgorithmTaskManager")
 {
-  executor_laser_mapping_ =
-    std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
-  executor_laser_localization_ =
-    std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
-  executor_ab_navigation_ =
-    std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
-  executor_auto_dock_ =
-    std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
+  // executor_laser_mapping_ =
+  //   std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+  // executor_laser_localization_ =
+  //   std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+  // executor_ab_navigation_ =
+  //   std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
+  // executor_auto_dock_ =
+  //   std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
   executor_uwb_tracking_ =
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
-  executor_vision_tracking_ =
-    std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  // executor_vision_tracking_ =
+  //   std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
