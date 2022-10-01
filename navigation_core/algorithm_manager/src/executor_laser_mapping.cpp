@@ -12,27 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+#include <memory>
+#include <vector>
 
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/executor_laser_mapping.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class ExecutorLaserLocalization : public ExecutorBase
-{
-public:
-  ExecutorLaserLocalization(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop() override;
-  void Cancel() override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
-private:
+ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
+: ExecutorBase(node_name),
+  client_mapping_("lifecycle_manager_laser_mapping")
+{}
 
-};  // class ExecutorLaserLocalization
-}  // namespace algorithm
-}  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Laser Mapping started");
+}
+
+void ExecutorLaserMapping::Stop()
+{
+  INFO("Laser Mapping stopped");
+}
+
+void ExecutorLaserMapping::Cancel()
+{
+  INFO("Laser Mapping canceled");
+}
+
+// void ExecutorLaserMapping::GetFeedback(protocol::action::Navigation::Feedback::SharedPtr)
+// {}
+
+
+
+}
+}  

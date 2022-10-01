@@ -22,8 +22,12 @@ namespace algorithm
 class ExecutorAutoDock : public ExecutorBase
 {
 public:
-
+  ExecutorAutoDock(std::string node_name);
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop() override;
+  void Cancel() override;
 private:
+
 
 };  // class ExecutorAutoDock
 }  // namespace algorithm

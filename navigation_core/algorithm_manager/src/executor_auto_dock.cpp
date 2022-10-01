@@ -11,23 +11,36 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <time.h>
 
-#include <algorithm>
 #include <memory>
-#include <queue>
-#include <string>
-#include <unordered_set>
+#include <vector>
 
-#include "motion_core/motion_core_node.hpp"
+#include "algorithm_manager/executor_auto_dock.hpp"
 
-int main(int argc, char ** argv)
+namespace cyberdog
 {
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<carpo_navigation::NavigationCore>();
-  rclcpp::executors::MultiThreadedExecutor exec_;
-  exec_.add_node(node->get_node_base_interface());
-  exec_.spin();
-  rclcpp::shutdown();
-  return 0;
+namespace algorithm
+{
+
+ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
+: ExecutorBase(node_name)
+{}
+
+void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Laser Localization started");
 }
+
+void ExecutorAutoDock::Stop()
+{
+  INFO("Laser Localization stopped");
+}
+
+void ExecutorAutoDock::Cancel()
+{
+  INFO("Laser Localization canceled");
+}
+
+}
+}  

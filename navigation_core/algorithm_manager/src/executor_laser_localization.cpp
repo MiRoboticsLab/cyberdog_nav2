@@ -15,35 +15,39 @@
 #include <memory>
 #include <vector>
 
-#include "algorithm_manager/executor_ab_navigation.hpp"
+#include "algorithm_manager/executor_laser_localization.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
+ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
-  INFO("AB navigation started");
+  INFO("Laser Localization started");
 }
 
-void ExecutorAbNavigation::Stop()
-{}
+void ExecutorLaserLocalization::Stop()
+{
+  INFO("Laser Localization stopped");
+}
 
-void ExecutorAbNavigation::Cancel()
-{}
+void ExecutorLaserLocalization::Cancel()
+{
+  INFO("Laser Localization canceled");
+}
 
-// void ExecutorAbNavigation::GetFeedback(protocol::action::Navigation::Feedback::SharedPtr)
+// void ExecutorLaserLocalization::GetFeedback(protocol::action::Navigation::Feedback::SharedPtr)
 // {}
 
-// ExecutorBase::ExecutorStatus ExecutorAbNavigation::GetStatus()
+// ExecutorBase::ExecutorStatus ExecutorLaserLocalization::GetStatus()
 // {
-//   return ExecutorStatus::kIdle;
+//   return ExecutorStatus::kExecuting;
 // }
 
 }

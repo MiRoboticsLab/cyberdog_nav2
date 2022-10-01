@@ -26,11 +26,9 @@ class ExecutorAbNavigation : public ExecutorBase
 public:
   ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation(){};
-  void Start() override;
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop() override;
   void Cancel() override;
-  void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
-  ExecutorStatus GetStatus() override;
 private:
 
 };  // class ExecutorAbNavigation

@@ -23,6 +23,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
+find_package(cyberdog_debug REQUIRED)
 find_package(mcr_msgs REQUIRED)
 # find_package(visualization REQUIRED)
 
@@ -53,6 +54,11 @@ set(dependencies
 set(sources
   src/algorithm_task_manager.cpp
   src/executor_ab_navigation.cpp
+  src/executor_auto_dock.cpp
+  src/executor_laser_mapping.cpp
+  src/executor_laser_localization.cpp
+  src/executor_uwb_tracking.cpp
+  src/executor_vision_tracking.cpp 
 )
 
 add_executable(${PROJECT_NAME} ${sources})

@@ -12,27 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+#include <memory>
+#include <vector>
 
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/executor_vision_tracking.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class ExecutorLaserLocalization : public ExecutorBase
-{
-public:
-  ExecutorLaserLocalization(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop() override;
-  void Cancel() override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
-private:
+ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
+: ExecutorBase(node_name)
+{}
 
-};  // class ExecutorLaserLocalization
-}  // namespace algorithm
-}  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Vision Tracking started");
+}
+
+void ExecutorVisionTracking::Stop()
+{
+  INFO("Vision Tracking started");
+}
+
+void ExecutorVisionTracking::Cancel()
+{
+  INFO("Vision Tracking Stopped");
+}
+
+}
+}  

@@ -25,9 +25,15 @@ namespace algorithm
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
-
+  ExecutorLaserMapping(std::string node_name);
+  void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop() override;
+  void Cancel() override;
+  // void UpdateStatus(const ExecutorStatus & executor_status) override;
+  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 private:
-
+  ExecutorData executor_laser_mapping_data_;
+  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

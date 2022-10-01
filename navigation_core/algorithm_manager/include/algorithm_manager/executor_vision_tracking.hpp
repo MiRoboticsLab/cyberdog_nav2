@@ -25,7 +25,10 @@ namespace algorithm
 class ExecutorVisionTracking : public ExecutorBase
 {
 public:
-
+  ExecutorVisionTracking(std::string node_name);
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop() override;
+  void Cancel() override;
 private:
 
 };  // class ExecutorVisionTracking

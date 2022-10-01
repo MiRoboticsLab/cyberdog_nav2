@@ -26,7 +26,13 @@ AlgorithmTaskManager::AlgorithmTaskManager()
 : rclcpp::Node("AlgorithmTaskManager")
 {
   // executor_ = std::make_shared<ExecutorBase>("executor");
-  navigation_server_ = rclcpp_action::create_server<Navigation>(
+  executor_laser_mapping_ = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+  executor_laser_localization_ = std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+  executor_ab_navigation_ = std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
+  executor_auto_dock_ = std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
+  executor_uwb_tracking_ = std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
+  executor_vision_tracking_ = std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(&AlgorithmTaskManager::HandleNavigationGoal,
       this, std::placeholders::_1, std::placeholders::_2),
@@ -34,14 +40,18 @@ AlgorithmTaskManager::AlgorithmTaskManager()
       this, std::placeholders::_1),
     std::bind(&AlgorithmTaskManager::HandleNavigationAccepted,
       this, std::placeholders::_1));
-  std::thread{std::bind(&AlgorithmTaskManager::PublishFeedback, this)}.detach();
+  std::thread{std::bind(&AlgorithmTaskManager::GetExecutorStatus, this)}.detach();
+}
 
+AlgorithmTaskManager::~AlgorithmTaskManager()
+{
+  executor_status_cv_.notify_all();
 }
 
 
 rclcpp_action::GoalResponse AlgorithmTaskManager::HandleNavigationGoal(
   const rclcpp_action::GoalUUID & uuid,
-  std::shared_ptr<const Navigation::Goal> goal)
+  std::shared_ptr<const AlgorithmMGR::Goal> goal)
 {
   (void)uuid;
   (void)goal;
@@ -49,7 +59,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleNavigationGoal(
 }
 
 rclcpp_action::CancelResponse AlgorithmTaskManager::HandleNavigationCancel(
-  const std::shared_ptr<GoalHandleNavigation> goal_handle)
+  const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   INFO("Received request to cancel goal");
   (void)goal_handle;
@@ -57,7 +67,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleNavigationCancel(
 }
 
 void AlgorithmTaskManager::HandleNavigationAccepted(
-  const std::shared_ptr<GoalHandleNavigation> goal_handle)
+  const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
@@ -67,86 +77,134 @@ void AlgorithmTaskManager::HandleNavigationAccepted(
 
 void AlgorithmTaskManager::TaskExecute()
 {
-  const auto goal = goal_handle_->get_goal();
-  auto result = std::make_shared<Navigation::Result>();
+  auto goal = goal_handle_->get_goal();
+  auto result = std::make_shared<AlgorithmMGR::Result>();
 
   switch (goal->nav_type) {
-    case Navigation::Goal::NAVIGATION_TYPE_START_AB:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
       {
         INFO("Start AB Navigation Task");
-        // executor_ = std::make_shared<ExecutorAbNavigation>();
-        executor_->Start();
+        // executor_ab_navigation_->Start();
+        // activated_executor_ = executor_ab_navigation_;
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AB:
       {
         INFO("Stop AB Navigation Task");
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       {
         INFO("Start Mapping Task");
         // executor_ = std::make_shared<ExecutorAbNavigation>();
-        executor_->Start();
+        // executor_laser_mapping_->Start(goal);
+        // activated_executor_ = executor_laser_mapping_;
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_MAPPING:
       {
         INFO("Stop Mapping Task");
+        // executor_laser_mapping_->Stop();
+        // activated_executor_ = executor_laser_mapping_;
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
       {
         INFO("Start Localization Task");
+        // executor_laser_localization_->Start();
+        // activated_executor_ = executor_laser_localization_;
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
       {
         INFO("Stop Localization Task");
+        // executor_laser_localization_->Stop();
+        // activated_executor_ = executor_laser_localization_;
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
       {
         INFO("Start AutoDock Task");
       }
       break;
 
-    case Navigation::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Start UWB Tracking Task");
+        executor_uwb_tracking_->Start(goal);
+        activated_executor_ = executor_uwb_tracking_;
       }
       break;
 
     default:
       break;
   }
+  executor_status_cv_.notify_all();
 }
 
-void AlgorithmTaskManager::PublishFeedback()
+void AlgorithmTaskManager::GetExecutorStatus()
 {
   while (rclcpp::ok())
   {
-    if (executor_->GetStatus() == ExecutorBase::ExecutorStatus::kIdle) {
-      std::this_thread::yield();
+    if(activated_executor_ == nullptr){
+      std::unique_lock<std::mutex> lk(executor_status_mutex_);
+      executor_status_cv_.wait(lk);
     }
-    static auto feedback = std::make_shared<Navigation::Feedback>();
-    executor_->GetFeedback(feedback);
-    goal_handle_->publish_feedback(feedback);
+    if(activated_executor_ == nullptr){
+      continue;
+    }
+    static auto result = std::make_shared<AlgorithmMGR::Result>();
+    ExecutorBase::ExecutorData executor_data =  activated_executor_->GetStatus();
+    switch (executor_data.status)
+    {
+      case ExecutorInterface::ExecutorStatus::kExecuting:
+      {
+        static auto feedback = std::make_shared<AlgorithmMGR::Feedback>(executor_data.feedback);
+        goal_handle_->publish_feedback(feedback);
+        break;
+      }
+
+      case ExecutorInterface::ExecutorStatus::kSuccess:
+      {
+        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+        goal_handle_->succeed(result);
+        activated_executor_.reset();
+        break;
+      }
+      
+      case ExecutorInterface::ExecutorStatus::kAborted:
+      {
+        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
+        goal_handle_->abort(result);
+        activated_executor_.reset();
+        break;
+      }
+
+      default:
+        break;
+    }
+    if (goal_handle_->is_canceling()) {
+      activated_executor_->Cancel();
+      result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+      goal_handle_->canceled(result);
+      activated_executor_.reset();
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 }
-
 }
 }
 
 int main(int argc, char** argv) 
 {
+  LOGGER_MAIN_INSTANCE("MotionManager");
+  cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
   auto atm = std::make_shared<cyberdog::algorithm::AlgorithmTaskManager>();
   rclcpp::spin(atm);

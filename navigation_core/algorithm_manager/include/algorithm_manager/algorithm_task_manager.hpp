@@ -16,71 +16,55 @@
 #define ALGORITHM_MANAGER__ALGORITHM_TASK_MANAGER_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
-#include "nav2_msgs/action/follow_waypoints.hpp"
-#include "nav2_msgs/action/navigate_through_poses.hpp"
-#include "nav2_msgs/action/navigate_to_pose.hpp"
-#include "mcr_msgs/action/target_tracking.hpp"
-// #include "nav2_util/geometry_utils.hpp"
-#include "protocol/action/navigation.hpp"
-// #include "protocol/msg/follow_points.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
+
 // #include "std_srvs/srv/set_bool.hpp"
 // #include "std_msgs/msg/int32.hpp"
 // #include "cyberdog_common/cyberdog_log.hpp"
-#include "algorithm_manager/realsense_lifecycle_manager.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/executor_ab_navigation.hpp"
-// #include "algorithm_manager/executor_auto_dock.hpp"
-// #include "algorithm_manager/executor_laser_localization.hpp"
-// #include "algorithm_manager/executor_laser_mapping.hpp"
-// #include "algorithm_manager/executor_uwb_tracking.hpp"
-// #include "algorithm_manager/executor_vision_tracking.hpp"
+#include "algorithm_manager/executor_auto_dock.hpp"
+#include "algorithm_manager/executor_laser_localization.hpp"
+#include "algorithm_manager/executor_laser_mapping.hpp"
+#include "algorithm_manager/executor_uwb_tracking.hpp"
+#include "algorithm_manager/executor_vision_tracking.hpp"
+#include "cyberdog_debug/backtrace.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
-
-using NavigationGoalHandle =
-  rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
-using WaypointFollowerGoalHandle =
-  rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
-using NavThroughPosesGoalHandle =
-  rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
-using TargetTrackingGoalHandle =
-  rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
-
-using GoalStatus = action_msgs::msg::GoalStatus;
-using Navigation = protocol::action::Navigation;
-using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
-using RealSenseClient = RealSenseLifecycleServiceClient;
 
 class AlgorithmTaskManager : public rclcpp::Node
 {
 
 public:
   AlgorithmTaskManager();
-  ~AlgorithmTaskManager(){};
+  ~AlgorithmTaskManager();
 
 private:
   rclcpp_action::GoalResponse HandleNavigationGoal(
     const rclcpp_action::GoalUUID & uuid,
-    std::shared_ptr<const Navigation::Goal> goal);
+    std::shared_ptr<const AlgorithmMGR::Goal> goal);
   rclcpp_action::CancelResponse HandleNavigationCancel(
-    const std::shared_ptr<GoalHandleNavigation> goal_handle);
+    const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   void HandleNavigationAccepted(
-    const std::shared_ptr<GoalHandleNavigation> goal_handle);
+    const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   void TaskExecute();
   // void TaskExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
-  void PublishFeedback();
-  // void PublishFeedback(const std::shared_ptr<GoalHandleNavigation> goal_handle);
+  void GetExecutorStatus();
+  // void GetExecutorStatus(const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
-  rclcpp_action::Server<Navigation>::SharedPtr navigation_server_;
-  std::shared_ptr<GoalHandleNavigation> goal_handle_;
-  std::shared_ptr<ExecutorBase> executor_;
+  rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_;
+  std::shared_ptr<ExecutorBase> activated_executor_;
+  std::shared_ptr<ExecutorAbNavigation> executor_ab_navigation_;
+  std::shared_ptr<ExecutorAutoDock> executor_auto_dock_;
+  std::shared_ptr<ExecutorLaserMapping> executor_laser_mapping_;
+  std::shared_ptr<ExecutorLaserLocalization> executor_laser_localization_;
+  std::shared_ptr<ExecutorUwbTracking> executor_uwb_tracking_;
+  std::shared_ptr<ExecutorVisionTracking> executor_vision_tracking_;
+  std::condition_variable executor_status_cv_;
+  std::mutex executor_status_mutex_;
 
-  // std::shared_ptr<ExecutorAbNavition> executor_ab_navigation_;
-  // std::shared_ptr<ExecutorAutoDock> executor_ab_navigation_;
 
   // rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
   //   navigation_action_client_;
