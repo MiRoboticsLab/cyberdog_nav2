@@ -207,6 +207,7 @@ private:
   // TODO(PDF):
   std::shared_ptr<nav2_util::LifecycleServiceClient> client_vision_manager_;
   std::shared_ptr<nav2_util::LifecycleServiceClient> client_tracking_manager_;
+  std::shared_ptr<nav2_util::LifecycleServiceClient> client_realsense_manager_;
   rclcpp::Client<protocol::srv::AlgoManager>::SharedPtr client_vision_algo_;
   rclcpp::Service<BodyRegionT>::SharedPtr service_tracking_object_;
   rclcpp::Client<BodyRegionT>::SharedPtr client_tracking_object_;

@@ -49,6 +49,8 @@ NavigationCore::NavigationCore()
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     client_node_, "tracking_target");
   // TODO(PDF):
+  client_realsense_manager_ =
+    std::make_shared<nav2_util::LifecycleServiceClient>("camera/camera");
   client_vision_manager_ =
     std::make_shared<nav2_util::LifecycleServiceClient>("vision_manager");
   client_tracking_manager_ =
@@ -929,7 +931,7 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_)
   {
-    RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
+    // RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
     // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
     action_type_ = kActionNone;
     return;
@@ -1047,13 +1049,16 @@ void NavigationCore::OnCancel()
 {
   if(start_vision_tracking_)
   {
+    if ((!client_realsense_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))) {
+      ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
+    }
     if ((!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))) {
       ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
     }
-    if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
-      ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
-    }
     if (target_tracking_goal_handle_) {
+      if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
+        ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
+      }
       auto future_cancel =
         target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
 
@@ -1064,7 +1069,7 @@ void NavigationCore::OnCancel()
       {
         RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
       } else {
-        target_tracking_action_client_.reset();
+        // target_tracking_action_client_.reset();
         RCLCPP_INFO(client_node_->get_logger(), "canceled navigation goal");
       }
       client_nav_.pause();
@@ -1211,23 +1216,31 @@ void NavigationCore::CallVisionTrackAlgo()
 // TODO(PDF):
 uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_distance)
 {
-  // start realsense lifecycle node
-  // if (!client_realsense_->Startup()) {
-  //     ERROR("Realsense lifecycle start failed");
-  //     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  // }
-  // start vision_manager lifecycle node
   vision_action_client_feedback_ = 500;
   start_vision_tracking_ = true;
   nav_timer_ = this->create_wall_timer(
     2000ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+  // start realsense lifecycle node
+  if (client_realsense_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    if ((!client_realsense_manager_->change_state(
+        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
+    {
+      ERROR("realsense_manager lifecycle TRANSITION_CONFIGURE failed");
+    }
 
+    if (!client_realsense_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+    {
+      ERROR("realsense_manager lifecycle TRANSITION_ACTIVATE failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+    INFO("realsense_manager  TRANSITION_ACTIVATE success");
+  }
+  // start vision_manager lifecycle node
   if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
     if ((!client_vision_manager_->change_state(
         lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
     {
       ERROR("vision_manager lifecycle TRANSITION_CONFIGURE failed");
-      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
     if (!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
@@ -1235,6 +1248,7 @@ uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_dis
       ERROR("vision_manager lifecycle TRANSITION_ACTIVATE failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
+    INFO("vision_manager lifecycle TRANSITION_ACTIVATE success");
   }
 
   CallVisionTrackAlgo();
@@ -1264,8 +1278,6 @@ void NavigationCore::TrackingSrv_callback(
         TRANSITION_CONFIGURE))
     {
       ERROR("tracking_manager_ lifecycle TRANSITION_CONFIGURE failed");
-      res->success = false;
-      return;
     }
     if (!client_tracking_manager_->change_state(
         lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
@@ -1303,9 +1315,9 @@ void NavigationCore::TrackingSrv_callback(
   auto send_goal_options = rclcpp_action::Client<
     mcr_msgs::action::TargetTracking>::SendGoalOptions();
   send_goal_options.result_callback = [this](auto) {
-      ERROR("Get navigate to poses result");
-      SenResult();
-      target_tracking_goal_handle_.reset();
+      INFO("Tracking target send_goal callback");
+      // SenResult();
+      // target_tracking_goal_handle_.reset();
     };
 
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
