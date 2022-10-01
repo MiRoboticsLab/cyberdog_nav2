@@ -1047,16 +1047,24 @@ void NavigationCore::SenResult()
 }
 void NavigationCore::OnCancel()
 {
-  if(start_vision_tracking_)
-  {
-    if ((!client_realsense_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))) {
+  if (start_vision_tracking_) {
+    if ((!client_realsense_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_DEACTIVATE)))
+    {
       ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
     }
-    if ((!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))) {
+    if ((!client_vision_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_DEACTIVATE)))
+    {
       ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
     }
     if (target_tracking_goal_handle_) {
-      if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
+      if (!client_tracking_manager_->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_DEACTIVATE))
+      {
         ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
       }
       auto future_cancel =
@@ -1228,7 +1236,9 @@ uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_dis
       ERROR("realsense_manager lifecycle TRANSITION_CONFIGURE failed");
     }
 
-    if (!client_realsense_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+    if (!client_realsense_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_ACTIVATE))
     {
       ERROR("realsense_manager lifecycle TRANSITION_ACTIVATE failed");
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
