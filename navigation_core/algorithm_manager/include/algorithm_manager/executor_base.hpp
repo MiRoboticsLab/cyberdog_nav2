@@ -61,7 +61,7 @@ public:
   };
 
 public:
-  ExecutorInterface(){};
+  ExecutorInterface() {}
   virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
   virtual void Stop() = 0;
   virtual void Cancel() = 0;
@@ -76,7 +76,7 @@ public:
     AlgorithmMGR::Feedback feedback;
   };
 
-  ExecutorBase(std::string node_name)
+  explicit ExecutorBase(std::string node_name)
   : rclcpp::Node(node_name),
     client_nav_("lifecycle_manager_navigation"),
     client_loc_("lifecycle_manager_localization")
@@ -89,7 +89,7 @@ public:
     executor_data_cv_.wait(lk);
     return executor_data_;
   }
-  
+
 protected:
   virtual void UpdateExecutorData(const ExecutorData & executor_data) final
   {

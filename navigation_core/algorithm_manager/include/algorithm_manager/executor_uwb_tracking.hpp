@@ -29,19 +29,21 @@ public:
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop() override;
   void Cancel() override;
+
 private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
   {
     (void)goal_handle;
     INFO("Goal accepted");
-  };
-  void HandleFeedbackCallback(TargetTrackingGoalHandle::SharedPtr,
+  }
+  void HandleFeedbackCallback(
+    TargetTrackingGoalHandle::SharedPtr,
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
   void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
   void StatusFeedbackMonitor();
   ExecutorData executor_uwb_tracking_data_;
   rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
-    target_tracking_action_client_;  
+    target_tracking_action_client_;
   mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mcr_uwb_;

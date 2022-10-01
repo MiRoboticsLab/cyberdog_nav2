@@ -27,18 +27,23 @@ AlgorithmTaskManager::AlgorithmTaskManager()
 {
   // executor_ = std::make_shared<ExecutorBase>("executor");
   executor_laser_mapping_ = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
-  executor_laser_localization_ = std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+  executor_laser_localization_ =
+    std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
   executor_ab_navigation_ = std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
   executor_auto_dock_ = std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
   executor_uwb_tracking_ = std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
-  executor_vision_tracking_ = std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  executor_vision_tracking_ =
+    std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
-    std::bind(&AlgorithmTaskManager::HandleNavigationGoal,
+    std::bind(
+      &AlgorithmTaskManager::HandleNavigationGoal,
       this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&AlgorithmTaskManager::HandleNavigationCancel,
+    std::bind(
+      &AlgorithmTaskManager::HandleNavigationCancel,
       this, std::placeholders::_1),
-    std::bind(&AlgorithmTaskManager::HandleNavigationAccepted,
+    std::bind(
+      &AlgorithmTaskManager::HandleNavigationAccepted,
       this, std::placeholders::_1));
   std::thread{std::bind(&AlgorithmTaskManager::GetExecutorStatus, this)}.detach();
 }
@@ -150,41 +155,39 @@ void AlgorithmTaskManager::TaskExecute()
 
 void AlgorithmTaskManager::GetExecutorStatus()
 {
-  while (rclcpp::ok())
-  {
-    if(activated_executor_ == nullptr){
+  while (rclcpp::ok()) {
+    if (activated_executor_ == nullptr) {
       std::unique_lock<std::mutex> lk(executor_status_mutex_);
       executor_status_cv_.wait(lk);
     }
-    if(activated_executor_ == nullptr){
+    if (activated_executor_ == nullptr) {
       continue;
     }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
-    ExecutorBase::ExecutorData executor_data =  activated_executor_->GetStatus();
-    switch (executor_data.status)
-    {
+    ExecutorBase::ExecutorData executor_data = activated_executor_->GetStatus();
+    switch (executor_data.status) {
       case ExecutorInterface::ExecutorStatus::kExecuting:
-      {
-        static auto feedback = std::make_shared<AlgorithmMGR::Feedback>(executor_data.feedback);
-        goal_handle_->publish_feedback(feedback);
-        break;
-      }
+        {
+          static auto feedback = std::make_shared<AlgorithmMGR::Feedback>(executor_data.feedback);
+          goal_handle_->publish_feedback(feedback);
+          break;
+        }
 
       case ExecutorInterface::ExecutorStatus::kSuccess:
-      {
-        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-        goal_handle_->succeed(result);
-        activated_executor_.reset();
-        break;
-      }
-      
+        {
+          result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+          goal_handle_->succeed(result);
+          activated_executor_.reset();
+          break;
+        }
+
       case ExecutorInterface::ExecutorStatus::kAborted:
-      {
-        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
-        goal_handle_->abort(result);
-        activated_executor_.reset();
-        break;
-      }
+        {
+          result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
+          goal_handle_->abort(result);
+          activated_executor_.reset();
+          break;
+        }
 
       default:
         break;
@@ -201,7 +204,7 @@ void AlgorithmTaskManager::GetExecutorStatus()
 }
 }
 
-int main(int argc, char** argv) 
+int main(int argc, char ** argv)
 {
   LOGGER_MAIN_INSTANCE("MotionManager");
   cyberdog::debug::register_signal();

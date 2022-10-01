@@ -15,6 +15,7 @@
 #ifndef ALGORITHM_MANAGER__ALGORITHM_TASK_MANAGER_HPP_
 #define ALGORITHM_MANAGER__ALGORITHM_TASK_MANAGER_HPP_
 
+#include <memory>
 #include "rclcpp/rclcpp.hpp"
 
 // #include "std_srvs/srv/set_bool.hpp"
@@ -35,7 +36,6 @@ namespace algorithm
 
 class AlgorithmTaskManager : public rclcpp::Node
 {
-
 public:
   AlgorithmTaskManager();
   ~AlgorithmTaskManager();
@@ -122,7 +122,6 @@ private:
   // rclcpp::TimerBase::SharedPtr through_pose_timer_;
   // int status_;
   // ActionType action_type_;
-
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

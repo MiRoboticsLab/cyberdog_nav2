@@ -47,6 +47,5 @@ void ExecutorLaserMapping::Cancel()
 // {}
 
 
-
 }
-}  
+}

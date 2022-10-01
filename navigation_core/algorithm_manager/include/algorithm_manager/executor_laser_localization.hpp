@@ -30,8 +30,8 @@ public:
   void Stop() override;
   void Cancel() override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
-private:
 
+private:
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

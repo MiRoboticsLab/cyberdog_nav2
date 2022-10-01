@@ -31,6 +31,7 @@ public:
   void Cancel() override;
   // void UpdateStatus(const ExecutorStatus & executor_status) override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
+
 private:
   ExecutorData executor_laser_mapping_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;

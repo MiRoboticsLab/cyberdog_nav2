@@ -14,6 +14,8 @@
 
 #ifndef ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "algorithm_manager/executor_base.hpp"
 namespace cyberdog
@@ -24,13 +26,13 @@ namespace algorithm
 class ExecutorAbNavigation : public ExecutorBase
 {
 public:
-  ExecutorAbNavigation(std::string node_name);
-  ~ExecutorAbNavigation(){};
+  explicit ExecutorAbNavigation(std::string node_name);
+  ~ExecutorAbNavigation() {}
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop() override;
   void Cancel() override;
-private:
 
+private:
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

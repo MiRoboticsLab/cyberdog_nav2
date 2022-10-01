@@ -29,8 +29,8 @@ public:
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop() override;
   void Cancel() override;
-private:
 
+private:
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
 }  // namespace cyberdog
