@@ -39,7 +39,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("UWB Tracking started");
-  if (!LaunchNav2LifeCycleNode(client_nav_) || !LaunchNav2LifeCycleNode(client_mcr_uwb_)) {
+  if (!LaunchNav2LifeCycleNode(lifecycle_client_nav_) || !LaunchNav2LifeCycleNode(client_mcr_uwb_)) {
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
     return;
@@ -49,7 +49,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
     ERROR("Tracking target action server is not available.");
-    client_nav_.pause();
+    lifecycle_client_nav_.pause();
     client_mcr_uwb_.pause();
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
@@ -85,7 +85,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   //   rclcpp::FutureReturnCode::SUCCESS)
   // {
   //   ERROR("Send goal call failed");
-  //   client_nav_.pause();
+  //   lifecycle_client_nav_.pause();
   //   client_mcr_uwb_.pause();
   //   executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
   //   UpdateExecutorData(executor_uwb_tracking_data_);
@@ -94,7 +94,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
-    client_nav_.pause();
+    lifecycle_client_nav_.pause();
     client_mcr_uwb_.pause();
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
@@ -137,16 +137,14 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     case rclcpp_action::ResultCode::CANCELED:
       executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
-      ERROR("Goal was canceled");
+      INFO("Goal was canceled");
       break;
     default:
       executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-      ERROR("Unknown result code");
+      WARN("Unknown result code");
       break;
   }
   UpdateExecutorData(executor_uwb_tracking_data_);
 }
-
-
 }
 }

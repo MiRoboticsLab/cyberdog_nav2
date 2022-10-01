@@ -78,12 +78,12 @@ public:
 
   explicit ExecutorBase(std::string node_name)
   : rclcpp::Node(node_name),
-    client_nav_("lifecycle_manager_navigation"),
-    client_loc_("lifecycle_manager_localization")
+    lifecycle_client_nav_("lifecycle_manager_navigation"),
+    lifecycle_client_loc_("lifecycle_manager_localization")
   {
-    executor_data_future_ = executor_data_promise_.get_future();
+    // executor_data_future_ = executor_data_promise_.get_future();
   }
-  virtual ExecutorData & GetStatus() final
+  virtual ExecutorData & GetExecutorData() final
   {
     std::unique_lock<std::mutex> lk(executor_data_mutex_);
     executor_data_cv_.wait(lk);
@@ -108,8 +108,8 @@ protected:
     }
     return true;
   }
-  nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
+  nav2_lifecycle_manager::LifecycleManagerClient lifecycle_client_nav_;
+  nav2_lifecycle_manager::LifecycleManagerClient lifecycle_client_loc_;
   std::shared_ptr<RealSenseClient> client_realsense_{nullptr};
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
@@ -118,8 +118,8 @@ private:
   std::mutex executor_data_mutex_;
   std::condition_variable executor_data_cv_;
   ExecutorData executor_data_;
-  std::promise<ExecutorData> executor_data_promise_;
-  std::future<ExecutorData> executor_data_future_;
+  // std::promise<ExecutorData> executor_data_promise_;
+  // std::future<ExecutorData> executor_data_future_;
 };   // class ExecutorBase
 }  // namespace algorithm
 }  // namespace cyberdog

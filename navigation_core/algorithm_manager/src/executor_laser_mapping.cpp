@@ -43,9 +43,5 @@ void ExecutorLaserMapping::Cancel()
   INFO("Laser Mapping canceled");
 }
 
-// void ExecutorLaserMapping::GetFeedback(protocol::action::Navigation::Feedback::SharedPtr)
-// {}
-
-
 }
 }

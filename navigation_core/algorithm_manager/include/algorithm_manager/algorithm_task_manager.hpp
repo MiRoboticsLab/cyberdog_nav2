@@ -41,6 +41,16 @@ public:
   ~AlgorithmTaskManager();
 
 private:
+  enum class ManagerStatus : uint8_t
+  { 
+    kIdle,
+    kExecutingLaserMapping,
+    kExecutingLaserLocalization,
+    kExecutingAbNavigation,
+    kExecutingAutoDock,
+    kExecutingUwbTracking,
+    kExecutingVisionTracking
+  };
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
     std::shared_ptr<const AlgorithmMGR::Goal> goal);
@@ -62,66 +72,9 @@ private:
   std::shared_ptr<ExecutorLaserLocalization> executor_laser_localization_;
   std::shared_ptr<ExecutorUwbTracking> executor_uwb_tracking_;
   std::shared_ptr<ExecutorVisionTracking> executor_vision_tracking_;
-  std::condition_variable executor_status_cv_;
-  std::mutex executor_status_mutex_;
-
-
-  // rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
-  //   navigation_action_client_;
-  // rclcpp_action::Client<nav2_msgs::action::FollowWaypoints>::SharedPtr
-  //   waypoint_follower_action_client_;
-  // rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SharedPtr
-  //   nav_through_poses_action_client_;
-  // rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
-  //   target_tracking_action_client_;
-  // rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr reloc_sub_;
-
-  // // Navigation action feedback subscribers
-  // rclcpp::Subscription<
-  //   nav2_msgs::action::NavigateToPose::Impl::FeedbackMessage>::SharedPtr
-  //   navigation_feedback_sub_;
-
-  // rclcpp::Subscription<
-  //   nav2_msgs::action::NavigateThroughPoses::Impl::FeedbackMessage>::SharedPtr
-  //   nav_through_poses_feedback_sub_;
-
-  // rclcpp::Subscription<
-  //   nav2_msgs::action::NavigateToPose::Impl::GoalStatusMessage>::SharedPtr
-  //   navigation_goal_status_sub_;
-
-  // rclcpp::Subscription<
-  //   nav2_msgs::action::NavigateThroughPoses::Impl::GoalStatusMessage>::
-  // SharedPtr nav_through_poses_goal_status_sub_;
-
-  // // Goal-related state
-  // nav2_msgs::action::NavigateToPose::Goal navigation_goal_;
-  // nav2_msgs::action::FollowWaypoints::Goal waypoint_follower_goal_;
-  // nav2_msgs::action::NavigateThroughPoses::Goal nav_through_poses_goal_;
-  // mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
-
-  // rclcpp::Node::SharedPtr client_node_;
-  // std::chrono::milliseconds server_timeout_;
-
-  // // Goal handlers
-  // NavigationGoalHandle::SharedPtr navigation_goal_handle_;
-  // WaypointFollowerGoalHandle::SharedPtr waypoint_follower_goal_handle_;
-  // NavThroughPosesGoalHandle::SharedPtr nav_through_poses_goal_handle_;
-  // TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
-
-  // // The client used to control the nav2 stack
-  // nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
-  // nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-  // std::unique_ptr<RealSenseClient> client_realsense_{nullptr};
-
-  // // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
-  // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
-  // nav2_lifecycle_manager::LifecycleManagerClient client_mcr_uwb_;
-  // rclcpp::TimerBase::SharedPtr nav_timer_;
-  // rclcpp::TimerBase::SharedPtr loc_timer_;
-  // rclcpp::TimerBase::SharedPtr waypoint_follow_timer_;
-  // rclcpp::TimerBase::SharedPtr through_pose_timer_;
-  // int status_;
-  // ActionType action_type_;
+  std::condition_variable executor_start_cv_;
+  std::mutex executor_start_mutex_;
+  ManagerStatus manager_status_{ManagerStatus::kIdle};
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog
