@@ -37,13 +37,13 @@ AlgorithmTaskManager::AlgorithmTaskManager()
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
-      &AlgorithmTaskManager::HandleNavigationGoal,
+      &AlgorithmTaskManager::HandleAlgorithmManagerGoal,
       this, std::placeholders::_1, std::placeholders::_2),
     std::bind(
-      &AlgorithmTaskManager::HandleNavigationCancel,
+      &AlgorithmTaskManager::HandleAlgorithmManagerCancel,
       this, std::placeholders::_1),
     std::bind(
-      &AlgorithmTaskManager::HandleNavigationAccepted,
+      &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
       this, std::placeholders::_1));
   std::thread{std::bind(&AlgorithmTaskManager::GetExecutorStatus, this)}.detach();
 }
@@ -54,7 +54,7 @@ AlgorithmTaskManager::~AlgorithmTaskManager()
 }
 
 
-rclcpp_action::GoalResponse AlgorithmTaskManager::HandleNavigationGoal(
+rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   const rclcpp_action::GoalUUID & uuid,
   std::shared_ptr<const AlgorithmMGR::Goal> goal)
 {
@@ -63,7 +63,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleNavigationGoal(
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse AlgorithmTaskManager::HandleNavigationCancel(
+rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   INFO("Received request to cancel goal");
@@ -71,7 +71,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleNavigationCancel(
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void AlgorithmTaskManager::HandleNavigationAccepted(
+void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   // this needs to return quickly to avoid blocking the executor, so spin up a
@@ -206,7 +206,7 @@ void AlgorithmTaskManager::GetExecutorStatus()
 
 int main(int argc, char ** argv)
 {
-  LOGGER_MAIN_INSTANCE("MotionManager");
+  LOGGER_MAIN_INSTANCE("AlgorithmTaskManager");
   cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
   auto atm = std::make_shared<cyberdog::algorithm::AlgorithmTaskManager>();

@@ -41,12 +41,12 @@ public:
   ~AlgorithmTaskManager();
 
 private:
-  rclcpp_action::GoalResponse HandleNavigationGoal(
+  rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
     std::shared_ptr<const AlgorithmMGR::Goal> goal);
-  rclcpp_action::CancelResponse HandleNavigationCancel(
+  rclcpp_action::CancelResponse HandleAlgorithmManagerCancel(
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
-  void HandleNavigationAccepted(
+  void HandleAlgorithmManagerAccepted(
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   void TaskExecute();
   // void TaskExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
