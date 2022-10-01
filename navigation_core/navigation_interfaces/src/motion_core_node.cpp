@@ -1045,6 +1045,33 @@ void NavigationCore::SenResult()
 }
 void NavigationCore::OnCancel()
 {
+  if(start_vision_tracking_)
+  {
+    if ((!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))) {
+      ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
+    }
+    if (!client_tracking_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE)) {
+      ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
+    }
+    if (target_tracking_goal_handle_) {
+      auto future_cancel =
+        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+
+      if (rclcpp::spin_until_future_complete(
+          client_node_, future_cancel,
+          server_timeout_) !=
+        rclcpp::FutureReturnCode::SUCCESS)
+      {
+        RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+      } else {
+        target_tracking_action_client_.reset();
+        RCLCPP_INFO(client_node_->get_logger(), "canceled navigation goal");
+      }
+      client_nav_.pause();
+    }
+    start_vision_tracking_ = false;
+    return;
+  }
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_ && reloc_status_ != RelocStatus::kRetrying &&
     !target_tracking_goal_handle_)
@@ -1193,7 +1220,7 @@ uint8_t NavigationCore::StartVisionTracking(uint8_t relative_pos, float keep_dis
   vision_action_client_feedback_ = 500;
   start_vision_tracking_ = true;
   nav_timer_ = this->create_wall_timer(
-    200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+    2000ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
 
   if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
     if ((!client_vision_manager_->change_state(
