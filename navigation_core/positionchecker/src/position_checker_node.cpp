@@ -68,10 +68,10 @@ void PositionChecker::loop()
         "Failed to obtain current pose based on map coordinate system.");
       continue;
     } else {
-      RCLCPP_INFO(
-        get_logger(), "robot current pose (%f,%f)",
-        pose_based_on_global_frame.pose.position.x,
-        pose_based_on_global_frame.pose.position.y);
+      // RCLCPP_INFO(
+      //   get_logger(), "robot current pose (%f,%f)",
+      //   pose_based_on_global_frame.pose.position.x,
+      //   pose_based_on_global_frame.pose.position.y);
       pos_pub_->publish(pose_based_on_global_frame);
     }
 

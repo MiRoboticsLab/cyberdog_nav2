@@ -24,7 +24,7 @@ namespace controller
 {
 
 LifecycleController::LifecycleController(const std::string & node_name)
-  : node_name_{node_name}
+: node_name_{node_name}
 {
   sensor_controller_ = std::make_shared<nav2_util::LifecycleServiceClient>(node_name);
 }

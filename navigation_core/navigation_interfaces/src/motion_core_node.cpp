@@ -30,7 +30,8 @@ NavigationCore::NavigationCore()
   client_mapping_("lifecycle_manager_mapping"),
   client_mcr_uwb_("lifecycle_manager_mcr_uwb"),
   status_(GoalStatus::STATUS_UNKNOWN),
-  action_type_(kActionNone)
+  action_type_(kActionNone),
+  task_state_(TaskState::Unknown)
 {
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=navigation_dialog_action_client"});
@@ -57,8 +58,10 @@ NavigationCore::NavigationCore()
 
   client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
 
-  std::string realsense_node_name = "camera/camera";
-  realsense_lifecycle_controller_ = std::make_unique<LifecycleController>(realsense_node_name);
+  realsense_lifecycle_controller_ = std::make_unique<LifecycleController>("camera/camera");
+  vision_mapping_lifecycle_controller_ = std::make_unique<LifecycleController>("mivinsmapping");
+  vision_localization_lifecycle_controller_ =
+    std::make_unique<LifecycleController>("mivinslocalization");
 
   navigation_server_ = rclcpp_action::create_server<Navigation>(
     this, "CyberdogNavigation",
@@ -89,7 +92,7 @@ NavigationCore::NavigationCore()
     "subsequent_follow_points", rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::FollwPointCallback, this, _1));
   reloc_sub_ = create_subscription<std_msgs::msg::Int32>(
-    "reloc_result",
+    "laser_reloc_result",
     rclcpp::SystemDefaultsQoS(),
     std::bind(&NavigationCore::HandleRelocCallback, this, _1));
 
@@ -182,6 +185,14 @@ void NavigationCore::FollowExecute(
     case Navigation::Goal::NAVIGATION_TYPE_START_AB:
       {
         INFO("robot[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_AB .....");
+        if (GetCurrentTaskState() == TaskState::StopNavigation) {
+          WARN("Current robot stop AB point navigation, can't start navigate.");
+          result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+          goal_handle->succeed(result);
+          return;
+        }
+
+        // Condition : Target pose not empty
         result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
         if (goal->poses.empty()) {
           INFO("empty pose ");
@@ -193,49 +204,54 @@ void NavigationCore::FollowExecute(
           "Goal pose : [x = %f, y = %f]",
           goal->poses[0].pose.position.x, goal->poses[0].pose.position.y);
 
+        // Start AB point navigation
         uint8_t goal_result = StartNavigation(goal->poses[0]);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           // goal process failed
           INFO("goal_handle->succeed(result) ### 3");
           result->result = goal_result;
           goal_handle->succeed(result);
+          SetTaskState(TaskState::Unknown);
         }
       }
-      /* debug0927: call goal cancel */
-      // {
-      //   #if 1
-      //   INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
-
-      //   bool cancel_state = CancelNavigation();
-      //   if (cancel_state) {
-      //     result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-      //     set_running_navigation(false);
-      //   } else {
-      //     result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      //   }
-
-      //   INFO("goal_handle->succeed(result) ### 2");
-
-      //   goal_handle->succeed(result);
-      //   #endif
-      // }
       break;
 
     case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
       {
         INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_STOP_AB .....");
+        if (GetCurrentTaskState() != TaskState::StartNavigation) {
+          return;
+        }
 
+        // Wait localization has stoped state that cancel navigation AB point
+        while (true) {
+          if (GetCurrentTaskState() == TaskState::StopLocalization) {
+            INFO("Current robot is in stop localization state");
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+          }
+
+          if (GetCurrentTaskState() == TaskState::Unknown) {
+            INFO("Robot stop localization success.");
+            break;
+          }
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        // Cancel navigation
         bool cancel_state = CancelNavigation();
         if (cancel_state) {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
           set_running_navigation(false);
+          INFO("Stop navigation AB point success.");
         } else {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+          WARN("Stop navigation AB point failed.");
         }
 
         INFO("goal_handle->succeed(result) ### 2");
-
         goal_handle->succeed(result);
+        SetTaskState(TaskState::Unknown);
       }
       break;
 
@@ -253,10 +269,35 @@ void NavigationCore::FollowExecute(
     case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
     case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
       {
-        INFO("mapping request");
-        uint8_t goal_result = HandleMapping(
-          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING);
+        INFO("mapping request, map_name : %s", goal->map_name.c_str());
+        // mapping and  localization mutex
+        if (GetCurrentTaskState() == TaskState::StartLocalization) {
+          INFO("Current robot in start localization state, not support start mapping.");
+          return;
+        }
 
+        // mapping and  localization mutex
+        if (GetCurrentTaskState() == TaskState::StopBuildMap) {
+          INFO("Current robot in stop localization state, not support stop mapping.");
+          return;
+        }
+
+        // Check start mapping state
+        bool start = goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_MAPPING;
+        if (start) {
+          if (GetCurrentTaskState() == TaskState::StartBuildMap) {
+            INFO("Current robot has started building map.");
+            return;
+          }
+        } else {
+          if (GetCurrentTaskState() == TaskState::StopBuildMap) {
+            INFO("Current robot has stoped building map.");
+            return;
+          }
+        }
+
+        // Robot start or stop mapping
+        uint8_t goal_result = HandleMapping(start, goal->map_name);
         if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
           INFO("[Navigation]  Navigation::Goal::NAVIGATION_GOAL_TYPE_MAPPING .....");
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
@@ -274,18 +315,36 @@ void NavigationCore::FollowExecute(
     case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
       {
         INFO("loc request");
-        auto goal_result = HandleLocalization(
-          goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION);
+        // mapping and  localization mutex
+        if (GetCurrentTaskState() == TaskState::StopNavigation) {
+          INFO("Current robot in stop navigation state, not support map localization.");
+          return;
+        }
+
+        bool start = goal->nav_type == Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION;
+        // Check start mapping state
+        if (start) {
+          if (GetCurrentTaskState() == TaskState::StartLocalization) {
+            INFO("Current robot has started localization in map.");
+            return;
+          }
+        } else {
+          if (GetCurrentTaskState() == TaskState::StopLocalization) {
+            INFO("Current robot has stoped localization in map.");
+            return;
+          }
+        }
+
+        auto goal_result = HandleLocalization(start);
         if (goal_result == ActionExecStage::kFailed) {
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
           goal_handle->abort(result);
         } else if (goal_result == ActionExecStage::kSuccess) {
           INFO("result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS");
           result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-          ERROR("Debug Test step1");
           goal_handle->succeed(result);
-          ERROR("Debug Test step2");
         }
+        SetTaskState(TaskState::Unknown);
       }
       break;
 
@@ -324,10 +383,11 @@ void NavigationCore::FollowExecute(
 
 bool NavigationCore::CancelNavigation()
 {
-  INFO("Start cancel navigation...");
+  INFO("Start cancel navigation.");
   bool run_result = false;
 
   if (navigation_goal_handle_) {
+    SetTaskState(TaskState::StopNavigation);
     auto future_cancel =
       navigation_action_client_->async_cancel_goal(navigation_goal_handle_);
 
@@ -369,11 +429,17 @@ bool NavigationCore::ReportRealtimeRobotPose(bool start)
   return ServiceImpl(realtime_pose_client_, request);
 }
 
-bool NavigationCore::StopMapping()
+bool NavigationCore::StopMapping(const std::string & map_saved_name)
 {
   auto request = std::make_shared<visualization::srv::Stop_Request>();
-  request->map_name = "map";
+  request->map_name = map_saved_name;
   request->finish = true;
+
+  if (map_saved_name.empty()) {
+    ERROR("Should set reasonable map name, must not empty");
+    // return false;
+    request->map_name = "map";
+  }
 
   while (!stop_mapping_client_->wait_for_service(5s)) {
     if (!rclcpp::ok()) {
@@ -409,7 +475,8 @@ void NavigationCore::TaskManager()
       nav_timer_->cancel();
       SenResult();
       navigation_finished_ = false;
-      INFO("Send navigation AB point success.");
+      INFO("Start navigation AB point success.");
+      SetTaskState(TaskState::Unknown);
     }
 
     rate.sleep();
@@ -501,6 +568,7 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
 
   send_goal_options.result_callback = [this](auto) {
       ERROR("Get navigate to poses result");
+      SetTaskState(TaskState::Unknown);
       // SenResult();
       // navigation_goal_handle_.reset();
     };
@@ -530,6 +598,8 @@ uint8_t NavigationCore::StartNavigation(geometry_msgs::msg::PoseStamped pose)
 
     nav_timer_ = this->create_wall_timer(
       200ms, std::bind(&NavigationCore::NavigationStatusFeedbackMonitor, this));
+
+    SetTaskState(TaskState::StartNavigation);
     return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
   }
 
@@ -606,7 +676,7 @@ uint8_t NavigationCore::StartTracking(uint8_t relative_pos, float keep_distance)
 }
 
 
-uint8_t NavigationCore::HandleMapping(bool start)
+uint8_t NavigationCore::HandleMapping(bool start, const std::string & map_saved_name)
 {
   INFO("HandleMapping:  %s", start ? "start" : "stop");
   auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
@@ -619,6 +689,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
     //   ERROR("Realsense lifecycle start failed");
     //   return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     // }
+    SetTaskState(TaskState::StartBuildMap);
 
     if (!realsense_lifecycle_controller_->Startup()) {
       ERROR("Realsense lifecycle start failed");
@@ -628,6 +699,7 @@ uint8_t NavigationCore::HandleMapping(bool start)
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_mapping_.startup()) {
         ERROR("Lifecycle start failed");
+        SetTaskState(TaskState::Unknown);
         return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       }
     }
@@ -635,40 +707,49 @@ uint8_t NavigationCore::HandleMapping(bool start)
     client = start_mapping_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
     if (!ReportRealtimeRobotPose(start)) {
       INFO("Start robot's realtime pose failed.");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   } else {
+    SetTaskState(TaskState::StartBuildMap);
+
     if (client_mapping_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       INFO("Failed to stop mapping because node not active");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
-    if (!StopMapping()) {
+    if (!StopMapping(map_saved_name)) {
       ERROR("stop mapping service failed");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
     if (!client_mapping_.pause()) {
       ERROR("Lifecycle pause failed");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
     if (!realsense_lifecycle_controller_->Pause()) {
       ERROR("Realsense lifecycle pause failed");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
 
     if (!ReportRealtimeRobotPose(start)) {
       INFO("Stop robot's realtime pose failed.");
+      SetTaskState(TaskState::Unknown);
       return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
     }
   }
-  INFO("Function HandleMapping() call end.");
+  INFO("Call HandleMapping() function success.");
   return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
 }
 
@@ -689,6 +770,7 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       if (!client_loc_.startup()) {
         ERROR("Localization lifecycle start failed");
+        SetTaskState(TaskState::Unknown);
         return ActionExecStage::kFailed;
       }
     }
@@ -696,17 +778,22 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     client = start_loc_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
     if (!ReportRealtimeRobotPose(start)) {
       ERROR("Start report robot's realtime pose failed.");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
     std::thread{std::bind(&NavigationCore::GetCurrentLocStatus, this)}.detach();
+    SetTaskState(TaskState::StartLocalization);
     return ActionExecStage::kExecuting;
   } else {
+    // Set state flag
+    SetTaskState(TaskState::StopLocalization);
     if (client_loc_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       INFO("Failed to stop mapping because node not active");
       return ActionExecStage::kFailed;
@@ -715,28 +802,116 @@ ActionExecStage NavigationCore::HandleLocalization(bool start)
     client = stop_loc_client_;
     if (!ServiceImpl(client, request)) {
       ERROR("Service failed");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
     if (!client_loc_.pause()) {
       ERROR("Localization lifecycle pause failed");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
     if (!realsense_lifecycle_controller_->Pause()) {
       ERROR("Realsense lifecycle pause failed");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
     if (!ReportRealtimeRobotPose(start)) {
       ERROR("Stop report robot's realtime pose failed.");
+      SetTaskState(TaskState::Unknown);
       return ActionExecStage::kFailed;
     }
 
-    INFO("Localization success.");
+    INFO("Stop lidar slam localization success.");
     reloc_status_ = RelocStatus::kIdle;
     return ActionExecStage::kSuccess;
   }
+}
+
+uint8_t NavigationCore::HandleVisionMapping(bool start)
+{
+  // Check start mapping state
+  if (start) {
+    if (GetCurrentTaskState() == TaskState::StartBuildMap) {
+      INFO("Current robot has start building map.");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+    }
+  } else {
+    if (GetCurrentTaskState() == TaskState::StopBuildMap) {
+      INFO("Current robot has stop building map.");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+    }
+  }
+
+  INFO("HandleVisionMapping:  %s", start ? "start" : "stop");
+
+  if (start) {
+    // Turn on realsense sensor
+    if (!realsense_lifecycle_controller_->Startup()) {
+      ERROR("Realsense lifecycle start failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    // Turn on R-GBD camera
+
+    // Startup vision mapping
+    if (!vision_mapping_lifecycle_controller_->Startup()) {
+      ERROR("Startup vision mapping lifecycle failed");
+      SetTaskState(TaskState::Unknown);
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    if (!ReportRealtimeRobotPose(start)) {
+      INFO("Start robot's realtime pose failed.");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    INFO("Start vision mapping success.");
+    SetTaskState(TaskState::StartBuildMap);
+  } else {
+    if (!vision_mapping_lifecycle_controller_->Pause()) {
+      ERROR("Pause vision mapping lifecycle failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    if (!StopMapping("map")) {
+      ERROR("stop mapping service failed");
+      SetTaskState(TaskState::Unknown);
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    if (!realsense_lifecycle_controller_->Pause()) {
+      ERROR("Realsense lifecycle pause failed");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    if (!ReportRealtimeRobotPose(start)) {
+      INFO("Stop robot's realtime pose failed.");
+      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    }
+
+    SetTaskState(TaskState::StartBuildMap);
+    INFO("Stop vision mapping success.");
+  }
+  return Navigation::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+}
+
+ActionExecStage NavigationCore::HandleVisionLocalization(bool start)
+{
+  return ActionExecStage::kSuccess;
+}
+
+uint8_t NavigationCore::HandleMapping(bool start, bool outdoor)
+{
+  if (outdoor) {
+    INFO("Choose outdoor mapping and lidar mapping.");
+    // return HandleMapping(start);
+  }
+
+  INFO("Choose indoor mapping and vision mapping.");
+  return HandleVisionMapping(start);
 }
 
 bool NavigationCore::ServiceImpl(
@@ -750,13 +925,19 @@ bool NavigationCore::ServiceImpl(
     }
     WARN("service not available, waiting again...");
   }
-  auto future = client->async_send_request(request);
-  // Wait for the result.
-  if (future.wait_for(5s) == std::future_status::timeout) {
-    ERROR("Service timeout");
-    return false;
-  }
-  return future.get()->success;
+  // auto future = client->async_send_request(request);
+  // // Wait for the result.
+  // if (future.wait_for(5s) == std::future_status::timeout) {
+  //   ERROR("Service timeout");
+  //   return false;
+  // }
+
+  using ServiceFuture = rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture;
+  auto response_callback = [this](ServiceFuture future){
+    
+  };
+  auto call_result = client->async_send_request(request, response_callback);
+  return call_result.get()->success;
 }
 
 uint8_t NavigationCore::StartNavThroughPoses(
@@ -889,7 +1070,6 @@ void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
   action_type = action_type_;
 }
 
-
 void NavigationCore::NavigationStatusFeedbackMonitor()
 {
   RCLCPP_ERROR(client_node_->get_logger(), "Navigation status monitor ...");
@@ -945,7 +1125,6 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
     } else {
       // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
       RCLCPP_ERROR(client_node_->get_logger(), "navigation to pose finished");
-      // SenResult();
       // nav_timer_->cancel();
       // navigation_finished_ = false;
       navigation_finished_ = true;
@@ -957,18 +1136,18 @@ void NavigationCore::NavigationStatusFeedbackMonitor()
 
 void NavigationCore::GetCurrentLocStatus()
 {
-  INFO("GetCurrentLocStatus");
   while (rclcpp::ok()) {
     reloc_topic_waiting_ = true;
     std::unique_lock<std::mutex> lk(reloc_mutex_);
-    if (reloc_cv_.wait_for(lk, std::chrono::seconds(2)) == std::cv_status::timeout) {
+    if (reloc_cv_.wait_for(lk, std::chrono::seconds(20)) == std::cv_status::timeout) {
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
       // goal_handle_->abort(result);
       ResetReloc();
-      ERROR("Topic timeout");
+      ERROR("Get localization topic result timeout");
       return;
     }
+
     if (goal_handle_->is_canceling()) {
       auto result = std::make_shared<Navigation::Result>();
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
@@ -976,14 +1155,16 @@ void NavigationCore::GetCurrentLocStatus()
       reloc_status_ = RelocStatus::kIdle;
       return;
     }
+
     static auto feedback = std::make_shared<Navigation::Feedback>();
     if (reloc_status_ == RelocStatus::kRetrying) {
       feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       goal_handle_->publish_feedback(feedback);
       INFO("feeding back");
       // std::this_thread::sleep_for(std::chrono::milliseconds(20));
-      continue;
+      return;
     }
+
     if (reloc_status_ == RelocStatus::kFailed) {
       feedback->feedback_code = static_cast<int32_t>(reloc_status_);
       auto result = std::make_shared<Navigation::Result>();
@@ -992,7 +1173,10 @@ void NavigationCore::GetCurrentLocStatus()
       ResetReloc();
       return;
     }
-    if (reloc_status_ == RelocStatus::kSuccess) {
+
+    if (reloc_status_ == RelocStatus::kSuccess ||
+      GetCurrentTaskState() == TaskState::StartLocalization)
+    {
       SenResult();
       reloc_status_ = RelocStatus::kIdle;
       return;
@@ -1110,5 +1294,52 @@ void NavigationCore::OnCancel()
   // auto result = std::make_shared<Navigation::Result>();
   // result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   // goal_handle_->canceled(result);
+}
+
+TaskState NavigationCore::GetCurrentTaskState()
+{
+  return task_state_;
+}
+
+void NavigationCore::SetTaskState(const TaskState & state)
+{
+  std::lock_guard<std::mutex> locker(state_mutex_);
+  task_state_ = state;
+}
+
+std::string NavigationCore::ToString(int type)
+{
+  std::string message;
+  switch (type)
+  {
+  case Navigation::Goal::NAVIGATION_TYPE_START_AB:
+    message = "NAVIGATION_TYPE_START_AB";
+    break;
+
+  case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+    message = "NAVIGATION_TYPE_STOP_AB";
+    break;
+
+  case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+    message = "NAVIGATION_TYPE_START_MAPPING";
+    break;
+
+  case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
+    message = "NAVIGATION_TYPE_STOP_MAPPING";
+    break;
+
+  case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+    message = "NAVIGATION_TYPE_START_LOCALIZATION";
+    break;
+
+  case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
+    message = "NAVIGATION_TYPE_STOP_LOCALIZATION";
+    break;
+  
+  default:
+    break;
+  }
+
+  return message;
 }
 }  // namespace carpo_navigation

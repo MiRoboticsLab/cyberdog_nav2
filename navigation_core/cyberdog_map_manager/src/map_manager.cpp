@@ -14,6 +14,8 @@
 // limitations under the License.
 
 #include "cyberdog_map_manager/map_manager.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_common/cyberdog_json.hpp"
 
 namespace cyberdog
 {
@@ -21,7 +23,7 @@ namespace map_manager
 {
 
 MapManager::MapManager()
-  : rclcpp::Node("cyberdog_map_manager"),
+ : nav2_util::LifecycleNode("cyberdog_map_manager", "", true)
 {
   map_client_ = this->create_client<protocol::srv::Map>("maps_manager");
   map_server_ = this->create_service<protocol::srv::Map>(
@@ -83,7 +85,34 @@ nav2_util::CallbackReturn MapManager::on_shutdown(const rclcpp_lifecycle::State 
 
 bool MapManager::SaveMap(const std::string & name, const MapType & type)
 {
-  return true;
+  // Set request command
+  auto request = std::make_shared<protocol::srv::Map::Request>();
+  request->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_INSERT;
+
+  // Check lidar map or vision map
+  if (type == MapType::Lidar) {
+    request->map_build_type = protocol::srv::Map::Request::MAP_BUILD_TYPE_LIDAR;
+  } else if (type == MapType::Vision) {
+    request->map_build_type = protocol::srv::Map::Request::MAP_BUILD_TYPE_VISION;
+  }
+
+  // request json
+  rapidjson::Document json_request(rapidjson::kObjectType);
+  common::CyberdogJson::Add(json_request, "namecode", 1001);
+  common::CyberdogJson::Add(json_request, "timestamp", 12345678);
+  common::CyberdogJson::Add(json_request, "map_name", name);
+
+  // command
+  std::string string_command;
+  bool convert = common::CyberdogJson::Document2String(json_request, string_command);
+  if (!convert) {
+    ERROR("Convert json to string failed.");
+    return false;
+  }
+  request->request = string_command;
+
+  // Send command request
+  return CallService(request, std::chrono::seconds(5));
 }
 
 bool MapManager::DeleteMap(const std::string & name, const MapType & type)
@@ -91,7 +120,7 @@ bool MapManager::DeleteMap(const std::string & name, const MapType & type)
   return true;
 }
 
-void MapManager::UpdateMap(const std::string & old_name, const std::string & new_name)
+bool MapManager::UpdateMap(const std::string & old_name, const std::string & new_name)
 {
   return true;
 }
@@ -103,6 +132,13 @@ bool MapManager::GetMap(const std::string & name,
 }
 
 bool MapManager::GetMapList(const MapType & type, std::vector<std::string> & maps_table)
+{
+  return true;
+}
+
+bool MapManager::CallService(
+  const protocol::srv::Map::Request::SharedPtr request,
+  const std::chrono::seconds timeout)
 {
   return true;
 }

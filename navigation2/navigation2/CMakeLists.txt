@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(navigation2)
+project(cyberdog_app)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)

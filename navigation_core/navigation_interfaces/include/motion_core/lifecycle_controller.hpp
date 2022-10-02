@@ -16,6 +16,7 @@
 #define MOTION_CORE__LIFECYCLE_CONTROLLER_HPP_
 
 #include <memory>
+#include <string>
 
 #include "nav2_util/lifecycle_service_client.hpp"
 #include "nav2_msgs/srv/manage_lifecycle_nodes.hpp"
@@ -32,7 +33,7 @@ namespace controller
 class LifecycleController
 {
 public:
-  LifecycleController(const std::string & node_name);
+  explicit LifecycleController(const std::string & node_name);
   ~LifecycleController();
 
   /**

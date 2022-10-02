@@ -17,6 +17,7 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
@@ -30,7 +31,7 @@ namespace map_manager
 class MapManager : public nav2_util::LifecycleNode
 {
 public:
-  explicit MapManager();
+  MapManager();
   ~MapManager();
 
   MapManager(const MapManager &) = delete;
@@ -123,7 +124,7 @@ private:
    * @param old_name map's filename old_name
    * @param new_name map's filename new_name
    */
-  void UpdateMap(const std::string & old_name, const std::string & new_name);
+  bool UpdateMap(const std::string & old_name, const std::string & new_name);
 
   /**
    * @brief Get the Map object
@@ -145,6 +146,14 @@ private:
    * @return false If false return failed
    */
   bool GetMapList(const MapType & type, std::vector<std::string> & maps_table);
+
+  /**
+   * @brief A generic method used to call startup, shutdown, etc.
+   * @param command
+   */
+  bool CallService(
+    const protocol::srv::Map::Request::SharedPtr request,
+    const std::chrono::seconds timeout = std::chrono::seconds(-1));
 
   // As client request dataset and add delete update and query
   rclcpp::Client<protocol::srv::Map>::SharedPtr map_client_ {nullptr};

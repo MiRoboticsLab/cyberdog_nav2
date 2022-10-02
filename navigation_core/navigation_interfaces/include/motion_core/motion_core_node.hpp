@@ -60,7 +60,7 @@ enum class RelocStatus : int32_t
   kFailed = 200
 };
 
-enum class TaskTypeWWW
+enum class TaskState
 {
   Unknown,
   StartBuildMap,
@@ -70,6 +70,7 @@ enum class TaskTypeWWW
   StartNavigation,
   StopNavigation
 };
+
 namespace carpo_navigation
 {
 using std::placeholders::_1;
@@ -121,12 +122,18 @@ public:
 
   void GetCurrentLocStatus();
 
-  // mapping
-  uint8_t HandleMapping(bool start);
+  // lidar mapping
+  uint8_t HandleMapping(bool start, const std::string & map_saved_name);
   ActionExecStage HandleLocalization(bool start);
 
-  std::shared_ptr<RealSenseClient> GetRealSenseNode() {return client_realsense_;}
+  // vision mapping
+  uint8_t HandleVisionMapping(bool start);
+  ActionExecStage HandleVisionLocalization(bool start);
 
+  // Handle vision and lidar mapping
+  uint8_t HandleMapping(bool start, bool outdoor);
+
+  std::shared_ptr<RealSenseClient> GetRealSenseNode() {return client_realsense_;}
   std::shared_ptr<rclcpp::Node> GetClientNode() {return client_node_;}
 
 private:
@@ -175,9 +182,12 @@ private:
   // The client used to control the nav2 stack
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
-  
+
+  // lifecycle controller
   std::shared_ptr<RealSenseClient> client_realsense_ {nullptr};
   std::shared_ptr<LifecycleController> realsense_lifecycle_controller_{nullptr};
+  std::shared_ptr<LifecycleController> vision_mapping_lifecycle_controller_{nullptr};
+  std::shared_ptr<LifecycleController> vision_localization_lifecycle_controller_{nullptr};
 
   // nav2_lifecycle_manager::LifecycleManagerClient client_data_;
   nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
@@ -253,7 +263,7 @@ private:
    * @return true
    * @return false
    */
-  bool StopMapping();
+  bool StopMapping(const std::string & map_saved_name);
 
   /**
    * @brief Manager all task's status
@@ -297,9 +307,17 @@ private:
   bool navigation_finished_ {false};
   std::shared_ptr<std::thread> task_managers_ {nullptr};
 
-  bool send_result_flag_ = false;
+  std::mutex state_mutex_;
+  TaskState task_state_;
+  // Get robot current task state for nav
+  TaskState GetCurrentTaskState();
 
+  // Set robot task state for nav
+  void SetTaskState(const TaskState & state);
+  bool send_result_flag_ = false;
   void set_send_result_flag(bool result);
+
+  std::string ToString(int type);
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_
