@@ -15,6 +15,9 @@
 #ifndef ALGORITHM_MANAGER__EXECUTOR_BASE_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_BASE_HPP_
 
+#include <memory>
+#include <unordered_map>
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "protocol/action/navigation.hpp"
 #include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
@@ -78,7 +81,7 @@ class ExecutorInterface
 {
 public:
   ExecutorInterface() {}
-  virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
+  virtual bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
   virtual void Cancel() = 0;
 };
 
@@ -88,43 +91,60 @@ public:
   explicit ExecutorBase(std::string node_name)
   : rclcpp::Node(node_name)
   {
-    lifecycle_client_ids_.emplace(LifecycleClientID::kNav, "lifecycle_manager_navigation");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kLaserMapping, "lifecycle_manager_laser_mapping");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kLaserLoc, "lifecycle_manager_laser_loc");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kVisMapping, "lifecycle_manager_vis_mapping");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kVisLoc, "lifecycle_manager_vis_loc");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kVisVo, "lifecycle_manager_vis_vo");
-    lifecycle_client_ids_.emplace(LifecycleClientID::kMcrUwb, "lifecycle_manager_mcr_uwb");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kNav,
+      "lifecycle_manager_navigation");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kLaserMapping,
+      "lifecycle_manager_laser_mapping");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kLaserLoc,
+      "lifecycle_manager_laser_loc");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisMapping,
+      "lifecycle_manager_vis_mapping");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisLoc,
+      "lifecycle_manager_vis_loc");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisVo,
+      "lifecycle_manager_vis_vo");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kMcrUwb,
+      "lifecycle_manager_mcr_uwb");
   }
-  virtual ExecutorData & GetExecutorData() final
+  ExecutorData & GetExecutorData()
   {
     std::unique_lock<std::mutex> lk(executor_data_mutex_);
     executor_data_cv_.wait(lk);
     return executor_data_;
   }
-  static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(const LifecycleClientID & id)
+  static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
+    const LifecycleClientID & id)
   {
-    if(lifecycle_client_map_.find(id) == lifecycle_client_map_.end()) {
-      lifecycle_client_map_[id] = std::make_shared<Nav2LifecyleMgrClient>(lifecycle_client_ids_.at(id));
+    if (lifecycle_client_map_.find(id) == lifecycle_client_map_.end()) {
+      lifecycle_client_map_[id] =
+        std::make_shared<Nav2LifecyleMgrClient>(lifecycle_client_ids_.at(id));
     }
     return lifecycle_client_map_.at(id);
   }
   static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
   {
-    if(lifecycle_client_realsense_ == nullptr) {
+    if (lifecycle_client_realsense_ == nullptr) {
       lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
     }
     return lifecycle_client_realsense_;
-  }  
+  }
+
 protected:
-  virtual void UpdateExecutorData(const ExecutorData & executor_data) final
+  void UpdateExecutorData(const ExecutorData & executor_data)
   {
     executor_data_ = executor_data;
     std::unique_lock<std::mutex> lk(executor_data_mutex_);
     executor_data_cv_.notify_all();
   }
-  virtual bool LaunchNav2LifeCycleNode(
-    std::shared_ptr<Nav2LifecyleMgrClient> node) final
+  bool LaunchNav2LifeCycleNode(
+    std::shared_ptr<Nav2LifecyleMgrClient> node)
   {
     if (node->is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       return true;

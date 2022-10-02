@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MOTION_CORE__REALSENSE_LIFECYCLE_MANAGER_HPP_
-#define MOTION_CORE__REALSENSE_LIFECYCLE_MANAGER_HPP_
+#ifndef ALGORITHM_MANAGER__REALSENSE_LIFECYCLE_MANAGER_HPP_
+#define ALGORITHM_MANAGER__REALSENSE_LIFECYCLE_MANAGER_HPP_
 
 #include <chrono>
 #include <memory>
@@ -111,4 +111,4 @@ private:
 
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // MOTION_CORE__REALSENSE_LIFECYCLE_MANAGER_HPP_
+#endif  // ALGORITHM_MANAGER__REALSENSE_LIFECYCLE_MANAGER_HPP_

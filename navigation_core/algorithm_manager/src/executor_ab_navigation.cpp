@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_ab_navigation.hpp"
 
 namespace cyberdog
@@ -26,22 +26,15 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("AB navigation started");
+  return true;
 }
 
 void ExecutorAbNavigation::Cancel()
 {}
 
-// void ExecutorAbNavigation::GetFeedback(protocol::action::Navigation::Feedback::SharedPtr)
-// {}
-
-// ExecutorBase::ExecutorStatus ExecutorAbNavigation::GetStatus()
-// {
-//   return ExecutorStatus::kIdle;
-// }
-
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

@@ -18,7 +18,9 @@
 #include "motion_core/realsense_lifecycle_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
-namespace carpo_navigation
+namespace cyberdog
+{
+namespace algorithm
 {
 
 // which node to handle
@@ -203,4 +205,5 @@ bool RealSenseLifecycleServiceClient::Cleanup()
   return true;
 }
 
-}  // namespace carpo_navigation
+}  // namespace algorithm
+}  // namespace cyberdog

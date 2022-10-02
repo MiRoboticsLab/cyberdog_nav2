@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/algorithm_task_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 
@@ -63,7 +63,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 {
   (void)uuid;
   (void)goal;
-  if(manager_status_ != ManagerStatus::kIdle) {
+  if (manager_status_ != ManagerStatus::kIdle) {
     return rclcpp_action::GoalResponse::REJECT;
   }
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
@@ -131,12 +131,15 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Receive Start UWB Tracking Task");
-        executor_uwb_tracking_->Start(goal);
+        if (!executor_uwb_tracking_->Start(goal)) {
+          goal_handle_->abort(result);
+          return;
+        }
         activated_executor_ = executor_uwb_tracking_;
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
       }
       break;
-    
+
     default:
       break;
   }
@@ -204,8 +207,8 @@ void AlgorithmTaskManager::GetExecutorStatus()
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 }
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog
 
 int main(int argc, char ** argv)
 {

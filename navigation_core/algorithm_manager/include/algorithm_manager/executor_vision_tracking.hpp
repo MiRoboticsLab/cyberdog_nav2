@@ -15,6 +15,7 @@
 #ifndef ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
 
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -25,8 +26,8 @@ namespace algorithm
 class ExecutorVisionTracking : public ExecutorBase
 {
 public:
-  ExecutorVisionTracking(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorVisionTracking(std::string node_name);
+  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:

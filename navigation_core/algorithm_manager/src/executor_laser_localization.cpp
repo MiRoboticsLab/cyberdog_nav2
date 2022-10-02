@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_laser_localization.hpp"
 
 namespace cyberdog
@@ -26,10 +26,11 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Laser Localization started");
+  return true;
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -37,5 +38,5 @@ void ExecutorLaserLocalization::Cancel()
   INFO("Laser Localization canceled");
 }
 
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

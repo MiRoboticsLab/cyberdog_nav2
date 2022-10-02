@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_vision_tracking.hpp"
 
 namespace cyberdog
@@ -26,10 +26,11 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Vision Tracking started");
+  return true;
 }
 
 void ExecutorVisionTracking::Cancel()
@@ -37,5 +38,5 @@ void ExecutorVisionTracking::Cancel()
   INFO("Vision Tracking Stopped");
 }
 
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

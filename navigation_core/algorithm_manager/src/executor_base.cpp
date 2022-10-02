@@ -14,14 +14,15 @@
 
 #include <memory>
 #include <vector>
-
+#include <unordered_map>
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
-  LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
-  std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
+LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
+std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
 }
 }

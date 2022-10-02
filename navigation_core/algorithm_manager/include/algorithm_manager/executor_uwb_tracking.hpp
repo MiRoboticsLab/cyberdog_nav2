@@ -15,6 +15,8 @@
 #ifndef ALGORITHM_MANAGER__EXECUTOR_UWB_TRACKING_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_UWB_TRACKING_HPP_
 
+#include <memory>
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -25,8 +27,8 @@ namespace algorithm
 class ExecutorUwbTracking : public ExecutorBase
 {
 public:
-  ExecutorUwbTracking(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorUwbTracking(std::string node_name);
+  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:

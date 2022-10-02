@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_uwb_tracking.hpp"
 
 namespace cyberdog
@@ -25,7 +25,6 @@ namespace algorithm
 ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 : ExecutorBase(node_name)
 {
-
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=tracking_target_action_client"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
@@ -35,14 +34,42 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
-void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
+  mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
+  target_tracking_goal.keep_distance = goal->keep_distance;
+  INFO("%d", (int)goal->relative_pos);
+  switch (goal->relative_pos) {
+    case AlgorithmMGR::Goal::TRACING_AUTO:
+      target_tracking_goal.relative_pos = McrTargetTracking::Goal::AUTO;
+      break;
+
+    case AlgorithmMGR::Goal::TRACING_LEFT:
+      target_tracking_goal.relative_pos = McrTargetTracking::Goal::LEFT;
+      break;
+
+    case AlgorithmMGR::Goal::TRACING_RIGHT:
+      target_tracking_goal.relative_pos = McrTargetTracking::Goal::RIGHT;
+      break;
+
+    case AlgorithmMGR::Goal::TRACING_BEHIND:
+      target_tracking_goal.relative_pos = McrTargetTracking::Goal::BEHIND;
+      break;
+
+    default:
+      ERROR("Get Invalid tracking pos");
+      // executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+      // UpdateExecutorData(executor_uwb_tracking_data_);
+      return false;
+  }
+
   INFO("UWB Tracking will start");
   if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
-      !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb))) {
-    executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-    UpdateExecutorData(executor_uwb_tracking_data_);
-    return;
+    !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
+  {
+    // executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+    // UpdateExecutorData(executor_uwb_tracking_data_);
+    return false;
   }
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
@@ -51,16 +78,12 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Tracking target action server is not available.");
     GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
     GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
-    executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-    UpdateExecutorData(executor_uwb_tracking_data_);
-    return;
+    // executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+    // UpdateExecutorData(executor_uwb_tracking_data_);
+    return false;
   }
 
   // Send the goal pose
-  mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
-  target_tracking_goal.keep_distance = goal->keep_distance;
-  target_tracking_goal.relative_pos = goal->relative_pos;
-
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options =
     rclcpp_action::Client<McrTargetTracking>::SendGoalOptions();
@@ -96,11 +119,12 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Goal was rejected by server");
     GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
     GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
-    executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-    UpdateExecutorData(executor_uwb_tracking_data_);
-    return;
+    // executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+    // UpdateExecutorData(executor_uwb_tracking_data_);
+    return false;
   }
   INFO("UWB Tracking started");
+  return true;
 }
 
 void ExecutorUwbTracking::Cancel()
@@ -144,5 +168,5 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
   }
   UpdateExecutorData(executor_uwb_tracking_data_);
 }
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

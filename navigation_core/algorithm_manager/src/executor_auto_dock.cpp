@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_auto_dock.hpp"
 
 namespace cyberdog
@@ -26,10 +26,11 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Laser Localization started");
+  return true;
 }
 
 void ExecutorAutoDock::Cancel()
@@ -37,5 +38,5 @@ void ExecutorAutoDock::Cancel()
   INFO("Laser Localization canceled");
 }
 
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

@@ -14,7 +14,10 @@
 
 #ifndef ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
+
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -23,7 +26,7 @@ class ExecutorAutoDock : public ExecutorBase
 {
 public:
   explicit ExecutorAutoDock(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:

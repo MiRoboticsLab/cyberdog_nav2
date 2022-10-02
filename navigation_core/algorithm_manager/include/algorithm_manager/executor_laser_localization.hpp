@@ -15,6 +15,7 @@
 #ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
 
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -25,8 +26,8 @@ namespace algorithm
 class ExecutorLaserLocalization : public ExecutorBase
 {
 public:
-  ExecutorLaserLocalization(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorLaserLocalization(std::string node_name);
+  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 

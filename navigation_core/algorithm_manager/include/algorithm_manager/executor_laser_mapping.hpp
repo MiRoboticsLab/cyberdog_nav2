@@ -15,6 +15,7 @@
 #ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
 #define ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
 
+#include <string>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -25,8 +26,8 @@ namespace algorithm
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
-  ExecutorLaserMapping(std::string node_name);
-  void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorLaserMapping(std::string node_name);
+  bool Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
   // void UpdateStatus(const ExecutorStatus & executor_status) override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;

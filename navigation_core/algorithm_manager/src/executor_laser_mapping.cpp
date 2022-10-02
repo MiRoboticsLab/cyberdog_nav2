@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <string>
 #include "algorithm_manager/executor_laser_mapping.hpp"
 
 namespace cyberdog
@@ -27,10 +27,11 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   client_mapping_("lifecycle_manager_laser_mapping")
 {}
 
-void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Laser Mapping started");
+  return true;
 }
 
 void ExecutorLaserMapping::Cancel()
@@ -38,5 +39,5 @@ void ExecutorLaserMapping::Cancel()
   INFO("Laser Mapping canceled");
 }
 
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

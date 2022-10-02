@@ -42,7 +42,7 @@ public:
 
 private:
   enum class ManagerStatus : uint8_t
-  { 
+  {
     kIdle,
     kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
     kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
