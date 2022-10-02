@@ -25,14 +25,14 @@ namespace algorithm
 AlgorithmTaskManager::AlgorithmTaskManager()
 : rclcpp::Node("AlgorithmTaskManager")
 {
-  // executor_laser_mapping_ =
-  //   std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
-  // executor_laser_localization_ =
-  //   std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
-  // executor_ab_navigation_ =
-  //   std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
-  // executor_auto_dock_ =
-  //   std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
+  executor_laser_mapping_ =
+    std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+  executor_laser_localization_ =
+    std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+  executor_ab_navigation_ =
+    std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
+  executor_auto_dock_ =
+    std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
   executor_uwb_tracking_ =
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
   executor_vision_tracking_ =
@@ -63,6 +63,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 {
   (void)uuid;
   (void)goal;
+  if(manager_status_ != ManagerStatus::kIdle) {
+    return rclcpp_action::GoalResponse::REJECT;
+  }
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -92,11 +95,6 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
       {
         INFO("Receive Start AB Navigation Task");
-        if (manager_status_ != ManagerStatus::kIdle) {
-          ERROR("Busy(%d)", static_cast<int>(manager_status_));
-          goal_handle_->abort(result);
-          return;
-        }
         executor_ab_navigation_->Start(goal);
         activated_executor_ = executor_ab_navigation_;
         manager_status_ = ManagerStatus::kExecutingAbNavigation;
@@ -106,11 +104,6 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       {
         INFO("Receive Start Mapping Task");
-        if (manager_status_ != ManagerStatus::kIdle ) {
-          ERROR("Busy(%d)", static_cast<int>(manager_status_));
-          goal_handle_->abort(result);
-          return;
-        }
         executor_laser_mapping_->Start(goal);
         activated_executor_ = executor_laser_mapping_;
         manager_status_ = ManagerStatus::kExecutingLaserMapping;
@@ -120,11 +113,6 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
       {
         INFO("Receive Start LaserLocalization Task");
-        if (manager_status_ != ManagerStatus::kIdle ) {
-          ERROR("Busy(%d)", static_cast<int>(manager_status_));
-          goal_handle_->abort(result);
-          return;
-        }
         executor_laser_localization_->Start(goal);
         activated_executor_ = executor_laser_localization_;
         manager_status_ = ManagerStatus::kExecutingLaserLocalization;
@@ -134,11 +122,6 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
       {
         INFO("Receive Start AutoDock Task");
-        if (manager_status_ != ManagerStatus::kIdle ) {
-          ERROR("Busy(%d)", static_cast<int>(manager_status_));
-          goal_handle_->abort(result);
-          return;
-        }
         executor_auto_dock_->Start(goal);
         activated_executor_ = executor_auto_dock_;
         manager_status_ = ManagerStatus::kExecutingAutoDock;
@@ -148,11 +131,6 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Receive Start UWB Tracking Task");
-        if (manager_status_ != ManagerStatus::kIdle ) {
-          ERROR("Busy(%d)", static_cast<int>(manager_status_));
-          goal_handle_->abort(result);
-          return;
-        }
         executor_uwb_tracking_->Start(goal);
         activated_executor_ = executor_uwb_tracking_;
         manager_status_ = ManagerStatus::kExecutingUwbTracking;

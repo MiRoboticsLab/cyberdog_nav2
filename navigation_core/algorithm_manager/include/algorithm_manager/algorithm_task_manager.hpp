@@ -44,12 +44,11 @@ private:
   enum class ManagerStatus : uint8_t
   { 
     kIdle,
-    kExecutingLaserMapping,
-    kExecutingLaserLocalization,
-    kExecutingAbNavigation,
-    kExecutingAutoDock,
-    kExecutingUwbTracking,
-    kExecutingVisionTracking
+    kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
+    kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
+    kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
+    kExecutingAutoDock = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING,
+    kExecutingUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
   };
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
