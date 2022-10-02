@@ -32,6 +32,25 @@ namespace cyberdog
 {
 namespace algorithm
 {
+enum class LifecycleClientID : uint8_t
+{
+  kNav,
+  kLaserMapping,
+  kLaserLoc,
+  kVisMapping,
+  kVisLoc,
+  kVisVo,
+  kMcrUwb,
+};  // enum LifecycleClientID
+
+enum class ExecutorStatus : uint8_t
+{
+  kIdle = 0,
+  kExecuting = 1,
+  kSuccess = 2,
+  kAborted = 3,
+  kCanceled = 4
+};  // enum ExecutorStatus
 
 using NavigationGoalHandle =
   rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
@@ -41,25 +60,22 @@ using NavThroughPosesGoalHandle =
   rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
 using TargetTrackingGoalHandle =
   rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
-
 using GoalStatus = action_msgs::msg::GoalStatus;
 using McrTargetTracking = mcr_msgs::action::TargetTracking;
 using AlgorithmMGR = protocol::action::Navigation;
 using GoalHandleAlgorithmMGR = rclcpp_action::ServerGoalHandle<AlgorithmMGR>;
+using Nav2LifecyleMgrClient = nav2_lifecycle_manager::LifecycleManagerClient;
+using LifecyleNav2LifecyleMgrClientMap =
+  std::unordered_map<LifecycleClientID, std::shared_ptr<Nav2LifecyleMgrClient>>;
 using RealSenseClient = RealSenseLifecycleServiceClient;
 
+struct ExecutorData
+{
+  ExecutorStatus status;
+  AlgorithmMGR::Feedback feedback;
+};  // struct ExecutorData
 class ExecutorInterface
 {
-public:
-  enum class ExecutorStatus : uint8_t
-  {
-    kIdle = 0,
-    kExecuting = 1,
-    kSuccess = 2,
-    kAborted = 3,
-    kCanceled = 4
-  };
-
 public:
   ExecutorInterface() {}
   virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
@@ -69,18 +85,16 @@ public:
 class ExecutorBase : public ExecutorInterface, public rclcpp::Node
 {
 public:
-  struct ExecutorData
-  {
-    ExecutorStatus status;
-    AlgorithmMGR::Feedback feedback;
-  };
-
   explicit ExecutorBase(std::string node_name)
-  : rclcpp::Node(node_name),
-    lifecycle_client_nav_("lifecycle_manager_navigation"),
-    lifecycle_client_loc_("lifecycle_manager_localization")
+  : rclcpp::Node(node_name)
   {
-    // executor_data_future_ = executor_data_promise_.get_future();
+    lifecycle_client_ids_.emplace(LifecycleClientID::kNav, "lifecycle_manager_navigation");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kLaserMapping, "lifecycle_manager_laser_mapping");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kLaserLoc, "lifecycle_manager_laser_loc");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kVisMapping, "lifecycle_manager_vis_mapping");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kVisLoc, "lifecycle_manager_vis_loc");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kVisVo, "lifecycle_manager_vis_vo");
+    lifecycle_client_ids_.emplace(LifecycleClientID::kMcrUwb, "lifecycle_manager_mcr_uwb");
   }
   virtual ExecutorData & GetExecutorData() final
   {
@@ -88,7 +102,20 @@ public:
     executor_data_cv_.wait(lk);
     return executor_data_;
   }
-
+  static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(const LifecycleClientID & id)
+  {
+    if(lifecycle_client_map_.find(id) == lifecycle_client_map_.end()) {
+      lifecycle_client_map_[id] = std::make_shared<Nav2LifecyleMgrClient>(lifecycle_client_ids_.at(id));
+    }
+    return lifecycle_client_map_.at(id);
+  }
+  static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
+  {
+    if(lifecycle_client_realsense_ == nullptr) {
+      lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
+    }
+    return lifecycle_client_realsense_;
+  }  
 protected:
   virtual void UpdateExecutorData(const ExecutorData & executor_data) final
   {
@@ -97,19 +124,19 @@ protected:
     executor_data_cv_.notify_all();
   }
   virtual bool LaunchNav2LifeCycleNode(
-    nav2_lifecycle_manager::LifecycleManagerClient & node) final
+    std::shared_ptr<Nav2LifecyleMgrClient> node) final
   {
-    if (node.is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+    if (node->is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       return true;
     }
-    if (!node.startup()) {
+    if (!node->startup()) {
       return false;
     }
     return true;
   }
-  nav2_lifecycle_manager::LifecycleManagerClient lifecycle_client_nav_;
-  nav2_lifecycle_manager::LifecycleManagerClient lifecycle_client_loc_;
-  std::shared_ptr<RealSenseClient> client_realsense_{nullptr};
+  static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
+  static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
+  static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
 

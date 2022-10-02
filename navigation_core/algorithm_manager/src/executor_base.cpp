@@ -21,7 +21,7 @@ namespace cyberdog
 {
 namespace algorithm
 {
-nav2_lifecycle_manager::LifecycleManagerClient ExecutorBase::lifecycle_client_nav_("lifecycle_manager_navigation");
-nav2_lifecycle_manager::LifecycleManagerClient ExecutorBase::lifecycle_client_loc_("lifecycle_manager_localization");
+  LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
+  std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
 }
 }

@@ -32,11 +32,6 @@ void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal
   INFO("Vision Tracking started");
 }
 
-void ExecutorVisionTracking::Stop()
-{
-  INFO("Vision Tracking started");
-}
-
 void ExecutorVisionTracking::Cancel()
 {
   INFO("Vision Tracking Stopped");

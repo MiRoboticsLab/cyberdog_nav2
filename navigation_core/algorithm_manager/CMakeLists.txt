@@ -53,7 +53,7 @@ set(dependencies
 
 set(sources
   src/algorithm_task_manager.cpp
-  # src/executor_base.cpp 
+  src/executor_base.cpp 
   src/executor_ab_navigation.cpp
   src/executor_auto_dock.cpp
   src/executor_laser_mapping.cpp

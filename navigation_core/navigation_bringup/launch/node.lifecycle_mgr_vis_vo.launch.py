@@ -40,17 +40,17 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace'
         )
-    lifecycle_nodes = ['map_server', 'localization_node']
-    lifecycle_loc_cmd = Node(
+    lifecycle_nodes = ['mivinsfollowing']
+    lifecycle_mapping_cmd = Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
-            name='lifecycle_manager_localization',
+            name='lifecycle_manager_vis_vo',
             namespace=namespace,
             output='screen',
             parameters=[{'node_names': lifecycle_nodes}])
     ld = launch.LaunchDescription([
         namespace_declare,
-        lifecycle_loc_cmd,
+        lifecycle_mapping_cmd,
     ])
     return ld
 

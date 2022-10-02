@@ -23,8 +23,7 @@ namespace algorithm
 {
 
 ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
-: ExecutorBase(node_name),
-  client_mcr_uwb_("lifecycle_manager_mcr_uwb")
+: ExecutorBase(node_name)
 {
 
   auto options = rclcpp::NodeOptions().arguments(
@@ -38,8 +37,9 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 
 void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
-  INFO("UWB Tracking started");
-  if (!LaunchNav2LifeCycleNode(lifecycle_client_nav_) || !LaunchNav2LifeCycleNode(client_mcr_uwb_)) {
+  INFO("UWB Tracking will start");
+  if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
+      !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb))) {
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
     return;
@@ -49,8 +49,8 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
     ERROR("Tracking target action server is not available.");
-    lifecycle_client_nav_.pause();
-    client_mcr_uwb_.pause();
+    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
+    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
     return;
@@ -94,31 +94,29 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
-    lifecycle_client_nav_.pause();
-    client_mcr_uwb_.pause();
+    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
+    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
     executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
     UpdateExecutorData(executor_uwb_tracking_data_);
     return;
   }
-  INFO("Over");
-}
-
-void ExecutorUwbTracking::Stop()
-{
-  Cancel();
+  INFO("UWB Tracking started");
 }
 
 void ExecutorUwbTracking::Cancel()
 {
   INFO("UWB Tracking will stop");
   target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
+  UpdateExecutorData(executor_uwb_tracking_data_);
+  INFO("UWB Tracking Stopped");
 }
 
 void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
-  INFO("Got feedback");
+  // INFO("Got feedback");
   executor_uwb_tracking_data_.status = ExecutorStatus::kExecuting;
   executor_uwb_tracking_data_.feedback.feedback_code = feedback->exception_code;
   UpdateExecutorData(executor_uwb_tracking_data_);
@@ -129,19 +127,19 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       executor_uwb_tracking_data_.status = ExecutorStatus::kSuccess;
-      INFO("Goal was succeeded");
+      INFO("UWB Tracking reported succeeded");
       break;
     case rclcpp_action::ResultCode::ABORTED:
       executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-      ERROR("Goal was aborted");
+      ERROR("UWB Tracking reported aborted");
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
-      INFO("Goal was canceled");
+      executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+      ERROR("UWB Tracking reported canceled");
       break;
     default:
       executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-      WARN("Unknown result code");
+      ERROR("UWB Tracking reported unknown result code");
       break;
   }
   UpdateExecutorData(executor_uwb_tracking_data_);

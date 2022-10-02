@@ -35,8 +35,8 @@ AlgorithmTaskManager::AlgorithmTaskManager()
   //   std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
   executor_uwb_tracking_ =
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
-  // executor_vision_tracking_ =
-  //   std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  executor_vision_tracking_ =
+    std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -177,16 +177,16 @@ void AlgorithmTaskManager::GetExecutorStatus()
       continue;
     }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
-    ExecutorBase::ExecutorData executor_data = activated_executor_->GetExecutorData();
+    ExecutorData executor_data = activated_executor_->GetExecutorData();
     switch (executor_data.status) {
-      case ExecutorInterface::ExecutorStatus::kExecuting:
+      case ExecutorStatus::kExecuting:
         {
           static auto feedback = std::make_shared<AlgorithmMGR::Feedback>(executor_data.feedback);
           goal_handle_->publish_feedback(feedback);
           break;
         }
 
-      case ExecutorInterface::ExecutorStatus::kSuccess:
+      case ExecutorStatus::kSuccess:
         {
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
           goal_handle_->succeed(result);
@@ -195,9 +195,18 @@ void AlgorithmTaskManager::GetExecutorStatus()
           break;
         }
 
-      case ExecutorInterface::ExecutorStatus::kAborted:
+      case ExecutorStatus::kAborted:
         {
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
+          goal_handle_->abort(result);
+          activated_executor_.reset();
+          manager_status_ = ManagerStatus::kIdle;
+          break;
+        }
+
+      case ExecutorStatus::kCanceled:
+        {
+          result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
           goal_handle_->abort(result);
           activated_executor_.reset();
           manager_status_ = ManagerStatus::kIdle;

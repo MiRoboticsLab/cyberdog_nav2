@@ -45,8 +45,6 @@ private:
     target_tracking_action_client_;
   mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_mcr_uwb_;
-
 };  // class ExecutorUwbTracking
 }  // namespace algorithm
 }  // namespace cyberdog
