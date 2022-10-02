@@ -32,11 +32,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   INFO("Laser Localization started");
 }
 
-void ExecutorLaserLocalization::Stop()
-{
-  INFO("Laser Localization stopped");
-}
-
 void ExecutorLaserLocalization::Cancel()
 {
   INFO("Laser Localization canceled");

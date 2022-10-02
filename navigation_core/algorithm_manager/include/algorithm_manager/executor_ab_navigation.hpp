@@ -29,7 +29,6 @@ public:
   explicit ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation() {}
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop() override;
   void Cancel() override;
 
 private:

@@ -32,11 +32,6 @@ void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Laser Localization started");
 }
 
-void ExecutorAutoDock::Stop()
-{
-  INFO("Laser Localization stopped");
-}
-
 void ExecutorAutoDock::Cancel()
 {
   INFO("Laser Localization canceled");

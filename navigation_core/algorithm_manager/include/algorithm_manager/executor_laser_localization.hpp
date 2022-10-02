@@ -27,7 +27,6 @@ class ExecutorLaserLocalization : public ExecutorBase
 public:
   ExecutorLaserLocalization(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop() override;
   void Cancel() override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 

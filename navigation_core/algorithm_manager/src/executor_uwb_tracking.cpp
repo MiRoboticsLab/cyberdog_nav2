@@ -110,7 +110,7 @@ void ExecutorUwbTracking::Stop()
 
 void ExecutorUwbTracking::Cancel()
 {
-  INFO("UWB Tracking Stopped");
+  INFO("UWB Tracking will stop");
   target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
 }
 

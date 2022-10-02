@@ -33,11 +33,6 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Laser Mapping started");
 }
 
-void ExecutorLaserMapping::Stop()
-{
-  INFO("Laser Mapping stopped");
-}
-
 void ExecutorLaserMapping::Cancel()
 {
   INFO("Laser Mapping canceled");

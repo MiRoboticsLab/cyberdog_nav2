@@ -103,19 +103,6 @@ void AlgorithmTaskManager::TaskExecute()
       }
       break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AB:
-      {
-        INFO("Receive Stop AB Navigation Task");
-        if (manager_status_ != ManagerStatus::kExecutingAbNavigation ) {
-          ERROR("No AB Navigation Task to Stop");
-          goal_handle_->abort(result);
-          return;
-        }
-        executor_ab_navigation_->Stop();
-        activated_executor_ = executor_ab_navigation_;
-      }
-      break;
-
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       {
         INFO("Receive Start Mapping Task");
@@ -127,19 +114,6 @@ void AlgorithmTaskManager::TaskExecute()
         executor_laser_mapping_->Start(goal);
         activated_executor_ = executor_laser_mapping_;
         manager_status_ = ManagerStatus::kExecutingLaserMapping;
-      }
-      break;
-
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_MAPPING:
-      {
-        INFO("Receive Stop LaserMapping Task");
-        if (manager_status_ != ManagerStatus::kExecutingLaserMapping ) {
-          ERROR("No LaserMapping Task to Stop");
-          goal_handle_->abort(result);
-          return;
-        }
-        executor_laser_mapping_->Stop();
-        activated_executor_ = executor_laser_mapping_;
       }
       break;
 
@@ -157,19 +131,6 @@ void AlgorithmTaskManager::TaskExecute()
       }
       break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
-      {
-        INFO("Receive Stop Localization Task");
-        if (manager_status_ != ManagerStatus::kExecutingLaserLocalization) {
-          ERROR("No LaserLocalization Task to Stop");
-          goal_handle_->abort(result);
-          return;
-        }
-        executor_laser_localization_->Stop();
-        activated_executor_ = executor_laser_localization_;
-      }
-      break;
-
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
       {
         INFO("Receive Start AutoDock Task");
@@ -184,19 +145,6 @@ void AlgorithmTaskManager::TaskExecute()
       }
       break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AUTO_DOCKING:
-      {
-        INFO("Receive Stop AutoDock Task");
-        if (manager_status_ != ManagerStatus::kExecutingAutoDock ) {
-          ERROR("No AutoDock Task to Stop");
-          goal_handle_->abort(result);
-          return;
-        }
-        executor_auto_dock_->Stop();
-        activated_executor_ = executor_auto_dock_;
-      }
-      break;
-
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Receive Start UWB Tracking Task");
@@ -208,19 +156,6 @@ void AlgorithmTaskManager::TaskExecute()
         executor_uwb_tracking_->Start(goal);
         activated_executor_ = executor_uwb_tracking_;
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
-      }
-      break;
-
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING:
-      {
-        INFO("Receive Stop UWB Tracking Task");
-        if (manager_status_ != ManagerStatus::kExecutingUwbTracking) {
-          ERROR("No UWB Tracking Task to Stop");
-          goal_handle_->abort(result);
-          return;
-        }
-        executor_uwb_tracking_->Stop();
-        activated_executor_ = executor_uwb_tracking_;
       }
       break;
     

@@ -63,7 +63,6 @@ public:
 public:
   ExecutorInterface() {}
   virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
-  virtual void Stop() = 0;
   virtual void Cancel() = 0;
 };
 

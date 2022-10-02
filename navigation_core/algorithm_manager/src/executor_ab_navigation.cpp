@@ -32,9 +32,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("AB navigation started");
 }
 
-void ExecutorAbNavigation::Stop()
-{}
-
 void ExecutorAbNavigation::Cancel()
 {}
 

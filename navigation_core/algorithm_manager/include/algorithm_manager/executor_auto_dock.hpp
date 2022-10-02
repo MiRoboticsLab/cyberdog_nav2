@@ -24,7 +24,6 @@ class ExecutorAutoDock : public ExecutorBase
 public:
   explicit ExecutorAutoDock(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop() override;
   void Cancel() override;
 
 private:
