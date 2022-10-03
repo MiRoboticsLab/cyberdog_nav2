@@ -94,6 +94,8 @@ public:
   using RealSenseClient = RealSenseLifecycleServiceClient;
   using LifecycleController = cyberdog::controller::LifecycleController;
 
+  using TaskType = uint8_t;
+
   NavigationCore();
   ~NavigationCore() = default;
 
@@ -172,6 +174,7 @@ private:
 
   rclcpp::Node::SharedPtr client_node_;
   std::chrono::milliseconds server_timeout_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
 
   // Goal handlers
   NavigationGoalHandle::SharedPtr navigation_goal_handle_;
@@ -203,10 +206,23 @@ private:
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
   {
     reloc_status_ = static_cast<RelocStatus>(msg->data);
-    INFO("%d", reloc_status_);
+    INFO("Get localization result: %d", reloc_status_);
 
     if (reloc_topic_waiting_) {
-      INFO("notify");
+      INFO("Notify localization model");
+
+      // if (GetCurrentTaskState() == TaskState::StopLocalization) {
+      //   WARN("Current user cancel localization. not need notify localization model.");
+      //   return;
+      // }
+
+      if (task_type_queue_.front() == Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION &&
+        GetCurrentTaskType() == Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION)
+      {
+        WARN("Current user cancel localization. not need notify localization model.");
+        return;
+      }
+
       reloc_cv_.notify_one();
       reloc_topic_waiting_ = false;
     }
@@ -295,8 +311,6 @@ private:
 
   // robot's realtime pose client
   rclcpp::Client<TriggerT>::SharedPtr realtime_pose_client_;
-
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
   RelocStatus reloc_status_{RelocStatus::kIdle};
   std::mutex reloc_mutex_;
   std::condition_variable reloc_cv_;
@@ -318,6 +332,13 @@ private:
   void set_send_result_flag(bool result);
 
   std::string ToString(int type);
+
+  TaskType current_task_type_;
+  std::mutex task_type_mutex_;
+  void SetTaskType(const TaskType & type);
+  TaskType GetCurrentTaskType();
+
+  std::deque<TaskType> task_type_queue_;
 };
 }  // namespace carpo_navigation
 #endif  // MOTION_CORE__MOTION_CORE_NODE_HPP_
