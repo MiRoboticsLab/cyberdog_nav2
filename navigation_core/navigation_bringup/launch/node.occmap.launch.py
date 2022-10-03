@@ -18,6 +18,7 @@ import os
 import sys
 
 import launch
+import subprocess
 import launch_ros.actions
 from ament_index_python.packages import get_package_prefix
 from ament_index_python.packages import get_package_share_directory
@@ -27,46 +28,29 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
-sys.path.append(os.path.join(get_package_share_directory('cyberdog_bringup'), 'bringup'))
-from manual import get_namespace
+from launch_ros.actions import LifecycleNode
+from launch_ros.actions import Node
 
 def generate_launch_description():
-    namespace = LaunchConfiguration('namespace', default=get_namespace())
+
+    namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup') 
-    nav2_launch_dir = os.path.join(nav2_dir, 'launch')
-    node_lists = [
-        'static_tf',
-        'vision_manager',
-        'camera_server',
-        'tracking',
-        'realsense',
-        'mcr_uwb',
-        'velocity_adaptor',
-        'nav2_base',
-        'map_label_server',
-        'report_dog_pose',
-        'laser_mapping',
-        'laser_localization',
-        'lifecycle_mgr_localization',
-        'lifecycle_mgr_nav',
-        'lifecycle_mgr_mapping',
-        'lifecycle_mgr_mcr_uwb',
-        # 'navigation_interfaces',
-        'mivins_localization',
-        'mivins_mapping',
-        'mivins_vo',
-        'miloc',
-        'stereo_camera',
-        'occmap',
-        ]
-    lds = [IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
-        launch_arguments = {'namespace': namespace}.items()) for node in node_lists]
-    return launch.LaunchDescription(lds + [namespace_declare])
+
+    occmap_dir = FindPackageShare(package='cyberdog_occmap').find('cyberdog_occmap') 
+    occmap_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(occmap_dir, 'launch/create_gridmap_node.launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
+
+    ld = launch.LaunchDescription([
+        namespace_declare,
+        occmap_cmd,
+    ])
+
+    return ld
 
 if __name__ == '__main__':
     generate_launch_description()
