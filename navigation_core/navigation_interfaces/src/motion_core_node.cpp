@@ -933,9 +933,8 @@ bool NavigationCore::ServiceImpl(
   // }
 
   using ServiceFuture = rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture;
-  auto response_callback = [this](ServiceFuture future){
-    
-  };
+  auto response_callback = [this](ServiceFuture future) {
+    };
   auto call_result = client->async_send_request(request, response_callback);
   return call_result.get()->success;
 }
@@ -1310,34 +1309,33 @@ void NavigationCore::SetTaskState(const TaskState & state)
 std::string NavigationCore::ToString(int type)
 {
   std::string message;
-  switch (type)
-  {
-  case Navigation::Goal::NAVIGATION_TYPE_START_AB:
-    message = "NAVIGATION_TYPE_START_AB";
-    break;
+  switch (type) {
+    case Navigation::Goal::NAVIGATION_TYPE_START_AB:
+      message = "NAVIGATION_TYPE_START_AB";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
-    message = "NAVIGATION_TYPE_STOP_AB";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+      message = "NAVIGATION_TYPE_STOP_AB";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
-    message = "NAVIGATION_TYPE_START_MAPPING";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+      message = "NAVIGATION_TYPE_START_MAPPING";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
-    message = "NAVIGATION_TYPE_STOP_MAPPING";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
+      message = "NAVIGATION_TYPE_STOP_MAPPING";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
-    message = "NAVIGATION_TYPE_START_LOCALIZATION";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+      message = "NAVIGATION_TYPE_START_LOCALIZATION";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
-    message = "NAVIGATION_TYPE_STOP_LOCALIZATION";
-    break;
-  
-  default:
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
+      message = "NAVIGATION_TYPE_STOP_LOCALIZATION";
+      break;
+
+    default:
+      break;
   }
 
   return message;

@@ -1,4 +1,3 @@
-
 // Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <memory>
+#include <vector>
+
 #include "cyberdog_map_manager/map_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "cyberdog_common/cyberdog_json.hpp"
@@ -23,26 +26,24 @@ namespace map_manager
 {
 
 MapManager::MapManager()
- : nav2_util::LifecycleNode("cyberdog_map_manager", "", true)
+: nav2_util::LifecycleNode("cyberdog_map_manager", "", true)
 {
   map_client_ = this->create_client<protocol::srv::Map>("maps_manager");
   map_server_ = this->create_service<protocol::srv::Map>(
-    "map_service", 
-      std::bind(
-        &MapManager::HandleMapServiceCallback, this,
-        std::placeholders::_1, std::placeholders::_2));
+    "map_service",
+    std::bind(
+      &MapManager::HandleMapServiceCallback, this,
+      std::placeholders::_1, std::placeholders::_2));
 }
 
 MapManager::~MapManager()
 {
-
 }
 
 void MapManager::HandleMapServiceCallback(
   const protocol::srv::Map::Request::SharedPtr request,
   protocol::srv::Map::Response::SharedPtr response)
 {
-
 }
 
 nav2_util::CallbackReturn MapManager::on_configure(const rclcpp_lifecycle::State & state)
@@ -125,7 +126,8 @@ bool MapManager::UpdateMap(const std::string & old_name, const std::string & new
   return true;
 }
 
-bool MapManager::GetMap(const std::string & name,
+bool MapManager::GetMap(
+  const std::string & name,
   const MapType & type, nav_msgs::msg::OccupancyGrid & map)
 {
   return true;

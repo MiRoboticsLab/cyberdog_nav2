@@ -40,7 +40,7 @@ struct Position
 struct Quaternion
 {
   Quaternion(double xx, double yy, double zz, double ww)
-    : x(xx), y(yy), z(zz), w(ww) {}
+  : x(xx), y(yy), z(zz), w(ww) {}
 
   double x;
   double y;
@@ -59,12 +59,14 @@ struct LabelTag
   Position position;
   Quaternion quaternion;
 
-  LabelTag(const std::string &  t_tag_name, const Position & t_position, const Quaternion & t_quaternion)
-    : tag_name{t_tag_name},
-      position{t_position},
-      quaternion{t_quaternion} {}
+  LabelTag(
+    const std::string & t_tag_name, const Position & t_position,
+    const Quaternion & t_quaternion)
+  : tag_name{t_tag_name},
+    position{t_position},
+    quaternion{t_quaternion} {}
 
-  void SetTagName(const std::string &  t_tag_name)
+  void SetTagName(const std::string & t_tag_name)
   {
     tag_name = t_tag_name;
   }
@@ -111,25 +113,22 @@ struct LabelTag
 };
 
 
-std::ostream & operator<<(std::ostream &os, const LabelTag & label)
+std::ostream & operator<<(std::ostream & os, const LabelTag & label)
 {
-  os << "[ tag_name : " <<  label.tag_name() << "]"
-     << "\n"
-     << "   position : [" 
-     << label.position.x() << ","
-     << label.position.y() << ","
-     << label.position.z() << "]"
-     << "\n"
-     << "   quaternion : [" 
-     << label.quaternion.x() << ","
-     << label.quaternion.y() << ","
-     << label.quaternion.z() << ","
-     << label.quaternion.w() << "]";
+  os << "[ tag_name : " << label.tag_name() << "]" <<
+    "\n" <<
+    "   position : [" <<
+    label.position.x() << "," <<
+    label.position.y() << "," <<
+    label.position.z() << "]" <<
+    "\n" <<
+    "   quaternion : [" <<
+    label.quaternion.x() << "," <<
+    label.quaternion.y() << "," <<
+    label.quaternion.z() << "," <<
+    label.quaternion.w() << "]";
   return os;
 }
-
-
-
 }  // namespace namespace map_manager
 }  // namespace cyberdog
 

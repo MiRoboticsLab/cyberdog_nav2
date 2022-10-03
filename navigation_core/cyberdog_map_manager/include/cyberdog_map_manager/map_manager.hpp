@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CYBERDOG_MAP_MANAGER__LABEL_TAG_HPP_
-#define CYBERDOG_MAP_MANAGER__LABEL_TAG_HPP_
+#ifndef CYBERDOG_MAP_MANAGER__MAP_MANAGER_HPP_
+#define CYBERDOG_MAP_MANAGER__MAP_MANAGER_HPP_
 
 #include <string>
 #include <vector>
@@ -90,7 +90,6 @@ public:
   nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-
   // Map build type
   enum MapType
   {
@@ -100,7 +99,7 @@ private:
 
   /**
    * @brief Save map's filename
-   * 
+   *
    * @param name Map's filename
    * @param type Lidar or Vision SLAM build map
    * @return true If true return success
@@ -110,7 +109,7 @@ private:
 
   /**
    * @brief Delete map's filename
-   * 
+   *
    * @param name Map's filename
    * @param type Lidar or Vision SLAM build map
    * @return true If true return success
@@ -120,7 +119,7 @@ private:
 
   /**
    * @brief Rename map's filename from old_name to new_name
-   * 
+   *
    * @param old_name map's filename old_name
    * @param new_name map's filename new_name
    */
@@ -128,7 +127,7 @@ private:
 
   /**
    * @brief Get the Map object
-   * 
+   *
    * @param name Map's filename
    * @param type Lidar or Vision SLAM build map
    * @param map Get lidar or vision build OccupancyGrid map
@@ -139,7 +138,7 @@ private:
 
   /**
    * @brief Get the Map List of all map's filename
-   * 
+   *
    * @param type Lidar or Vision SLAM build map
    * @param maps_table all map's filename
    * @return true If true return success
@@ -166,4 +165,4 @@ private:
 }  // namespace namespace map_manager
 }  // namespace cyberdog
 
-#endif  // CYBERDOG_MAP_MANAGER__LABEL_TAG_HPP_
+#endif  // CYBERDOG_MAP_MANAGER__MAP_MANAGER_HPP_
