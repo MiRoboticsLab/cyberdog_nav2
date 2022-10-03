@@ -71,9 +71,10 @@ private:
   std::shared_ptr<ExecutorLaserLocalization> executor_laser_localization_;
   std::shared_ptr<ExecutorUwbTracking> executor_uwb_tracking_;
   std::shared_ptr<ExecutorVisionTracking> executor_vision_tracking_;
-  std::condition_variable executor_start_cv_;
-  std::mutex executor_start_mutex_;
+  std::condition_variable executor_start_cv_, executor_status_cv_;
+  std::mutex executor_start_mutex_, executor_status_mutex_;
   ManagerStatus manager_status_{ManagerStatus::kIdle};
+  AlgorithmMGR::Feedback::SharedPtr feedback_;
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

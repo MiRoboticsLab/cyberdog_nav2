@@ -37,6 +37,7 @@ AlgorithmTaskManager::AlgorithmTaskManager()
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
   executor_vision_tracking_ =
     std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -53,7 +54,7 @@ AlgorithmTaskManager::AlgorithmTaskManager()
 
 AlgorithmTaskManager::~AlgorithmTaskManager()
 {
-  executor_start_cv_.notify_all();
+  executor_start_cv_.notify_one();
 }
 
 
@@ -66,6 +67,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   if (manager_status_ != ManagerStatus::kIdle) {
     return rclcpp_action::GoalResponse::REJECT;
   }
+  std::unique_lock<std::mutex> lk(executor_start_mutex_);
+  executor_start_cv_.notify_one();
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -95,8 +98,11 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
       {
         INFO("Receive Start AB Navigation Task");
-        executor_ab_navigation_->Start(goal);
         activated_executor_ = executor_ab_navigation_;
+        if (!activated_executor_->Start(goal)) {
+          goal_handle_->abort(result);
+          return;
+        }
         manager_status_ = ManagerStatus::kExecutingAbNavigation;
       }
       break;
@@ -104,8 +110,11 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       {
         INFO("Receive Start Mapping Task");
-        executor_laser_mapping_->Start(goal);
         activated_executor_ = executor_laser_mapping_;
+        if (!activated_executor_->Start(goal)) {
+          goal_handle_->abort(result);
+          return;
+        }
         manager_status_ = ManagerStatus::kExecutingLaserMapping;
       }
       break;
@@ -113,8 +122,11 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
       {
         INFO("Receive Start LaserLocalization Task");
-        executor_laser_localization_->Start(goal);
         activated_executor_ = executor_laser_localization_;
+        if (!activated_executor_->Start(goal)) {
+          goal_handle_->abort(result);
+          return;
+        }
         manager_status_ = ManagerStatus::kExecutingLaserLocalization;
       }
       break;
@@ -122,8 +134,11 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
       {
         INFO("Receive Start AutoDock Task");
-        executor_auto_dock_->Start(goal);
         activated_executor_ = executor_auto_dock_;
+        if (!activated_executor_->Start(goal)) {
+          goal_handle_->abort(result);
+          return;
+        }
         manager_status_ = ManagerStatus::kExecutingAutoDock;
       }
       break;
@@ -131,11 +146,11 @@ void AlgorithmTaskManager::TaskExecute()
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Receive Start UWB Tracking Task");
-        if (!executor_uwb_tracking_->Start(goal)) {
+        activated_executor_ = executor_uwb_tracking_;
+        if (!activated_executor_->Start(goal)) {
           goal_handle_->abort(result);
           return;
         }
-        activated_executor_ = executor_uwb_tracking_;
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
       }
       break;
@@ -143,8 +158,6 @@ void AlgorithmTaskManager::TaskExecute()
     default:
       break;
   }
-  std::unique_lock<std::mutex> lk(executor_start_mutex_);
-  executor_start_cv_.notify_all();
 }
 
 void AlgorithmTaskManager::GetExecutorStatus()
@@ -155,6 +168,8 @@ void AlgorithmTaskManager::GetExecutorStatus()
       executor_start_cv_.wait(lk);
     }
     if (activated_executor_ == nullptr) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      // INFO("-----");
       continue;
     }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
@@ -162,8 +177,9 @@ void AlgorithmTaskManager::GetExecutorStatus()
     switch (executor_data.status) {
       case ExecutorStatus::kExecuting:
         {
-          static auto feedback = std::make_shared<AlgorithmMGR::Feedback>(executor_data.feedback);
-          goal_handle_->publish_feedback(feedback);
+          *feedback_ = executor_data.feedback;
+          // INFO("feedback: %d", feedback_->feedback_code);
+          goal_handle_->publish_feedback(feedback_);
           break;
         }
 
@@ -204,7 +220,6 @@ void AlgorithmTaskManager::GetExecutorStatus()
       activated_executor_.reset();
       manager_status_ = ManagerStatus::kIdle;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 }
 }  // namespace algorithm
