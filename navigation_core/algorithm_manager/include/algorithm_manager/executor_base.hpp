@@ -185,8 +185,9 @@ protected:
     feedback_ = feedback;
     std::unique_lock<std::mutex> lk(preparation_mutex_);
     preparation_cv_.wait(lk);
-    preparation_finished_ = true;
+    StopReportPreparationThread();
   }
+  void StopReportPreparationThread() { preparation_finished_ = true; }
   static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
   static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;

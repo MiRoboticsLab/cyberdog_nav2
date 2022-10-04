@@ -120,7 +120,10 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 void ExecutorUwbTracking::Cancel()
 {
   INFO("UWB Tracking will stop");
-  target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  if (target_tracking_goal_handle_ != nullptr) {
+    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  }
+  StopReportPreparationThread();
   executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
   UpdateExecutorData(executor_uwb_tracking_data_);
   INFO("UWB Tracking Stopped");
