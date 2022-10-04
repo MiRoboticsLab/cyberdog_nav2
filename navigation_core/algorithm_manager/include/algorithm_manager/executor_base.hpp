@@ -169,7 +169,7 @@ protected:
         UpdateExecutorData(executor_uwb_tracking_data);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         static uint8_t count = 0;
-        if (feedback_ == AlgorithmMGR::Feedback::TASK_PREPARATION_FINISHED) {
+        if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
             ++count;
         }
         if (count > preparation_finished_report_time_) {
@@ -180,9 +180,9 @@ protected:
     }); 
     t.detach();   
   }
-  void ReportPreparationFinished()
+  void ReportPreparationFinished(uint32_t feedback)
   { 
-    feedback_ = AlgorithmMGR::Feedback::TASK_PREPARATION_FINISHED;
+    feedback_ = feedback;
     std::unique_lock<std::mutex> lk(preparation_mutex_);
     preparation_cv_.wait(lk);
     preparation_finished_ = true;
