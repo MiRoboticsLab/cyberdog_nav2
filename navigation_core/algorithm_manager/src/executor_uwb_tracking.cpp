@@ -65,15 +65,18 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
     !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
   {
+    ERROR("Failed to Launch lifecycle nodes");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     return false;
   }
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    ERROR("Tracking target action server is not available.");
+    ERROR("TrackingTarget action server is not available.");
     GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
     GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     return false;
   }
 
@@ -93,24 +96,18 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     std::bind(
     &ExecutorUwbTracking::HandleResultCallback,
     this, std::placeholders::_1);
-  ReportPreparationFinished();
+  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal, send_goal_options);
-  // if (rclcpp::spin_until_future_complete(
-  //     action_client_node_, future_goal_handle,
-  //     server_timeout_) !=
-  //   rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   ERROR("Send goal call failed");
-  //   lifecycle_client_nav_.pause();
-  //   client_mcr_uwb_.pause();
-  //   executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
-  //   UpdateExecutorData(executor_uwb_tracking_data_);
-  //   return;
-  // }
+  if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
+    ERROR("Send TrackingTarget goal failed");
+    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
+    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
+    return false;
+  }
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
-    ERROR("Goal was rejected by server");
+    ERROR("TrackingTarget Goal was rejected by server");
     GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
     GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
     return false;
@@ -122,7 +119,10 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 void ExecutorUwbTracking::Cancel()
 {
   INFO("UWB Tracking will stop");
-  target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  if (target_tracking_goal_handle_ != nullptr) {
+    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  }
+  StopReportPreparationThread();
   executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
   UpdateExecutorData(executor_uwb_tracking_data_);
   INFO("UWB Tracking Stopped");
