@@ -148,10 +148,15 @@ protected:
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
   {
-    if (node->is_active() == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+    auto status = node->is_active(get_lifecycle_timeout_ * 1000 * 1000 * 1000);
+    if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
+      ERROR("Failed to get lifecycle state");
+      return false;
+    } else if (status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
       return true;
     }
     if (!node->startup()) {
+      ERROR("Failed to launch lifecycle");
       return false;
     }
     return true;
@@ -160,39 +165,41 @@ protected:
   {
     preparation_finished_ = false;
     feedback_ = AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING;
-    std::thread t = std::thread([this](){
-      ExecutorData executor_uwb_tracking_data;
-      executor_uwb_tracking_data.status = ExecutorStatus::kExecuting;
-      do {
-        // INFO("preparation: %d", feedback_);
-        executor_uwb_tracking_data.feedback.feedback_code = feedback_;
-        UpdateExecutorData(executor_uwb_tracking_data);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        static uint8_t count = 0;
-        if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
+    std::thread t = std::thread(
+      [this]() {
+        ExecutorData executor_uwb_tracking_data;
+        executor_uwb_tracking_data.status = ExecutorStatus::kExecuting;
+        do {
+          // INFO("preparation: %d", feedback_);
+          executor_uwb_tracking_data.feedback.feedback_code = feedback_;
+          UpdateExecutorData(executor_uwb_tracking_data);
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          static uint8_t count = 0;
+          if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
             ++count;
-        }
-        if (count > preparation_finished_report_time_) {
-          this->preparation_cv_.notify_one();
-          count = 0;
-        }
-      } while (!this->preparation_finished_);
-    }); 
-    t.detach();   
+          }
+          if (count > preparation_finished_report_time_) {
+            this->preparation_cv_.notify_one();
+            count = 0;
+          }
+        } while (!this->preparation_finished_);
+      });
+    t.detach();
   }
   void ReportPreparationFinished(uint32_t feedback)
-  { 
+  {
     feedback_ = feedback;
     std::unique_lock<std::mutex> lk(preparation_mutex_);
     preparation_cv_.wait(lk);
     StopReportPreparationThread();
   }
-  void StopReportPreparationThread() { preparation_finished_ = true; }
+  void StopReportPreparationThread() {preparation_finished_ = true;}
   static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
   static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
-  static constexpr uint8_t preparation_finished_report_time_ = 5;
+  static constexpr uint8_t preparation_finished_report_time_ = 5;  // count
   std::chrono::milliseconds server_timeout_{2000};
+  std::chrono::seconds get_lifecycle_timeout_{5};
   rclcpp::Node::SharedPtr action_client_node_;
   uint32_t feedback_;
 

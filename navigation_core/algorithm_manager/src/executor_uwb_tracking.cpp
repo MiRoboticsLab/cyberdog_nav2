@@ -99,8 +99,7 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal, send_goal_options);
-  if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready)
-  {
+  if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send TrackingTarget goal failed");
     GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
     GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
