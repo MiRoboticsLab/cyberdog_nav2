@@ -114,19 +114,34 @@ public:
     lifecycle_client_ids_.emplace(
       LifecycleClientID::kMcrUwb,
       "lifecycle_manager_mcr_uwb");
+    std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
   }
   virtual void Stop(){};
+  ~ExecutorBase()
+  {
+    preparation_finished_ = true;
+    preparation_finish_cv_.notify_one();
+  }
+  /**
+   * @brief 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
+   *        其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
+   * 
+   * @return ExecutorData& 
+   */
   ExecutorData & GetExecutorData()
   {
-    // std::unique_lock<std::mutex> lk(executor_data_mutex_);
-    // executor_data_cv_.wait(lk);
-    // // INFO("Report: %d", executor_data_.feedback.feedback_code);
-    // return executor_data_;
     // INFO("queue size before: %d", executor_data_queue_.Size());
     executor_data_queue_.DeQueue(executor_data_);
     // INFO("queue size after: %d", executor_data_queue_.Size());
     return executor_data_;
   }
+protected:
+  /**
+   * @brief 获取依赖节点的LifecycleMgr的客户端对象
+   * 
+   * @param id 
+   * @return std::shared_ptr<Nav2LifecyleMgrClient> 
+   */
   static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
     const LifecycleClientID & id)
   {
@@ -136,6 +151,11 @@ public:
     }
     return lifecycle_client_map_.at(id);
   }
+  /**
+   * @brief 获取Realsense的LifecycleMgr的客户端对象
+   * 
+   * @return std::shared_ptr<RealSenseClient> 
+   */
   static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
   {
     if (lifecycle_client_realsense_ == nullptr) {
@@ -143,18 +163,24 @@ public:
     }
     return lifecycle_client_realsense_;
   }
-
-protected:
+  /**
+   * @brief 更新当前任务执行器的状态数据，所有继承的子类中在需要上报状态时调用该接口
+   * 
+   * @param executor_data 
+   */
   void UpdateExecutorData(const ExecutorData & executor_data)
   {
-    // std::unique_lock<std::mutex> lk(executor_data_mutex_);
-    // executor_data_ = executor_data;
-    // executor_data_cv_.notify_all();
-    // // INFO("Update: %d", executor_data_.feedback.feedback_code);
     // INFO("Will Enqueue");
     executor_data_queue_.EnQueueOne(executor_data);
     // INFO("Over Enqueue");
   }
+  /**
+   * @brief 激活依赖的Lifecycle节点
+   * 
+   * @param node 
+   * @return true 
+   * @return false 
+   */
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
   {
@@ -171,39 +197,64 @@ protected:
     }
     return true;
   }
+  /**
+   * @brief 更新任务开始后，在向底层执行器send_goal之前的状态上报线程
+   * 
+   */
+  void UpdatePreparationStatus()
+  {
+    ExecutorData executor_uwb_tracking_data;
+    executor_uwb_tracking_data.status = ExecutorStatus::kExecuting;
+    while (rclcpp::ok()) {
+      if (preparation_finished_) {
+        std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
+        preparation_finish_cv_.wait(lk);
+      }
+      // INFO("preparation: %d", feedback_);
+      executor_uwb_tracking_data.feedback.feedback_code = feedback_;
+      UpdateExecutorData(executor_uwb_tracking_data);
+      static uint8_t count = 0;
+      if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
+        ++count;
+      }
+      if (count > preparation_finished_report_time_) {
+        preparation_count_cv_.notify_one();
+        count = 0;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+  }
+  /**
+   * @brief 更新向底层任务执行器send_goal前的状态
+   * 
+   */
   void ReportPreparationStatus()
   {
+    std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = false;
     feedback_ = AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING;
-    std::thread t = std::thread(
-      [this]() {
-        ExecutorData executor_uwb_tracking_data;
-        executor_uwb_tracking_data.status = ExecutorStatus::kExecuting;
-        do {
-          // INFO("preparation: %d", feedback_);
-          executor_uwb_tracking_data.feedback.feedback_code = feedback_;
-          UpdateExecutorData(executor_uwb_tracking_data);
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          static uint8_t count = 0;
-          if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
-            ++count;
-          }
-          if (count > preparation_finished_report_time_) {
-            this->preparation_cv_.notify_one();
-            count = 0;
-          }
-        } while (!this->preparation_finished_);
-      });
-    t.detach();
+    preparation_finish_cv_.notify_one();
   }
+  /**
+   * @brief 结束向底层任务执行器send_goal前的状态上报
+   * 
+   * @param feedback 
+   */
   void ReportPreparationFinished(uint32_t feedback)
   {
-    feedback_ = feedback;
-    std::unique_lock<std::mutex> lk(preparation_mutex_);
-    preparation_cv_.wait(lk);
+    {
+      std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
+      feedback_ = feedback;
+    }
+    std::unique_lock<std::mutex> lk(preparation_count_mutex_);
+    preparation_count_cv_.wait(lk);
     StopReportPreparationThread();
   }
-  void StopReportPreparationThread() {preparation_finished_ = true;}
+  void StopReportPreparationThread()
+  {
+    std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
+    preparation_finished_ = true;
+  }
   static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
   static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
@@ -214,11 +265,15 @@ protected:
   uint32_t feedback_;
 
 private:
-  std::mutex executor_data_mutex_, preparation_mutex_;
-  std::condition_variable executor_data_cv_, preparation_cv_;
+  std::mutex executor_data_mutex_;
+  std::mutex preparation_count_mutex_;
+  std::mutex preparation_finish_mutex_;
+  std::condition_variable executor_data_cv_;
+  std::condition_variable preparation_count_cv_;
+  std::condition_variable preparation_finish_cv_;
   ExecutorData executor_data_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
-  bool preparation_finished_{false};
+  bool preparation_finished_{true};
 };   // class ExecutorBase
 }  // namespace algorithm
 }  // namespace cyberdog
