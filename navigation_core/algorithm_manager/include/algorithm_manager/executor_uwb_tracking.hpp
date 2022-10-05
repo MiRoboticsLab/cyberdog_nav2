@@ -29,6 +29,7 @@ class ExecutorUwbTracking : public ExecutorBase
 public:
   explicit ExecutorUwbTracking(std::string node_name);
   bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop() override;
   void Cancel() override;
 
 private:

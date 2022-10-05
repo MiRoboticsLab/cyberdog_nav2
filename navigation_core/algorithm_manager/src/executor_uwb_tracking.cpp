@@ -30,7 +30,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target");
+    action_client_node_, "tracking_target_fake");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -116,16 +116,29 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   return true;
 }
 
-void ExecutorUwbTracking::Cancel()
+void ExecutorUwbTracking::Stop()
 {
   INFO("UWB Tracking will stop");
   if (target_tracking_goal_handle_ != nullptr) {
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
   }
   StopReportPreparationThread();
+  executor_uwb_tracking_data_.status = ExecutorStatus::kSuccess;
+  UpdateExecutorData(executor_uwb_tracking_data_);
+  INFO("UWB Tracking Stoped");
+}
+
+
+void ExecutorUwbTracking::Cancel()
+{
+  INFO("UWB Tracking will cancel");
+  if (target_tracking_goal_handle_ != nullptr) {
+    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  }
+  StopReportPreparationThread();
   executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
   UpdateExecutorData(executor_uwb_tracking_data_);
-  INFO("UWB Tracking Stopped");
+  INFO("UWB Tracking Canceled");
 }
 
 void ExecutorUwbTracking::HandleFeedbackCallback(

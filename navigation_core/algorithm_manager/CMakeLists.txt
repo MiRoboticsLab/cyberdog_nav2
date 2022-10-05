@@ -87,13 +87,22 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+add_executable(fake_action test/fake_action.cpp)
+ament_target_dependencies(fake_action
+  ${dependencies}
+)
+target_include_directories(fake_action PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(fake_action PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} fake_action
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)

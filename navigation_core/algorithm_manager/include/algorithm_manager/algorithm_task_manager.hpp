@@ -34,6 +34,7 @@ namespace cyberdog
 namespace algorithm
 {
 
+using TaskId = uint8_t;
 class AlgorithmTaskManager : public rclcpp::Node
 {
 public:
@@ -41,14 +42,21 @@ public:
   ~AlgorithmTaskManager();
 
 private:
+  struct TaskRef
+  {
+    TaskId pre_task;
+    std::shared_ptr<ExecutorBase> executor_ptr;
+  };
   enum class ManagerStatus : uint8_t
   {
     kIdle,
+    kLaunchingLifecycleNode = 100,
     kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
     kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
     kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
     kExecutingAutoDock = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING,
     kExecutingUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
+    kShuttingDownUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING,
   };
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
@@ -63,7 +71,7 @@ private:
   // void GetExecutorStatus(const std::shared_ptr<GoalHandleNavigation> goal_handle);
 
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
-  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_;
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_, goal_handle_to_stop_;
   std::shared_ptr<ExecutorBase> activated_executor_;
   std::shared_ptr<ExecutorAbNavigation> executor_ab_navigation_;
   std::shared_ptr<ExecutorAutoDock> executor_auto_dock_;
@@ -75,6 +83,7 @@ private:
   std::mutex executor_start_mutex_, executor_status_mutex_;
   ManagerStatus manager_status_{ManagerStatus::kIdle};
   AlgorithmMGR::Feedback::SharedPtr feedback_;
+  std::unordered_map<TaskId, TaskRef> task_map_;
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

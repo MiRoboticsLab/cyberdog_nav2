@@ -113,6 +113,7 @@ public:
       LifecycleClientID::kMcrUwb,
       "lifecycle_manager_mcr_uwb");
   }
+  virtual void Stop(){};
   ExecutorData & GetExecutorData()
   {
     std::unique_lock<std::mutex> lk(executor_data_mutex_);
@@ -140,8 +141,8 @@ public:
 protected:
   void UpdateExecutorData(const ExecutorData & executor_data)
   {
-    executor_data_ = executor_data;
     std::unique_lock<std::mutex> lk(executor_data_mutex_);
+    executor_data_ = executor_data;
     executor_data_cv_.notify_all();
     // INFO("Update: %d", executor_data_.feedback.feedback_code);
   }

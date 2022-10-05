@@ -37,6 +37,12 @@ AlgorithmTaskManager::AlgorithmTaskManager()
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
   executor_vision_tracking_ =
     std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+  
+  task_map_.emplace(5, TaskRef{0, executor_uwb_tracking_});
+  task_map_.emplace(6, TaskRef{5, executor_uwb_tracking_});
+  task_map_.emplace(11, TaskRef{0, executor_uwb_tracking_});
+  task_map_.emplace(12, TaskRef{11, executor_uwb_tracking_});
+
   feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
@@ -64,10 +70,12 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 {
   (void)uuid;
   (void)goal;
-  if (manager_status_ != ManagerStatus::kIdle) {
+  INFO("---------------------");
+  std::unique_lock<std::mutex> lk(executor_start_mutex_);
+  if (task_map_.at(goal->nav_type).pre_task != static_cast<TaskId>(manager_status_)) {
+    ERROR("Current task %d cannot accept task: %d", static_cast<TaskId>(manager_status_), goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   }
-  std::unique_lock<std::mutex> lk(executor_start_mutex_);
   executor_start_cv_.notify_one();
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
@@ -75,7 +83,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
-  INFO("Received request to cancel goal");
+  INFO("Received request to cancel task");
   (void)goal_handle;
   return rclcpp_action::CancelResponse::ACCEPT;
 }
@@ -85,73 +93,103 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 {
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
-  goal_handle_ = goal_handle;
+  // goal_handle_ = goal_handle;
+  if(goal_handle_executing_ != nullptr){
+    INFO("Receive task %d to stop pre task %d", goal_handle->get_goal()->nav_type, manager_status_);
+    INFO("Executing: %d, get: %d", goal_handle_executing_.get(), goal_handle.get());
+    goal_handle_to_stop_ = goal_handle_executing_;
+  }
+  goal_handle_executing_ = goal_handle;
+  INFO("To interupt: %d, by: %d", goal_handle_to_stop_.get(), goal_handle_executing_.get());
   std::thread{std::bind(&AlgorithmTaskManager::TaskExecute, this)}.detach();
 }
 
 void AlgorithmTaskManager::TaskExecute()
 {
-  auto goal = goal_handle_->get_goal();
+  auto goal = goal_handle_executing_->get_goal();
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_REJECT;
+
+  // activated_executor_ = task_map_.at(goal->nav_type).executor_ptr;
+
   switch (goal->nav_type) {
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
-      {
-        INFO("Receive Start AB Navigation Task");
-        activated_executor_ = executor_ab_navigation_;
-        if (!activated_executor_->Start(goal)) {
-          goal_handle_->abort(result);
-          return;
-        }
-        manager_status_ = ManagerStatus::kExecutingAbNavigation;
-      }
-      break;
+    // case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
+    //   {
+    //     INFO("Receive Start AB Navigation Task");
+    //     activated_executor_ = executor_ab_navigation_;
+    //     if (!activated_executor_->Start(goal)) {
+    //       goal_handle_->abort(result);
+    //       return;
+    //     }
+    //     manager_status_ = ManagerStatus::kExecutingAbNavigation;
+    //   }
+    //   break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
-      {
-        INFO("Receive Start Mapping Task");
-        activated_executor_ = executor_laser_mapping_;
-        if (!activated_executor_->Start(goal)) {
-          goal_handle_->abort(result);
-          return;
-        }
-        manager_status_ = ManagerStatus::kExecutingLaserMapping;
-      }
-      break;
+    // case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
+    //   {
+    //     INFO("Receive Start Mapping Task");
+    //     activated_executor_ = executor_laser_mapping_;
+    //     if (!activated_executor_->Start(goal)) {
+    //       goal_handle_->abort(result);
+    //       return;
+    //     }
+    //     manager_status_ = ManagerStatus::kExecutingLaserMapping;
+    //   }
+    //   break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
-      {
-        INFO("Receive Start LaserLocalization Task");
-        activated_executor_ = executor_laser_localization_;
-        if (!activated_executor_->Start(goal)) {
-          goal_handle_->abort(result);
-          return;
-        }
-        manager_status_ = ManagerStatus::kExecutingLaserLocalization;
-      }
-      break;
+    // case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+    //   {
+    //     INFO("Receive Start LaserLocalization Task");
+    //     activated_executor_ = executor_laser_localization_;
+    //     if (!activated_executor_->Start(goal)) {
+    //       goal_handle_->abort(result);
+    //       return;
+    //     }
+    //     manager_status_ = ManagerStatus::kExecutingLaserLocalization;
+    //   }
+    //   break;
 
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
-      {
-        INFO("Receive Start AutoDock Task");
-        activated_executor_ = executor_auto_dock_;
-        if (!activated_executor_->Start(goal)) {
-          goal_handle_->abort(result);
-          return;
-        }
-        manager_status_ = ManagerStatus::kExecutingAutoDock;
-      }
-      break;
+    // case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
+    //   {
+    //     INFO("Receive Start AutoDock Task");
+    //     activated_executor_ = executor_auto_dock_;
+    //     if (!activated_executor_->Start(goal)) {
+    //       goal_handle_->abort(result);
+    //       return;
+    //     }
+    //     manager_status_ = ManagerStatus::kExecutingAutoDock;
+    //   }
+    //   break;
 
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       {
         INFO("Receive Start UWB Tracking Task");
+        manager_status_ = ManagerStatus::kExecutingUwbTracking;
         activated_executor_ = executor_uwb_tracking_;
         if (!activated_executor_->Start(goal)) {
-          goal_handle_->abort(result);
+          goal_handle_executing_->abort(result);
+          manager_status_ = ManagerStatus::kIdle;
           return;
         }
+      }
+      break;
+
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING:
+      {
+        INFO("Receive Stop UWB Tracking Task");
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
+        activated_executor_ = executor_uwb_tracking_;
+        activated_executor_->Stop();
+        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+        // NOTE 直接设置正在进行中的任务状态为Succeed
+        INFO("Force to succeed goal handle : %d", goal_handle_to_stop_.get());
+        goal_handle_to_stop_->succeed(result);
+        // NOTE 当前“停止任务”的任务状态由GetExecutorStatus线程中处理
+        // result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+        // INFO("Will succeed: %d", goal_handle_executing_.get());
+        // goal_handle_executing_->succeed(result);
+        activated_executor_.reset();
+        manager_status_ = ManagerStatus::kIdle;
       }
       break;
 
@@ -179,14 +217,15 @@ void AlgorithmTaskManager::GetExecutorStatus()
         {
           *feedback_ = executor_data.feedback;
           // INFO("feedback: %d", feedback_->feedback_code);
-          goal_handle_->publish_feedback(feedback_);
+          goal_handle_executing_->publish_feedback(feedback_);
           break;
         }
 
       case ExecutorStatus::kSuccess:
         {
+          INFO("Got ExecutorData Success");
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-          goal_handle_->succeed(result);
+          goal_handle_executing_->succeed(result);
           activated_executor_.reset();
           manager_status_ = ManagerStatus::kIdle;
           break;
@@ -194,8 +233,9 @@ void AlgorithmTaskManager::GetExecutorStatus()
 
       case ExecutorStatus::kAborted:
         {
+          INFO("Got ExecutorData Aborted");
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
-          goal_handle_->abort(result);
+          goal_handle_executing_->abort(result);
           activated_executor_.reset();
           manager_status_ = ManagerStatus::kIdle;
           break;
@@ -203,8 +243,9 @@ void AlgorithmTaskManager::GetExecutorStatus()
 
       case ExecutorStatus::kCanceled:
         {
+          INFO("Got ExecutorData Canceled");
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-          goal_handle_->abort(result);
+          goal_handle_executing_->abort(result);
           activated_executor_.reset();
           manager_status_ = ManagerStatus::kIdle;
           break;
@@ -213,10 +254,10 @@ void AlgorithmTaskManager::GetExecutorStatus()
       default:
         break;
     }
-    if (goal_handle_->is_canceling()) {
+    if (goal_handle_executing_->is_canceling()) {
       activated_executor_->Cancel();
       result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-      goal_handle_->canceled(result);
+      goal_handle_executing_->canceled(result);
       activated_executor_.reset();
       manager_status_ = ManagerStatus::kIdle;
     }
