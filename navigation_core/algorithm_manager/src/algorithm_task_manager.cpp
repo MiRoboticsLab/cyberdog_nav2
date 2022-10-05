@@ -37,7 +37,7 @@ AlgorithmTaskManager::AlgorithmTaskManager()
     std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
   executor_vision_tracking_ =
     std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
-  
+
   task_map_.emplace(5, TaskRef{0, executor_uwb_tracking_});
   task_map_.emplace(6, TaskRef{5, executor_uwb_tracking_});
   task_map_.emplace(11, TaskRef{0, executor_uwb_tracking_});
@@ -73,7 +73,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   INFO("---------------------");
   std::unique_lock<std::mutex> lk(executor_start_mutex_);
   if (task_map_.at(goal->nav_type).pre_task != static_cast<TaskId>(manager_status_)) {
-    ERROR("Current task %d cannot accept task: %d", static_cast<TaskId>(manager_status_), goal->nav_type);
+    ERROR(
+      "Current task %d cannot accept task: %d", static_cast<TaskId>(manager_status_),
+      goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   }
   executor_start_cv_.notify_one();
@@ -94,13 +96,19 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
   // goal_handle_ = goal_handle;
-  if(goal_handle_executing_ != nullptr){
-    INFO("Receive task %d to stop pre task %d", goal_handle->get_goal()->nav_type, manager_status_);
-    INFO("Executing: %d, get: %d", goal_handle_executing_.get(), goal_handle.get());
+  if (goal_handle_executing_ != nullptr) {
+    INFO(
+      "Receive task %d to stop pre task %d", goal_handle->get_goal()->nav_type,
+      static_cast<int>(manager_status_));
+    INFO(
+      "Executing: %ld, get: %ld", int64_t(goal_handle_executing_.get()),
+      int64_t(goal_handle.get()));
     goal_handle_to_stop_ = goal_handle_executing_;
   }
   goal_handle_executing_ = goal_handle;
-  INFO("To interupt: %d, by: %d", goal_handle_to_stop_.get(), goal_handle_executing_.get());
+  INFO(
+    "To interupt: %ld, by: %ld", int64_t(goal_handle_to_stop_.get()),
+    int64_t(goal_handle_executing_.get()));
   std::thread{std::bind(&AlgorithmTaskManager::TaskExecute, this)}.detach();
 }
 
@@ -182,7 +190,7 @@ void AlgorithmTaskManager::TaskExecute()
         activated_executor_->Stop();
         result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
         // NOTE 直接设置正在进行中的任务状态为Succeed
-        INFO("Force to succeed goal handle : %d", goal_handle_to_stop_.get());
+        INFO("Force to succeed goal handle : %ld", int64_t(goal_handle_to_stop_.get()));
         goal_handle_to_stop_->succeed(result);
         // NOTE 当前“停止任务”的任务状态由GetExecutorStatus线程中处理
         // result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;

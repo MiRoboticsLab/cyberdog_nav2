@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__ALGORITHM_TASK_MANAGER_HPP_
 
 #include <memory>
+#include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 
 // #include "std_srvs/srv/set_bool.hpp"

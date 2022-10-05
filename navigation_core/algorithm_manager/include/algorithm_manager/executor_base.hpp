@@ -116,7 +116,7 @@ public:
       "lifecycle_manager_mcr_uwb");
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
   }
-  virtual void Stop(){};
+  virtual void Stop() {}
   ~ExecutorBase()
   {
     preparation_finished_ = true;
@@ -125,8 +125,8 @@ public:
   /**
    * @brief 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
    *        其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
-   * 
-   * @return ExecutorData& 
+   *
+   * @return ExecutorData&
    */
   ExecutorData & GetExecutorData()
   {
@@ -135,12 +135,13 @@ public:
     // INFO("queue size after: %d", executor_data_queue_.Size());
     return executor_data_;
   }
+
 protected:
   /**
    * @brief 获取依赖节点的LifecycleMgr的客户端对象
-   * 
-   * @param id 
-   * @return std::shared_ptr<Nav2LifecyleMgrClient> 
+   *
+   * @param id
+   * @return std::shared_ptr<Nav2LifecyleMgrClient>
    */
   static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
     const LifecycleClientID & id)
@@ -153,8 +154,8 @@ protected:
   }
   /**
    * @brief 获取Realsense的LifecycleMgr的客户端对象
-   * 
-   * @return std::shared_ptr<RealSenseClient> 
+   *
+   * @return std::shared_ptr<RealSenseClient>
    */
   static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
   {
@@ -165,8 +166,8 @@ protected:
   }
   /**
    * @brief 更新当前任务执行器的状态数据，所有继承的子类中在需要上报状态时调用该接口
-   * 
-   * @param executor_data 
+   *
+   * @param executor_data
    */
   void UpdateExecutorData(const ExecutorData & executor_data)
   {
@@ -176,10 +177,10 @@ protected:
   }
   /**
    * @brief 激活依赖的Lifecycle节点
-   * 
-   * @param node 
-   * @return true 
-   * @return false 
+   *
+   * @param node
+   * @return true
+   * @return false
    */
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
@@ -199,7 +200,7 @@ protected:
   }
   /**
    * @brief 更新任务开始后，在向底层执行器send_goal之前的状态上报线程
-   * 
+   *
    */
   void UpdatePreparationStatus()
   {
@@ -226,7 +227,7 @@ protected:
   }
   /**
    * @brief 更新向底层任务执行器send_goal前的状态
-   * 
+   *
    */
   void ReportPreparationStatus()
   {
@@ -237,8 +238,8 @@ protected:
   }
   /**
    * @brief 结束向底层任务执行器send_goal前的状态上报
-   * 
-   * @param feedback 
+   *
+   * @param feedback
    */
   void ReportPreparationFinished(uint32_t feedback)
   {
