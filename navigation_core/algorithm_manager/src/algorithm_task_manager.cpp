@@ -211,6 +211,7 @@ void AlgorithmTaskManager::GetExecutorStatus()
       continue;
     }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
+    // INFO("Will Check ExecutorData");
     ExecutorData executor_data = activated_executor_->GetExecutorData();
     switch (executor_data.status) {
       case ExecutorStatus::kExecuting:

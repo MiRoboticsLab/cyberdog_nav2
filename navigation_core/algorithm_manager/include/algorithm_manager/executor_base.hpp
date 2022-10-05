@@ -31,6 +31,8 @@
 #include "algorithm_manager/realsense_lifecycle_manager.hpp"
 // #include "algorithm_manager/algorithm_task_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_common/cyberdog_msg_queue.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -116,9 +118,13 @@ public:
   virtual void Stop(){};
   ExecutorData & GetExecutorData()
   {
-    std::unique_lock<std::mutex> lk(executor_data_mutex_);
-    executor_data_cv_.wait(lk);
-    // INFO("Report: %d", executor_data_.feedback.feedback_code);
+    // std::unique_lock<std::mutex> lk(executor_data_mutex_);
+    // executor_data_cv_.wait(lk);
+    // // INFO("Report: %d", executor_data_.feedback.feedback_code);
+    // return executor_data_;
+    // INFO("queue size before: %d", executor_data_queue_.Size());
+    executor_data_queue_.DeQueue(executor_data_);
+    // INFO("queue size after: %d", executor_data_queue_.Size());
     return executor_data_;
   }
   static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
@@ -141,10 +147,13 @@ public:
 protected:
   void UpdateExecutorData(const ExecutorData & executor_data)
   {
-    std::unique_lock<std::mutex> lk(executor_data_mutex_);
-    executor_data_ = executor_data;
-    executor_data_cv_.notify_all();
-    // INFO("Update: %d", executor_data_.feedback.feedback_code);
+    // std::unique_lock<std::mutex> lk(executor_data_mutex_);
+    // executor_data_ = executor_data;
+    // executor_data_cv_.notify_all();
+    // // INFO("Update: %d", executor_data_.feedback.feedback_code);
+    // INFO("Will Enqueue");
+    executor_data_queue_.EnQueueOne(executor_data);
+    // INFO("Over Enqueue");
   }
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
@@ -208,6 +217,7 @@ private:
   std::mutex executor_data_mutex_, preparation_mutex_;
   std::condition_variable executor_data_cv_, preparation_cv_;
   ExecutorData executor_data_;
+  common::MsgQueue<ExecutorData> executor_data_queue_;
   bool preparation_finished_{false};
 };   // class ExecutorBase
 }  // namespace algorithm
