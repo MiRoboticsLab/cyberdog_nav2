@@ -135,6 +135,12 @@ public:
     // INFO("queue size after: %d", executor_data_queue_.Size());
     return executor_data_;
   }
+  static void RegisterUpdateImpl(std::function<void(const ExecutorData &)> f)
+  {
+    if (f != nullptr) {
+      update_executor_f_ = f;
+    }
+  }
 
 protected:
   /**
@@ -172,7 +178,8 @@ protected:
   void UpdateExecutorData(const ExecutorData & executor_data)
   {
     // INFO("Will Enqueue");
-    executor_data_queue_.EnQueueOne(executor_data);
+    // executor_data_queue_.EnQueueOne(executor_data);
+    update_executor_f_(executor_data);
     // INFO("Over Enqueue");
   }
   /**
@@ -185,6 +192,8 @@ protected:
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
   {
+    auto status = node->is_active(
+      std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
     auto status = node->is_active(get_lifecycle_timeout_ * 1000 * 1000 * 1000);
     if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
       ERROR("Failed to get lifecycle state");
@@ -211,7 +220,11 @@ protected:
         std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
         preparation_finish_cv_.wait(lk);
       }
-      // INFO("preparation: %d", feedback_);
+      if (!rclcpp::ok()) {
+        INFO("UpdatePreparationStatus exit");
+        return;
+      }
+      INFO("preparation: %d", feedback_);
       executor_uwb_tracking_data.feedback.feedback_code = feedback_;
       UpdateExecutorData(executor_uwb_tracking_data);
       static uint8_t count = 0;
@@ -245,6 +258,7 @@ protected:
   {
     {
       std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
+      INFO("Last Report: %d", feedback_);
       feedback_ = feedback;
     }
     std::unique_lock<std::mutex> lk(preparation_count_mutex_);
@@ -261,9 +275,9 @@ protected:
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
   static constexpr uint8_t preparation_finished_report_time_ = 5;  // count
   std::chrono::milliseconds server_timeout_{2000};
-  std::chrono::seconds get_lifecycle_timeout_{5};
   rclcpp::Node::SharedPtr action_client_node_;
   uint32_t feedback_;
+  uint32_t get_lifecycle_timeout_{10};
 
 private:
   std::mutex executor_data_mutex_;
@@ -274,6 +288,7 @@ private:
   std::condition_variable preparation_finish_cv_;
   ExecutorData executor_data_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
+  static std::function<void(const ExecutorData &)> update_executor_f_;
   bool preparation_finished_{true};
 };   // class ExecutorBase
 }  // namespace algorithm

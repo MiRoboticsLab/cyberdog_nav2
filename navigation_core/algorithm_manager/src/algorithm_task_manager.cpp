@@ -44,6 +44,8 @@ AlgorithmTaskManager::AlgorithmTaskManager()
   task_map_.emplace(12, TaskRef{11, executor_uwb_tracking_});
 
   feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
+  ExecutorBase::RegisterUpdateImpl(
+    std::bind(&AlgorithmTaskManager::UpdateExecutorData, this, std::placeholders::_1));
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -209,23 +211,32 @@ void AlgorithmTaskManager::TaskExecute()
 void AlgorithmTaskManager::GetExecutorStatus()
 {
   while (rclcpp::ok()) {
-    if (activated_executor_ == nullptr) {
-      std::unique_lock<std::mutex> lk(executor_start_mutex_);
-      executor_start_cv_.wait(lk);
-    }
-    if (activated_executor_ == nullptr) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
-      // INFO("-----");
-      continue;
-    }
+    // if (activated_executor_ == nullptr) {
+    //   std::unique_lock<std::mutex> lk(executor_start_mutex_);
+    //   executor_start_cv_.wait(lk);
+    // }
+    // if (!rclcpp::ok()) {
+    //   INFO("will exit");
+    //   return;
+    // }
+    // if (activated_executor_ == nullptr) {
+    //   std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    //   // INFO("-----");
+    //   continue;
+    // }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
-    // INFO("Will Check ExecutorData");
-    ExecutorData executor_data = activated_executor_->GetExecutorData();
+    INFO("Will Check ExecutorData");
+    // ExecutorData executor_data = activated_executor_->GetExecutorData();
+    ExecutorData executor_data = GetExecutorData();
+    INFO("Finish Check ExecutorData");
+    if (!rclcpp::ok()) {
+      return;
+    }
     switch (executor_data.status) {
       case ExecutorStatus::kExecuting:
         {
           *feedback_ = executor_data.feedback;
-          // INFO("feedback: %d", feedback_->feedback_code);
+          INFO("feedback: %d", feedback_->feedback_code);
           goal_handle_executing_->publish_feedback(feedback_);
           break;
         }
@@ -274,12 +285,3 @@ void AlgorithmTaskManager::GetExecutorStatus()
 }
 }  // namespace algorithm
 }  // namespace cyberdog
-
-int main(int argc, char ** argv)
-{
-  LOGGER_MAIN_INSTANCE("AlgorithmTaskManager");
-  cyberdog::debug::register_signal();
-  rclcpp::init(argc, argv);
-  auto atm = std::make_shared<cyberdog::algorithm::AlgorithmTaskManager>();
-  rclcpp::spin(atm);
-}

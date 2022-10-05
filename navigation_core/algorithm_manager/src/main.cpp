@@ -12,18 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include <string>
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/algorithm_task_manager.hpp"
 
-namespace cyberdog
+int main(int argc, char ** argv)
 {
-namespace algorithm
-{
-LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
-std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
-std::function<void(const ExecutorData &)> ExecutorBase::update_executor_f_;
-}
+  LOGGER_MAIN_INSTANCE("AlgorithmTaskManager");
+  cyberdog::debug::register_signal();
+  rclcpp::init(argc, argv);
+  auto atm = std::make_shared<cyberdog::algorithm::AlgorithmTaskManager>();
+  rclcpp::spin(atm);
 }

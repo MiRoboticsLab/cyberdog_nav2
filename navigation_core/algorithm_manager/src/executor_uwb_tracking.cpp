@@ -125,6 +125,7 @@ void ExecutorUwbTracking::Stop()
   StopReportPreparationThread();
   executor_uwb_tracking_data_.status = ExecutorStatus::kSuccess;
   UpdateExecutorData(executor_uwb_tracking_data_);
+  target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Stoped");
 }
 
@@ -137,7 +138,13 @@ void ExecutorUwbTracking::Cancel()
   }
   StopReportPreparationThread();
   executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
-  UpdateExecutorData(executor_uwb_tracking_data_);
+  // NOTE
+  /**
+   * @brief 
+   * Manager的Cancel()中已经上报了Canceled状态，这里取消上报避免重复设置状态
+   * UpdateExecutorData(executor_uwb_tracking_data_);
+   */
+  target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");
 }
 
@@ -163,9 +170,18 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       ERROR("UWB Tracking reported aborted");
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
+      // executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
       ERROR("UWB Tracking reported canceled");
-      break;
+      // NOTE
+      /**
+       * @brief
+       * 如果A任务被B来STOP，B已经在Stop()中上报给Manger Success状态，
+       * 而A的执行器会在这里上报一条CANCELED，return避免再次上报，导致在Manager中
+       * 重复设置goal的状态
+       * 如果A任务是被Cancel，在Manager的Cancel()中已经上报了状态，也不需要在这里
+       * 再次上报
+       */
+      return;
     default:
       executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
       ERROR("UWB Tracking reported unknown result code");

@@ -52,6 +52,7 @@ set(dependencies
 )
 
 set(sources
+  src/main.cpp
   src/algorithm_task_manager.cpp
   src/executor_base.cpp
   src/executor_ab_navigation.cpp

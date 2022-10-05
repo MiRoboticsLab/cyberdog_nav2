@@ -67,9 +67,17 @@ private:
   void HandleAlgorithmManagerAccepted(
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   void TaskExecute();
-  // void TaskExecute(const std::shared_ptr<GoalHandleNavigation> goal_handle);
   void GetExecutorStatus();
-  // void GetExecutorStatus(const std::shared_ptr<GoalHandleNavigation> goal_handle);
+  void UpdateExecutorData(const ExecutorData & executor_data)
+  {
+    executor_data_queue_.EnQueueOne(executor_data);
+  }
+  ExecutorData & GetExecutorData()
+  {
+    executor_data_queue_.DeQueue(executor_data_);
+    return executor_data_;
+  }
+
 
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_, goal_handle_to_stop_;
@@ -85,6 +93,8 @@ private:
   ManagerStatus manager_status_{ManagerStatus::kIdle};
   AlgorithmMGR::Feedback::SharedPtr feedback_;
   std::unordered_map<TaskId, TaskRef> task_map_;
+  common::MsgQueue<ExecutorData> executor_data_queue_;
+  ExecutorData executor_data_;
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog
