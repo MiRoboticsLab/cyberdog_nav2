@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOR_MANAGER__BEHAVIOR_MANAGER_HPP_
-#define BEHAVIOR_MANAGER__BEHAVIOR_MANAGER_HPP_
+#ifndef BEHAVIOR_MANAGER__MODE_DETECTOR_HPP_
+#define BEHAVIOR_MANAGER__MODE_DETECTOR_HPP_
 
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
@@ -24,45 +24,58 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_debug/backtrace.hpp"
-#include "behavior_manager/mode_detector.hpp"
-#include "behavior_manager/executor_auto_tracking.hpp"
-#include "behavior_manager/executor_stair_jumping.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class BehaviorManager : public rclcpp::Node
+enum class Stage : uint8_t
+{
+  kNormallyTracking,
+  kAutonomouslyTracking,
+  kStairJumping,
+  kAbnorm,
+};
+class ModeDetector : public rclcpp::Node
 {
 public:
-  BehaviorManager();
-  ~BehaviorManager();
-  void Tick();
+  ModeDetector();
+  ~ModeDetector();
+  void GetMode();
 private:
-  // void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg);
-  // void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  // void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
+  {
+    stair_detection_ = msg->data;
+  }
+  // void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg)
+  // {
+  //   stair_aligned_ = msg->data;
+  // }
+  void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    current_pose_ = msg;
+  }
   void DecideBehaviorMode();
-  bool CheckTargetStatic();
+  bool CheckTargetStatic()
+  {
+
+  }
   void DoAutonomouslyTracking();
   void DoStairJumping();
-  void GetMode(const Stage & stage){ stage_detected_ = stage; }
-  // rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
+  rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
   // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_finished_sub_;
-  // rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
   // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_client_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
   // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr autonomously_tracking_client_;
   // rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stair_align_trigger_client_;
   // rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
-  Stage stage_working_, stage_detected_;
-  ModeDetector mode_detector_;
-  ExecutorAutoTracking executor_auto_tracking_;
-  ExecutorStairJumping executor_stair_jumping_;
-  bool stair_detected_{false}, stair_aligned_{false}, stair_align_timeout_{false};
-  bool stair_possible_jump_{false};
+  geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;
+  Stage stage_;
+  int8_t stair_detection_{0};
+  bool stair_aligned_{false};
 
-};  // class behavior_manager
+};  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // BEHAVIOR_MANAGER__BEHAVIOR_MANAGER_HPP_
+#endif  // BEHAVIOR_MANAGER__MODE_DETECTOR_HPP_
