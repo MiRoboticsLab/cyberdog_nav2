@@ -61,6 +61,7 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   INFO("UWB Tracking will start");
+  // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
   if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
     !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
@@ -79,7 +80,8 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     return false;
   }
-
+  // 结束激活进度的上报
+  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   // Send the goal pose
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options =
@@ -96,7 +98,6 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     std::bind(
     &ExecutorUwbTracking::HandleResultCallback,
     this, std::placeholders::_1);
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal, send_goal_options);
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
@@ -120,8 +121,10 @@ void ExecutorUwbTracking::Stop()
 {
   INFO("UWB Tracking will stop");
   if (target_tracking_goal_handle_ != nullptr) {
+    // 只有在向底层执行器发送目标后才需要发送取消指令
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
   } else {
+    // 如果在激活依赖节点阶段就收到了Stop指令，需要主动上报一次kCanceled状态
     executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
     UpdateExecutorData(executor_uwb_tracking_data_);
   }
@@ -138,6 +141,7 @@ void ExecutorUwbTracking::Cancel()
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
   } else {
     executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
+    // 如果在激活依赖节点阶段就收到了Cancel指令，需要主动上报一次kCanceled状态
     UpdateExecutorData(executor_uwb_tracking_data_);
   }
   StopReportPreparationThread();

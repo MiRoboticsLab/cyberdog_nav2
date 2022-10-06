@@ -198,11 +198,8 @@ void AlgorithmTaskManager::TaskExecute()
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
         activated_executor_ = executor_uwb_tracking_;
         activated_executor_->Stop();
-        // result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-        // // NOTE 直接设置正在进行中的任务状态为Succeed
-        // INFO("Force to succeed goal handle : %ld", int64_t(goal_handle_to_stop_.get()));
-        // goal_handle_to_stop_->succeed(result);
-        // NOTE 当前“停止任务”的任务状态由GetExecutorStatus线程中处理
+        // TODO(Harvey): 
+        // 当前“停止任务”的任务状态如何判断
         result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
         INFO("Will succeed: %ld", int64_t(goal_handle_to_stop_.get()));
         goal_handle_to_stop_->succeed(result);
@@ -263,6 +260,16 @@ void AlgorithmTaskManager::GetExecutorStatus()
         {
           INFO("Got ExecutorData Canceled");
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+          // NOTE
+          /**
+           * @brief 
+           * 在收到执行器kCanceled状态时，调用abort()接口；
+           * canceled()接口在这里不能用，只适用于server收到cancel请求、goal被置
+           * 为canceling时的调用；
+           * 在manager的场景下，没有判断is_canceling()的需求，所以abort()可以涵
+           * 盖goal被Stop和Cancel的两种情况；
+           * 
+           */
           goal_handle_executing_->abort(result);
           activated_executor_.reset();
           ResetAllGoalHandle();

@@ -123,8 +123,9 @@ public:
     preparation_finish_cv_.notify_one();
   }
   /**
-   * @brief 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
-   *        其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
+   * @brief 
+   * 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
+   * 其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
    *
    * @return ExecutorData&
    */
@@ -144,7 +145,8 @@ public:
 
 protected:
   /**
-   * @brief 获取依赖节点的LifecycleMgr的客户端对象
+   * @brief
+   * 获取依赖节点的LifecycleMgr的客户端对象
    *
    * @param id
    * @return std::shared_ptr<Nav2LifecyleMgrClient>
@@ -159,7 +161,8 @@ protected:
     return lifecycle_client_map_.at(id);
   }
   /**
-   * @brief 获取Realsense的LifecycleMgr的客户端对象
+   * @brief
+   * 获取Realsense的LifecycleMgr的客户端对象
    *
    * @return std::shared_ptr<RealSenseClient>
    */
@@ -171,7 +174,8 @@ protected:
     return lifecycle_client_realsense_;
   }
   /**
-   * @brief 更新当前任务执行器的状态数据，所有继承的子类中在需要上报状态时调用该接口
+   * @brief
+   * 更新当前任务执行器的状态数据，所有继承的子类中在需要上报状态时调用该接口
    *
    * @param executor_data
    */
@@ -183,7 +187,8 @@ protected:
     // INFO("Over Enqueue");
   }
   /**
-   * @brief 激活依赖的Lifecycle节点
+   * @brief
+   * 激活依赖的Lifecycle节点
    *
    * @param node
    * @return true
@@ -207,7 +212,8 @@ protected:
     return true;
   }
   /**
-   * @brief 更新任务开始后，在向底层执行器send_goal之前的状态上报线程
+   * @brief
+   * 更新任务开始后，在向底层执行器send_goal之前的状态上报线程
    *
    */
   void UpdatePreparationStatus()
@@ -223,7 +229,7 @@ protected:
         INFO("UpdatePreparationStatus exit");
         return;
       }
-      INFO("preparation: %d", feedback_);
+      INFO("Peparation Report: %d", feedback_);
       executor_uwb_tracking_data.feedback.feedback_code = feedback_;
       UpdateExecutorData(executor_uwb_tracking_data);
       static uint8_t count = 0;
@@ -238,7 +244,8 @@ protected:
     }
   }
   /**
-   * @brief 更新向底层任务执行器send_goal前的状态
+   * @brief
+   * 更新激活依赖节点以及向底层任务执行器send_goal前的准备状态
    *
    */
   void ReportPreparationStatus()
@@ -249,7 +256,8 @@ protected:
     preparation_finish_cv_.notify_one();
   }
   /**
-   * @brief 结束向底层任务执行器send_goal前的状态上报
+   * @brief
+   * 结束向底层任务执行器send_goal前的状态上报
    *
    * @param feedback
    */
@@ -257,8 +265,8 @@ protected:
   {
     {
       std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
-      INFO("Last Report: %d", feedback_);
       feedback_ = feedback;
+      INFO("Update Last Report: %d", feedback_);
     }
     std::unique_lock<std::mutex> lk(preparation_count_mutex_);
     preparation_count_cv_.wait(lk);
