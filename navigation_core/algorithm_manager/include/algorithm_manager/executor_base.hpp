@@ -194,7 +194,6 @@ protected:
   {
     auto status = node->is_active(
       std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
-    auto status = node->is_active(get_lifecycle_timeout_ * 1000 * 1000 * 1000);
     if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
       ERROR("Failed to get lifecycle state");
       return false;
