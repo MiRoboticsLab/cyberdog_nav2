@@ -87,8 +87,13 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
+  INFO("---------------------");
   INFO("Received request to cancel task");
   (void)goal_handle;
+  activated_executor_->Cancel();
+  auto result = std::make_shared<AlgorithmMGR::Result>();
+  activated_executor_.reset();
+  manager_status_ = ManagerStatus::kIdle;
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
@@ -97,26 +102,28 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 {
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
-  // goal_handle_ = goal_handle;
+  goal_handle_new_ = goal_handle;
   if (goal_handle_executing_ != nullptr) {
     INFO(
       "Receive task %d to stop pre task %d", goal_handle->get_goal()->nav_type,
       static_cast<int>(manager_status_));
+    goal_handle_to_stop_ = goal_handle;
     INFO(
-      "Executing: %ld, get: %ld", int64_t(goal_handle_executing_.get()),
-      int64_t(goal_handle.get()));
-    goal_handle_to_stop_ = goal_handle_executing_;
+      "To interupt: %ld, by: %ld", int64_t(goal_handle_executing_.get()),
+      int64_t(goal_handle_to_stop_.get()));
+  } else {
+    goal_handle_executing_ = goal_handle;
+    INFO(
+      "To executing: %ld, while: %ld", int64_t(goal_handle_executing_.get()),
+      int64_t(goal_handle_to_stop_.get()));
   }
-  goal_handle_executing_ = goal_handle;
-  INFO(
-    "To interupt: %ld, by: %ld", int64_t(goal_handle_to_stop_.get()),
-    int64_t(goal_handle_executing_.get()));
+
   std::thread{std::bind(&AlgorithmTaskManager::TaskExecute, this)}.detach();
 }
 
 void AlgorithmTaskManager::TaskExecute()
 {
-  auto goal = goal_handle_executing_->get_goal();
+  auto goal = goal_handle_new_->get_goal();
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_REJECT;
 
@@ -178,6 +185,7 @@ void AlgorithmTaskManager::TaskExecute()
         activated_executor_ = executor_uwb_tracking_;
         if (!activated_executor_->Start(goal)) {
           goal_handle_executing_->abort(result);
+          ResetAllGoalHandle();
           manager_status_ = ManagerStatus::kIdle;
           return;
         }
@@ -190,14 +198,15 @@ void AlgorithmTaskManager::TaskExecute()
         manager_status_ = ManagerStatus::kExecutingUwbTracking;
         activated_executor_ = executor_uwb_tracking_;
         activated_executor_->Stop();
-        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-        // NOTE 直接设置正在进行中的任务状态为Succeed
-        INFO("Force to succeed goal handle : %ld", int64_t(goal_handle_to_stop_.get()));
-        goal_handle_to_stop_->succeed(result);
+        // result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+        // // NOTE 直接设置正在进行中的任务状态为Succeed
+        // INFO("Force to succeed goal handle : %ld", int64_t(goal_handle_to_stop_.get()));
+        // goal_handle_to_stop_->succeed(result);
         // NOTE 当前“停止任务”的任务状态由GetExecutorStatus线程中处理
-        // result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-        // INFO("Will succeed: %d", goal_handle_executing_.get());
-        // goal_handle_executing_->succeed(result);
+        result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+        INFO("Will succeed: %ld", int64_t(goal_handle_to_stop_.get()));
+        goal_handle_to_stop_->succeed(result);
+        goal_handle_to_stop_.reset();
         activated_executor_.reset();
         manager_status_ = ManagerStatus::kIdle;
       }
@@ -211,19 +220,6 @@ void AlgorithmTaskManager::TaskExecute()
 void AlgorithmTaskManager::GetExecutorStatus()
 {
   while (rclcpp::ok()) {
-    // if (activated_executor_ == nullptr) {
-    //   std::unique_lock<std::mutex> lk(executor_start_mutex_);
-    //   executor_start_cv_.wait(lk);
-    // }
-    // if (!rclcpp::ok()) {
-    //   INFO("will exit");
-    //   return;
-    // }
-    // if (activated_executor_ == nullptr) {
-    //   std::this_thread::sleep_for(std::chrono::milliseconds(2));
-    //   // INFO("-----");
-    //   continue;
-    // }
     static auto result = std::make_shared<AlgorithmMGR::Result>();
     INFO("Will Check ExecutorData");
     // ExecutorData executor_data = activated_executor_->GetExecutorData();
@@ -247,6 +243,7 @@ void AlgorithmTaskManager::GetExecutorStatus()
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
           goal_handle_executing_->succeed(result);
           activated_executor_.reset();
+          ResetAllGoalHandle();
           manager_status_ = ManagerStatus::kIdle;
           break;
         }
@@ -257,6 +254,7 @@ void AlgorithmTaskManager::GetExecutorStatus()
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
           goal_handle_executing_->abort(result);
           activated_executor_.reset();
+          ResetAllGoalHandle();
           manager_status_ = ManagerStatus::kIdle;
           break;
         }
@@ -267,19 +265,13 @@ void AlgorithmTaskManager::GetExecutorStatus()
           result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
           goal_handle_executing_->abort(result);
           activated_executor_.reset();
+          ResetAllGoalHandle();
           manager_status_ = ManagerStatus::kIdle;
           break;
         }
 
       default:
         break;
-    }
-    if (goal_handle_executing_->is_canceling()) {
-      activated_executor_->Cancel();
-      result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-      goal_handle_executing_->canceled(result);
-      activated_executor_.reset();
-      manager_status_ = ManagerStatus::kIdle;
     }
   }
 }

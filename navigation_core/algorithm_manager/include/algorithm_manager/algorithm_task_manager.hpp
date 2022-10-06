@@ -77,10 +77,17 @@ private:
     executor_data_queue_.DeQueue(executor_data_);
     return executor_data_;
   }
-
+  void ResetAllGoalHandle()
+  {
+    goal_handle_executing_.reset();
+    goal_handle_to_stop_.reset();
+    goal_handle_new_.reset();
+  }
 
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
-  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_, goal_handle_to_stop_;
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_;
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_to_stop_;
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_new_;
   std::shared_ptr<ExecutorBase> activated_executor_;
   std::shared_ptr<ExecutorAbNavigation> executor_ab_navigation_;
   std::shared_ptr<ExecutorAutoDock> executor_auto_dock_;
