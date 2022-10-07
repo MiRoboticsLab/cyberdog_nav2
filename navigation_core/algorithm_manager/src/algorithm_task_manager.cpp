@@ -82,6 +82,14 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   executor_start_cv_.notify_one();
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  /* 使用封装风格的check函数
+  if(!CheckCmdValid(goal->nav_type)) {
+    return rclcpp_action::GoalResponse::REJECT;
+  } else {
+    activated_executor_->Start();
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  }
+  */
 }
 
 rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel(
@@ -119,6 +127,7 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   }
 
   std::thread{std::bind(&AlgorithmTaskManager::TaskExecute, this)}.detach();
+  /* 是否有必要启用线程，直接调用算法类指针执行？ */
 }
 
 void AlgorithmTaskManager::TaskExecute()

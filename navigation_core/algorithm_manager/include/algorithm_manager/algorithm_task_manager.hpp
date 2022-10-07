@@ -35,6 +35,74 @@ namespace cyberdog
 namespace algorithm
 {
 
+enum class ExecutorStatus : uint8_t
+{
+  kIdle = 0,  // accept start
+  kBusy = 1   // accept stop
+};  // enum class ExecutorStatus
+
+struct MappingCmd
+{
+  std::string function_name;  // nav, localization, auto_dock, etc.
+  uint8_t cmd;  // start : 1, stop : 0
+};  // struct Mapping Cmd
+
+MappingCmd TranslateCmd(uint8_t nav_type) {
+  // using protocol::Nagation::Action
+  MappingCmd result;
+  switch(nav_type) {
+    case NAVIGATION_TYPE_START_AB:
+      {
+        result.function_name = std::string("AbNavigation");
+        result.cmd = 1;
+        break;
+      }
+    case NAVIGATION_TYPE_STOP_AB:
+      {
+        result.function_name = std::string("AbNavigation");
+        result.cmd = 0;
+        break;
+      }
+    case NAVIGATION_TYPE_START_FOLLOW:
+      {
+        result.function_name = std::string("AbNavigation");
+        result.cmd = 1;
+        break;
+      }
+    case NAVIGATION_TYPE_STOP_FOLLOW:
+      {
+        result.function_name = std::string("AbNavigation");
+        result.cmd = 0;
+        break;
+      }
+    case NAVIGATION_TYPE_START_MAPPING:
+    case NAVIGATION_TYPE_STOP_MAPPING:
+    case NAVIGATION_TYPE_START_LOCALIZATION:
+    case NAVIGATION_TYPE_STOP_LOCALIZATION:
+    case NAVIGATION_TYPE_START_AUTO_DOCKING:
+    case NAVIGATION_TYPE_STOP_AUTO_DOCKING:
+    case NAVIGATION_TYPE_START_UWB_TRACKING:
+    case NAVIGATION_TYPE_STOP_UWB_TRACKING:
+    case NAVIGATION_TYPE_START_HUMAN_TRACKING:
+    case NAVIGATION_TYPE_STOP_HUMAN_TRACKING:
+  }
+
+}
+/*
+executor_laser_mapping_ =
+    std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+  executor_laser_localization_ =
+    std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+  executor_ab_navigation_ =
+    std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
+  executor_auto_dock_ =
+    std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
+  executor_uwb_tracking_ =
+    std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
+  executor_vision_tracking_ =
+    std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+*/
+
 using TaskId = uint8_t;
 class AlgorithmTaskManager : public rclcpp::Node
 {
@@ -84,6 +152,12 @@ private:
     goal_handle_new_.reset();
   }
 
+  bool CheckCmdValid(uint8_t nav_type) {
+    auto cmd_struct = TranslateCmd(nav_type);
+    // 提供cancle后，是否还有stop类型指令 ？ 
+  }
+private:
+  std::map<std::string, ExecutorBase> executor_map_;  // 执行器管理类
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_;
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_to_stop_;
