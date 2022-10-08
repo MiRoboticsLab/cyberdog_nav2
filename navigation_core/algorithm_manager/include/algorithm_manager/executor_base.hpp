@@ -116,12 +116,23 @@ public:
       "lifecycle_manager_mcr_uwb");
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
   }
-  virtual void Stop() {}
   ~ExecutorBase()
   {
     preparation_finished_ = true;
     preparation_finish_cv_.notify_one();
   }
+
+  bool Init(std::function<void(const ExecutorData &)> feedback_callback, std::function<void(void)> success_callback,
+  std::function<void(void)> cancle_callback, std::function<void(void)> abort_callback) {
+    task_feedback_callback_ = feedback_callback;
+    task_success_callback_ = success_callback;
+    task_cancle_callback_ = cancle_callback;
+    task_abort_callback_ = abort_callback;
+  }
+
+  virtual void Start(std::shared_ptr<const AlgorithmMGR::Goal> goal) = 0;
+
+  virtual void Stop() {}
   /**
    * @brief 
    * 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
@@ -183,7 +194,7 @@ protected:
   {
     // INFO("Will Enqueue");
     // executor_data_queue_.EnQueueOne(executor_data);
-    update_executor_f_(executor_data);
+    set_feedback_callback_(executor_data);
     // INFO("Over Enqueue");
   }
   /**
@@ -295,8 +306,14 @@ private:
   std::condition_variable preparation_finish_cv_;
   ExecutorData executor_data_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
-  static std::function<void(const ExecutorData &)> update_executor_f_;
+  std::function<void(const ExecutorData &)> task_feedback_callback_;
+  std::function<void(void)> task_success_callback_;
+  std::function<void(void)> task_cancle_callback_;
+  std::function<void(void)> task_abort_callback_;
   bool preparation_finished_{true};
+
+  /* add by North.D.K. 10.09*/
+  // std::function<void()>
 };   // class ExecutorBase
 }  // namespace algorithm
 }  // namespace cyberdog

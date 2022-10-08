@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__ALGORITHM_TASK_MANAGER_HPP_
 
 #include <memory>
+#include <vector>
 #include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 
@@ -23,17 +24,13 @@
 // #include "std_msgs/msg/int32.hpp"
 // #include "cyberdog_common/cyberdog_log.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/executor_ab_navigation.hpp"
-#include "algorithm_manager/executor_auto_dock.hpp"
-#include "algorithm_manager/executor_laser_localization.hpp"
-#include "algorithm_manager/executor_laser_mapping.hpp"
-#include "algorithm_manager/executor_uwb_tracking.hpp"
-#include "algorithm_manager/executor_vision_tracking.hpp"
 #include "cyberdog_debug/backtrace.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
+std::vector<std::string> ExecutorVector_V{"LaserMapping", "LaserLocalization", "AbNavigation", "AutoDock", "UwbTracking", "VisionTracking"};
+std::vector<uint8_t> ExecutorVector_V{1, 3, 5, 7, 9, 11};
 
 using TaskId = uint8_t;
 class AlgorithmTaskManager : public rclcpp::Node
@@ -42,14 +39,55 @@ public:
   AlgorithmTaskManager();
   ~AlgorithmTaskManager();
 
+  bool Init();
 private:
-  struct TaskRef
+  /* task result api, callback functions */
+  void TaskSuccessd() {}
+  void TaskCancled() {}
+  void TaskAborted() {}
+  void TaskFeedBack();
+
+  /* task check cmd is valid or not */
+  bool CheckStatusValid() {
+    std::lock_guard<std::mutex> lk(status_mutex_);
+    return manager_status_ == ManagerStatus::kIdle;
+  }
+
+  void SetStatus(ManagerStatus status) {
+    std::lock_guard<std::mutex> lk(status_mutex_);
+    manager_status_ = status;
+  }
+
+  void ResetManagerStatus() {
+    SetStatus(ManagerStatus::kIdle);
+  }
+
+  void SetFeedBack(const ExecutorData & executor_data)
   {
-    TaskId pre_task;
-    std::shared_ptr<ExecutorBase> executor_ptr;
-  };
+    executor_data_queue_.EnQueueOne(executor_data);
+  }
+
+  bool GetFeedBack(ExecutorData & executor_data)
+  {
+    executor_data_queue_.DeQueue(executor_data);
+    return executor_data_;
+  }
+  void BuildExecutorMap();
+
+  void SetTaskHandle(std::shared_ptr<ExecutorBase> executor = nullptr, std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr) {
+    activated_executor_ = (executor == nullptr ? activated_executor_ : executor);
+    goal_handle_executing_ = (goal_handle == nullptr ? goal_handle_executing_ : goal_handle);
+  }
+
+  void ResetTaskHandle()
+  {
+    goal_handle_executing_.reset();
+    activated_executor_.reset();
+  }
+private:
   enum class ManagerStatus : uint8_t
   {
+    kUninitialized,
     kIdle,
     kLaunchingLifecycleNode = 100,
     kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
@@ -59,6 +97,7 @@ private:
     kExecutingUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
     kShuttingDownUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING,
   };
+
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
     std::shared_ptr<const AlgorithmMGR::Goal> goal);
@@ -66,42 +105,16 @@ private:
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   void HandleAlgorithmManagerAccepted(
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
-  void TaskExecute();
-  void GetExecutorStatus();
-  void UpdateExecutorData(const ExecutorData & executor_data)
-  {
-    executor_data_queue_.EnQueueOne(executor_data);
-  }
-  ExecutorData & GetExecutorData()
-  {
-    executor_data_queue_.DeQueue(executor_data_);
-    return executor_data_;
-  }
-  void ResetAllGoalHandle()
-  {
-    goal_handle_executing_.reset();
-    goal_handle_to_stop_.reset();
-    goal_handle_new_.reset();
-  }
+  // void TaskExecute();
 
-  rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
-  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_;
-  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_to_stop_;
-  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_new_;
-  std::shared_ptr<ExecutorBase> activated_executor_;
-  std::shared_ptr<ExecutorAbNavigation> executor_ab_navigation_;
-  std::shared_ptr<ExecutorAutoDock> executor_auto_dock_;
-  std::shared_ptr<ExecutorLaserMapping> executor_laser_mapping_;
-  std::shared_ptr<ExecutorLaserLocalization> executor_laser_localization_;
-  std::shared_ptr<ExecutorUwbTracking> executor_uwb_tracking_;
-  std::shared_ptr<ExecutorVisionTracking> executor_vision_tracking_;
-  std::condition_variable executor_start_cv_, executor_status_cv_;
-  std::mutex executor_start_mutex_, executor_status_mutex_;
-  ManagerStatus manager_status_{ManagerStatus::kIdle};
-  AlgorithmMGR::Feedback::SharedPtr feedback_;
-  std::unordered_map<TaskId, TaskRef> task_map_;
+private:
+  rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_{nullptr};
+  std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_{nullptr};
+  std::shared_ptr<ExecutorBase> activated_executor_{nullptr};
+  ManagerStatus manager_status_{ManagerStatus::kUninitialized};
+  std::mutex status_mutex_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
-  ExecutorData executor_data_;
+  std::unordered_map executor_map_;
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

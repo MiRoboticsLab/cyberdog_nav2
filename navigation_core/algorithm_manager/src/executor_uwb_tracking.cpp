@@ -63,6 +63,7 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
+  ActiveDependNode(self_name);
   if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
     !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
   {

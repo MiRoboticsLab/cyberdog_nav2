@@ -1,0 +1,6 @@
+executors = ["LaserMapping", "LaserLocalization", "AbNavigation", "AutoDock", "UwbTracking", "VisionTracking"]
+
+[type]
+LaserMapping = 1
+LaserLocalization = 3
+AbNavigation = 5
