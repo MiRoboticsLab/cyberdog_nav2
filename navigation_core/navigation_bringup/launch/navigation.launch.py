@@ -48,7 +48,7 @@ def generate_launch_description():
         'velocity_adaptor',
         'nav2_base',
         'map_label_server',
-        'report_dog_pose',
+        # 'report_dog_pose',
         'laser_mapping',
         'laser_localization',
         'lifecycle_mgr_localization',
