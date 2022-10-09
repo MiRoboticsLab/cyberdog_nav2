@@ -70,11 +70,23 @@ def generate_launch_description():
             },],
             )
 
+    device_manager_cmd = Node(
+            package='device_manager',
+            executable='device_manager',
+            name='device_manager',
+            namespace=namespace,
+            # parameters=[
+            # {
+            #     'simulator': LaunchConfiguration('simulator', default='[touch]'),
+            # },],
+            )
+
     ld = launch.LaunchDescription([
         namespace_declare,
         odom_out_cmd,
         motion_manager_cmd,
-        sensor_manager_cmd
+        sensor_manager_cmd,
+        device_manager_cmd
     ])
 
     return ld

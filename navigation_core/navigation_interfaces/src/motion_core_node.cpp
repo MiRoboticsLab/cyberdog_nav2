@@ -49,7 +49,21 @@ NavigationCore::NavigationCore()
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     client_node_, "tracking_target");
-
+  // TODO(PDF):
+  client_realsense_manager_ =
+    std::make_shared<nav2_util::LifecycleServiceClient>("camera/camera");
+  client_vision_manager_ =
+    std::make_shared<nav2_util::LifecycleServiceClient>("vision_manager");
+  client_tracking_manager_ =
+    std::make_shared<nav2_util::LifecycleServiceClient>("tracking");
+  client_vision_algo_ =
+    client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
+  // Create service server
+  service_tracking_object_ = create_service<BodyRegionT>(
+    "tracking_object_srv", std::bind(
+      &NavigationCore::TrackingSrv_callback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  client_tracking_object_ = create_client<BodyRegionT>("tracking_object");
 
   navigation_goal_ = nav2_msgs::action::NavigateToPose::Goal();
   waypoint_follower_goal_ = nav2_msgs::action::FollowWaypoints::Goal();
@@ -371,6 +385,18 @@ void NavigationCore::FollowExecute(
       }
       break;
 
+    case Navigation::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING:
+      {
+        INFO("[Navigation]  Navigation::Goal::NAVIGATION_TYPE_START_VISION_TRACKING .....");
+        uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
+        if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+          // goal process failed
+          INFO("goal process failed");
+          result->result = goal_result;
+          goal_handle->succeed(result);
+        }
+      }
+      break;
     default:
       result->result = Navigation::Result::NAVIGATION_RESULT_TYPE_REJECT;
       INFO("goal_handle->succeed(result) ### 5");
@@ -1065,12 +1091,21 @@ void NavigationCore::GetNavStatus(int & status, ActionType & action_type)
 
 void NavigationCore::NavigationStatusFeedbackMonitor()
 {
-  RCLCPP_ERROR(client_node_->get_logger(), "Navigation status monitor ...");
+  // RCLCPP_INFO(client_node_->get_logger(), "Navigation status monitor ...");
   static auto feedback = std::make_shared<Navigation::Feedback>();
+  if (start_vision_tracking_) {
+    rclcpp::spin_some(client_node_);
+    {
+      feedback->feedback_code = vision_action_client_feedback_;
+      goal_handle_->publish_feedback(feedback);
+      // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
+    }
+    return;
+  }
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_)
   {
-    RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
+    // RCLCPP_ERROR(client_node_->get_logger(), "Waiting for Goal");
     // state_machine_.postEvent(new ROSActionQEvent(QActionState::INACTIVE));
     action_type_ = kActionNone;
     return;
@@ -1190,6 +1225,44 @@ void NavigationCore::SenResult()
 }
 void NavigationCore::OnCancel()
 {
+  if (start_vision_tracking_) {
+    if ((!client_realsense_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_DEACTIVATE)))
+    {
+      ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
+    }
+    if ((!client_vision_manager_->change_state(
+        lifecycle_msgs::msg::Transition::
+        TRANSITION_DEACTIVATE)))
+    {
+      ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
+    }
+    if (target_tracking_goal_handle_) {
+      if (!client_tracking_manager_->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_DEACTIVATE))
+      {
+        ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
+      }
+      auto future_cancel =
+        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+
+      if (rclcpp::spin_until_future_complete(
+          client_node_, future_cancel,
+          server_timeout_) !=
+        rclcpp::FutureReturnCode::SUCCESS)
+      {
+        RCLCPP_ERROR(client_node_->get_logger(), "Failed to cancel goal");
+      } else {
+        // target_tracking_action_client_.reset();
+        RCLCPP_INFO(client_node_->get_logger(), "canceled navigation goal");
+      }
+      client_nav_.pause();
+    }
+    start_vision_tracking_ = false;
+    return;
+  }
   if (!waypoint_follower_goal_handle_ && !nav_through_poses_goal_handle_ &&
     !navigation_goal_handle_ && reloc_status_ != RelocStatus::kRetrying &&
     !target_tracking_goal_handle_)
