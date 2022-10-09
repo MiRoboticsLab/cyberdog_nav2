@@ -85,6 +85,8 @@ public:
     rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
   using TargetTrackingGoalHandle =
     rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
+  using VisionTrackingGoalHandle =
+    rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
 
   using GoalStatus = action_msgs::msg::GoalStatus;
   using Navigation = protocol::action::Navigation;
@@ -123,6 +125,13 @@ public:
   // lidar mapping
   uint8_t HandleMapping(bool start, const std::string & map_saved_name);
   ActionExecStage HandleLocalization(bool start);
+  // TODO(PDF)
+  void TrackingSrv_callback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<BodyRegionT::Request> req,
+    std::shared_ptr<BodyRegionT::Response> res);
+
+  uint8_t StartVisionTracking(uint8_t relative_pos, float keep_distance);
 
   // vision mapping
   uint8_t HandleVisionMapping(bool start);
@@ -131,6 +140,12 @@ public:
   // Handle vision and lidar mapping
   uint8_t HandleMapping(bool start, bool outdoor);
   std::shared_ptr<rclcpp::Node> GetClientNode() {return client_node_;}
+
+  bool TrackingClient_call_service(
+    rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
+    const sensor_msgs::msg::RegionOfInterest & roi);
+
+  void CallVisionTrackAlgo();
 
 private:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr
@@ -193,6 +208,15 @@ private:
   rclcpp::TimerBase::SharedPtr through_pose_timer_;
   int status_;
   ActionType action_type_;
+  // TODO(PDF):
+  std::shared_ptr<nav2_util::LifecycleServiceClient> client_vision_manager_;
+  std::shared_ptr<nav2_util::LifecycleServiceClient> client_tracking_manager_;
+  std::shared_ptr<nav2_util::LifecycleServiceClient> client_realsense_manager_;
+  rclcpp::Client<protocol::srv::AlgoManager>::SharedPtr client_vision_algo_;
+  rclcpp::Service<BodyRegionT>::SharedPtr service_tracking_object_;
+  rclcpp::Client<BodyRegionT>::SharedPtr client_tracking_object_;
+  int32_t vision_action_client_feedback_;
+  bool start_vision_tracking_;
 
   void GetNavStatus(int & status, ActionType & action_type);
   void HandleRelocCallback(const std_msgs::msg::Int32::SharedPtr msg)
