@@ -21,9 +21,9 @@
 #include "rclcpp/rclcpp.hpp"
 #include "protocol/action/navigation.hpp"
 #include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
-#include "nav2_msgs/action/follow_waypoints.hpp"
-#include "nav2_msgs/action/navigate_through_poses.hpp"
-#include "nav2_msgs/action/navigate_to_pose.hpp"
+// #include "nav2_msgs/action/follow_waypoints.hpp"
+// #include "nav2_msgs/action/navigate_through_poses.hpp"
+// #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "mcr_msgs/action/target_tracking.hpp"
 // #include "nav2_util/geometry_utils.hpp"
 // #include "protocol/msg/follow_points.hpp"
@@ -34,7 +34,7 @@
 // #include "algorithm_manager/algorithm_task_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "cyberdog_common/cyberdog_msg_queue.hpp"
-
+#include "protocol/srv/stop_algo_task.hpp"
 namespace cyberdog
 {
 namespace algorithm
@@ -81,10 +81,10 @@ enum class Nav2LifecycleMode : uint8_t
 
 using NavigationGoalHandle =
   rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
-using WaypointFollowerGoalHandle =
-  rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
-using NavThroughPosesGoalHandle =
-  rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
+// using WaypointFollowerGoalHandle =
+//   rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowWaypoints>;
+// using NavThroughPosesGoalHandle =
+//   rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
 using TargetTrackingGoalHandle =
   rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
 using GoalStatus = action_msgs::msg::GoalStatus;
@@ -99,7 +99,7 @@ using Nav2LifecyleMgrClientMap =
 using LifecyleNodesMap =
   std::unordered_map<std::string, std::unordered_map<std::string, LifecycleClients>>;
 using RealSenseClient = RealSenseLifecycleServiceClient;
-
+using StopTaskSrv = protocol::srv::StopAlgoTask;
 struct ExecutorData
 {
   ExecutorStatus status;
@@ -110,6 +110,7 @@ class ExecutorInterface
 public:
   ExecutorInterface() {}
   virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
+  virtual void Stop(const StopTaskSrv::Request::SharedPtr request) = 0;
   virtual void Cancel() = 0;
 };
 
@@ -119,28 +120,39 @@ public:
   explicit ExecutorBase(std::string node_name)
   : rclcpp::Node(node_name)
   {
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kNav,
-    //   "lifecycle_manager_navigation");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kLaserMapping,
-    //   "lifecycle_manager_laser_mapping");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kLaserLoc,
-    //   "lifecycle_manager_laser_loc");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kVisMapping,
-    //   "lifecycle_manager_vis_mapping");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kVisLoc,
-    //   "lifecycle_manager_vis_loc");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kVisVo,
-    //   "lifecycle_manager_vis_vo");
-    // lifecycle_client_ids_.emplace(
-    //   LifecycleClientID::kMcrUwb,
-    //   "lifecycle_manager_mcr_uwb");
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
+    // task_map_.emplace("UwbTracking", TaskRef{
+    //   std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking")), 
+    //   std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>>{
+    //     {"lifecycle_manager_navigation", nullptr},
+    //     {"lifecycle_manager_mcr_uwb", nullptr}}, 
+    //   std::unordered_map<std::string, LifecycleClients>{
+    //     {"", {nullptr, nullptr}},
+    //     {"", {nullptr, nullptr}}},
+    //   AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
+    //   false});
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kNav,
+      "lifecycle_manager_navigation");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kLaserMapping,
+      "lifecycle_manager_laser_mapping");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kLaserLoc,
+      "lifecycle_manager_laser_loc");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisMapping,
+      "lifecycle_manager_vis_mapping");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisLoc,
+      "lifecycle_manager_vis_loc");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kVisVo,
+      "lifecycle_manager_vis_vo");
+    lifecycle_client_ids_.emplace(
+      LifecycleClientID::kMcrUwb,
+      "lifecycle_manager_mcr_uwb");
+    feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
   }
   ~ExecutorBase()
   {
@@ -148,101 +160,19 @@ public:
     preparation_finish_cv_.notify_one();
   }
 
-  bool Init(std::function<void(const ExecutorData &)> feedback_callback, std::function<void(void)> success_callback,
-  std::function<void(void)> cancle_callback, std::function<void(void)> abort_callback) {
+  bool Init(
+    std::function<void(const AlgorithmMGR::Feedback::SharedPtr)> feedback_callback, 
+    std::function<void(void)> success_callback,
+    std::function<void(void)> cancle_callback, 
+    std::function<void(void)> abort_callback) {
     task_feedback_callback_ = feedback_callback;
     task_success_callback_ = success_callback;
     task_cancle_callback_ = cancle_callback;
     task_abort_callback_ = abort_callback;
+    return true;
   }
 
-  virtual void Start(std::shared_ptr<const AlgorithmMGR::Goal> goal) = 0;
-
-  virtual void Stop() {}
-  /**
-   * @brief 
-   * 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
-   * 其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
-   *
-   * @return ExecutorData&
-   */
-  ExecutorData & GetExecutorData()
-  {
-    // INFO("queue size before: %d", executor_data_queue_.Size());
-    executor_data_queue_.DeQueue(executor_data_);
-    // INFO("queue size after: %d", executor_data_queue_.Size());
-    return executor_data_;
-  }
-  static void RegisterUpdateImpl(std::function<void(const ExecutorData &)> f)
-  {
-    // TODO(Harvey): 非Nav2Lifecycle的node管理方式
-    auto clients = task_map_.at(task_name).lifecycle_nodes;
-    for (auto client : clients) {
-      if(client.second.client_change_state_ == nullptr || client.second.client_get_state_ == nullptr) {
-        client.second.client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(client.first);
-        client.second.client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(client.first);
-      }
-    }
-    // TODO configure、activate节点，deactive、unconfigure节点
-  }
-
-  /**
-   * @brief
-   * 获取依赖节点的LifecycleMgr的客户端对象
-   *
-   * @param id
-   * @return std::shared_ptr<Nav2LifecyleMgrClient>
-   */
-  // static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
-  //   const LifecycleClientID & id)
-  // {
-  //   if (lifecycle_client_map_.find(id) == lifecycle_client_map_.end()) {
-  //     lifecycle_client_map_[id] =
-  //       std::make_shared<Nav2LifecyleMgrClient>(lifecycle_client_ids_.at(id));
-  //   }
-  //   return lifecycle_client_map_.at(id);
-  // }
-  /**
-   * @brief
-   * 获取Realsense的LifecycleMgr的客户端对象
-   *
-   * @return std::shared_ptr<RealSenseClient>
-   */
-  static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
-  {
-    if (lifecycle_client_realsense_ == nullptr) {
-      lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
-    }
-    return lifecycle_client_realsense_;
-  }
-  /**
-   * @brief
-   * 更新当前任务执行器的状态数据，所有继承的子类中在需要上报状态时调用该接口
-   *
-   * @param executor_data
-   */
-  // void UpdateExecutorData(const ExecutorData & executor_data)
-  // {
-  //   // INFO("Will Enqueue");
-  //   // executor_data_queue_.EnQueueOne(executor_data);
-  //   update_executor_f_(executor_data);
-  //   // INFO("Over Enqueue");
-  // }
-  void UpdateExecutorFeedback(AlgorithmMGR::Feedback & feedback)
-  {
-    // INFO("Will Enqueue");
-    // executor_data_queue_.EnQueueOne(executor_data);
-    set_feedback_callback_(executor_data);
-    // INFO("Over Enqueue");
-  }
-  /**
-   * @brief
-   * 激活依赖的Lifecycle节点
-   *
-   * @param node
-   * @return true
-   * @return false
-   */
+protected:
   bool LaunchNav2LifeCycleNode(
     std::shared_ptr<Nav2LifecyleMgrClient> node)
   {
@@ -260,38 +190,95 @@ public:
     }
     return true;
   }
-  /**
-   * @brief
-   * 更新任务开始后，在向底层执行器send_goal之前的状态上报线程
-   *
-   */
-  // void UpdatePreparationStatus()
+  static std::shared_ptr<Nav2LifecyleMgrClient> GetNav2LifecycleMgrClient(
+    const LifecycleClientID & id)
+  {
+    if (lifecycle_client_map_.find(id) == lifecycle_client_map_.end()) {
+      lifecycle_client_map_[id] =
+        std::make_shared<Nav2LifecyleMgrClient>(lifecycle_client_ids_.at(id));
+    }
+    return lifecycle_client_map_.at(id);
+  }
+  // bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
   // {
-  //   ExecutorData executor_uwb_tracking_data;
-  //   executor_uwb_tracking_data.status = ExecutorStatus::kExecuting;
-  //   while (rclcpp::ok()) {
-  //     if (preparation_finished_) {
-  //       std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
-  //       preparation_finish_cv_.wait(lk);
+  //   auto clients = task_map_.at(task_name).nav2_lifecycle_clients;
+  //   for ( auto & client : clients ) {
+  //     if (client.second == nullptr) {
+  //       client.second = std::make_shared<Nav2LifecyleMgrClient>(client.first);
   //     }
-  //     if (!rclcpp::ok()) {
-  //       INFO("UpdatePreparationStatus exit");
-  //       return;
+  //     auto status = client.second->is_active(
+  //       std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
+  //     if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
+  //       ERROR("Failed to get Nav2LifecycleNode %s state", client.first.c_str());
+  //       return false;
   //     }
-  //     INFO("Peparation Report: %d", feedback_);
-  //     executor_uwb_tracking_data.feedback.feedback_code = feedback_;
-  //     UpdateExecutorData(executor_uwb_tracking_data);
-  //     static uint8_t count = 0;
-  //     if (feedback_ != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
-  //       ++count;
+  //     switch (mode) 
+  //     {
+  //       case Nav2LifecycleMode::kPause:
+  //         {
+  //           if (status == nav2_lifecycle_manager::SystemStatus::INACTIVE) {
+  //             continue;
+  //           }
+  //           if (client.second->pause()) {
+  //             return false;
+  //           }
+  //         }
+  //         break;
+
+  //       case Nav2LifecycleMode::kStartUp:
+  //         {
+  //           if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //             continue;
+  //           }
+  //           if (!client.second->startup()) {
+  //             return false;
+  //           }
+  //         }
+  //         break;
+
+  //       case Nav2LifecycleMode::kResume:
+  //         {
+  //           if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //             continue;
+  //           }
+  //           if (client.second->resume()) {
+  //             return false;
+  //           }
+  //         }
+  //         break;
+        
+  //       default:
+  //         break;
   //     }
-  //     if (count > preparation_finished_report_time_) {
-  //       preparation_count_cv_.notify_one();
-  //       count = 0;
-  //     }
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  //     return true;
   //   }
   // }
+  // bool OperateDepsLifecycleNodes(const std::string & task_name)
+  // {
+  //   // TODO(Harvey): 非Nav2Lifecycle的node管理方式
+  //   auto clients = task_map_.at(task_name).lifecycle_nodes;
+  //   for (auto client : clients) {
+  //     if(client.second.client_change_state_ == nullptr || client.second.client_get_state_ == nullptr) {
+  //       client.second.client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(client.first);
+  //       client.second.client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(client.first);
+  //     }
+  //   }
+  //   // TODO configure、activate节点，deactive、unconfigure节点
+  // }
+  static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
+  {
+    if (lifecycle_client_realsense_ == nullptr) {
+      lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
+    }
+    return lifecycle_client_realsense_;
+  }
+  void UpdateExecutorFeedback(const AlgorithmMGR::Feedback::SharedPtr feedback)
+  {
+    // INFO("Will Enqueue");
+    // executor_data_queue_.EnQueueOne(executor_data);
+    task_feedback_callback_(feedback);
+    // INFO("Over Enqueue");
+  }
   void UpdatePreparationStatus()
   {
     // ExecutorData executor_uwb_tracking_data;
@@ -305,12 +292,13 @@ public:
         INFO("UpdatePreparationStatus exit");
         return;
       }
-      INFO("Peparation Report: %d", feedback_);
+      INFO("Peparation Report: %d", feedback_->feedback_code);
       // executor_uwb_tracking_data.feedback.feedback_code = feedback_;
       // UpdateExecutorData(executor_uwb_tracking_data);
-      UpdateExecutorFeedback(feedback_);
+      task_feedback_callback_(feedback_);
+      // UpdateExecutorFeedback(feedback_);
       static uint8_t count = 0;
-      if (feedback_.feedback_code != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
+      if (feedback_->feedback_code != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
         ++count;
       }
       if (count > preparation_finished_report_time_) {
@@ -329,7 +317,7 @@ public:
   {
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = false;
-    feedback_.feedback_code = AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING;
+    feedback_->feedback_code = AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING;
     preparation_finish_cv_.notify_one();
   }
   /**
@@ -342,8 +330,8 @@ public:
   {
     {
       std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
-      feedback_.feedback_code = feedback;
-      INFO("Update Last Report: %d", feedback_.feedback_code);
+      feedback_->feedback_code = feedback;
+      INFO("Update Last Report: %d", feedback_->feedback_code);
     }
     std::unique_lock<std::mutex> lk(preparation_count_mutex_);
     preparation_count_cv_.wait(lk);
@@ -354,11 +342,11 @@ public:
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
-  // static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
+  static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
   // static Nav2LifecyleMgrClientMap nav2_lifecycle_client_map_;
-  static std::unordered_map<std::string, TaskRef> task_map_;
+  // static std::unordered_map<std::string, TaskRef> task_map_;
   // static LifecyleNodesMap lifecycle_clients_map_;
-  // static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
+  static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
   static constexpr uint8_t preparation_finished_report_time_ = 5;  // count
   std::function<void()> succeed_task_f_;
@@ -366,7 +354,11 @@ public:
   std::function<void()> cancel_task_f_;
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
-  AlgorithmMGR::Feedback feedback_;
+  AlgorithmMGR::Feedback::SharedPtr feedback_;
+  std::function<void(const AlgorithmMGR::Feedback::SharedPtr)> task_feedback_callback_;
+  std::function<void(void)> task_success_callback_;
+  std::function<void(void)> task_cancle_callback_;
+  std::function<void(void)> task_abort_callback_;
   uint32_t get_lifecycle_timeout_{10};
 
 private:
@@ -378,10 +370,6 @@ private:
   std::condition_variable preparation_finish_cv_;
   ExecutorData executor_data_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
-  std::function<void(const ExecutorData &)> task_feedback_callback_;
-  std::function<void(void)> task_success_callback_;
-  std::function<void(void)> task_cancle_callback_;
-  std::function<void(void)> task_abort_callback_;
   bool preparation_finished_{true};
 
   /* add by North.D.K. 10.09*/

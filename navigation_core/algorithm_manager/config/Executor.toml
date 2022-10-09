@@ -1,6 +1,5 @@
-executors = ["LaserMapping", "LaserLocalization", "AbNavigation", "AutoDock", "UwbTracking", "VisionTracking"]
+executors = ["LaserMapping", "UwbTracking"]
 
 [type]
-LaserMapping = 1
-LaserLocalization = 3
-AbNavigation = 5
+LaserMapping = 5
+UwbTracking = 11

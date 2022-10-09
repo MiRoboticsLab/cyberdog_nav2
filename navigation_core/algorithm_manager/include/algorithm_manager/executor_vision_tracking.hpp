@@ -27,7 +27,7 @@ class ExecutorVisionTracking : public ExecutorBase
 {
 public:
   explicit ExecutorVisionTracking(std::string node_name);
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:

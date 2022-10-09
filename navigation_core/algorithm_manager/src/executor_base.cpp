@@ -17,14 +17,16 @@
 #include <unordered_map>
 #include <string>
 #include "algorithm_manager/executor_base.hpp"
-
+#include "algorithm_manager/algorithm_task_manager.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
 LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
-Nav2LifecyleMgrClientMap ExecutorBase::nav2_lifecycle_client_map_;
+// Nav2LifecyleMgrClientMap ExecutorBase::nav2_lifecycle_client_map_;
+// std::unordered_map<std::string, TaskRef> ExecutorBase::task_map_;
 std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
-std::function<void(const ExecutorData &)> ExecutorBase::update_executor_f_;
+std::shared_ptr<RealSenseClient> ExecutorBase::lifecycle_client_realsense_;
+
 }
 }

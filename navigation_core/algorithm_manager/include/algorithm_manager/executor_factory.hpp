@@ -38,14 +38,17 @@ namespace algorithm
  */
 std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(uint8_t algorithm_type)
 {
-  using Navigation_T = protocol::action::Navigation;
   std::shared_ptr<cyberdog::algorithm::ExecutorBase> result = nullptr;
   switch (algorithm_type)
   {
-  case Navigation_T::NAVIGATION_TYPE_START_AB:
+  case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
     result = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
     break;
-  
+
+  case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
+    result = std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
+    break;
+
   default:
     ERROR("Create executor failed, name is invalid!");
     break;

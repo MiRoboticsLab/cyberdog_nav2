@@ -28,7 +28,7 @@ class ExecutorAbNavigation : public ExecutorBase
 public:
   explicit ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation() {}
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:

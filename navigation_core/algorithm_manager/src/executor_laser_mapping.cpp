@@ -27,11 +27,15 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   client_mapping_("lifecycle_manager_laser_mapping")
 {}
 
-bool ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Laser Mapping started");
-  return true;
+}
+
+void ExecutorLaserMapping::Stop(const StopTaskSrv::Request::SharedPtr request)
+{
+  (void)request;
 }
 
 void ExecutorLaserMapping::Cancel()
