@@ -38,14 +38,24 @@ AlgorithmTaskManager::AlgorithmTaskManager()
   executor_vision_tracking_ =
     std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
 
-  task_map_.emplace(5, TaskRef{0, executor_uwb_tracking_});
-  task_map_.emplace(6, TaskRef{5, executor_uwb_tracking_});
-  task_map_.emplace(11, TaskRef{0, executor_uwb_tracking_});
-  task_map_.emplace(12, TaskRef{11, executor_uwb_tracking_});
+  // task_map_.emplace(5, TaskRef{0, executor_uwb_tracking_});
+  // task_map_.emplace(6, TaskRef{5, executor_uwb_tracking_});
+  // task_map_.emplace(11, TaskRef{0, executor_uwb_tracking_});
+  // task_map_.emplace(12, TaskRef{11, executor_uwb_tracking_});
 
+  task_map_.emplace("UwbTracking", TaskRef{
+    std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking")), 
+    std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>>{
+      {"lifecycle_manager_navigation", nullptr},
+      {"lifecycle_manager_mcr_uwb", nullptr}}, 
+    std::unordered_map<std::string, LifecycleClients>{
+      {"", {nullptr, nullptr}},
+      {"", {nullptr, nullptr}}},
+    AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
+    false});
   feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
-  ExecutorBase::RegisterUpdateImpl(
-    std::bind(&AlgorithmTaskManager::UpdateExecutorData, this, std::placeholders::_1));
+  // ExecutorBase::RegisterUpdateImpl(
+  //   std::bind(&AlgorithmTaskManager::UpdateExecutorData, this, std::placeholders::_1));
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -74,10 +84,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   (void)goal;
   INFO("---------------------");
   std::unique_lock<std::mutex> lk(executor_start_mutex_);
-  if (task_map_.at(goal->nav_type).pre_task != static_cast<TaskId>(manager_status_)) {
-    ERROR(
-      "Current task %d cannot accept task: %d", static_cast<TaskId>(manager_status_),
-      goal->nav_type);
+  if(manager_status_ != ManagerStatus::kIdle) {
     return rclcpp_action::GoalResponse::REJECT;
   }
   executor_start_cv_.notify_one();

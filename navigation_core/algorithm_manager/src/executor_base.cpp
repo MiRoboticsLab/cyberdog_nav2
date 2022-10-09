@@ -23,6 +23,7 @@ namespace cyberdog
 namespace algorithm
 {
 LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
+Nav2LifecyleMgrClientMap ExecutorBase::nav2_lifecycle_client_map_;
 std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
 std::function<void(const ExecutorData &)> ExecutorBase::update_executor_f_;
 }

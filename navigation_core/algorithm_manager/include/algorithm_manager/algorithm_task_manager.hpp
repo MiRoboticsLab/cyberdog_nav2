@@ -41,53 +41,61 @@ enum class ExecutorStatus : uint8_t
   kBusy = 1   // accept stop
 };  // enum class ExecutorStatus
 
+struct TaskRef
+{
+  std::shared_ptr<ExecutorBase> executor;
+  std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
+  std::unordered_map<std::string, LifecycleClients> lifecycle_nodes;
+  uint8_t id;
+  bool out_door;
+};
 struct MappingCmd
 {
   std::string function_name;  // nav, localization, auto_dock, etc.
   uint8_t cmd;  // start : 1, stop : 0
 };  // struct Mapping Cmd
 
-MappingCmd TranslateCmd(uint8_t nav_type) {
-  // using protocol::Nagation::Action
-  MappingCmd result;
-  switch(nav_type) {
-    case NAVIGATION_TYPE_START_AB:
-      {
-        result.function_name = std::string("AbNavigation");
-        result.cmd = 1;
-        break;
-      }
-    case NAVIGATION_TYPE_STOP_AB:
-      {
-        result.function_name = std::string("AbNavigation");
-        result.cmd = 0;
-        break;
-      }
-    case NAVIGATION_TYPE_START_FOLLOW:
-      {
-        result.function_name = std::string("AbNavigation");
-        result.cmd = 1;
-        break;
-      }
-    case NAVIGATION_TYPE_STOP_FOLLOW:
-      {
-        result.function_name = std::string("AbNavigation");
-        result.cmd = 0;
-        break;
-      }
-    case NAVIGATION_TYPE_START_MAPPING:
-    case NAVIGATION_TYPE_STOP_MAPPING:
-    case NAVIGATION_TYPE_START_LOCALIZATION:
-    case NAVIGATION_TYPE_STOP_LOCALIZATION:
-    case NAVIGATION_TYPE_START_AUTO_DOCKING:
-    case NAVIGATION_TYPE_STOP_AUTO_DOCKING:
-    case NAVIGATION_TYPE_START_UWB_TRACKING:
-    case NAVIGATION_TYPE_STOP_UWB_TRACKING:
-    case NAVIGATION_TYPE_START_HUMAN_TRACKING:
-    case NAVIGATION_TYPE_STOP_HUMAN_TRACKING:
-  }
+// MappingCmd TranslateCmd(uint8_t nav_type) {
+//   // using protocol::Nagation::Action
+//   MappingCmd result;
+//   switch(nav_type) {
+//     case NAVIGATION_TYPE_START_AB:
+//       {
+//         result.function_name = std::string("AbNavigation");
+//         result.cmd = 1;
+//         break;
+//       }
+//     case NAVIGATION_TYPE_STOP_AB:
+//       {
+//         result.function_name = std::string("AbNavigation");
+//         result.cmd = 0;
+//         break;
+//       }
+//     case NAVIGATION_TYPE_START_FOLLOW:
+//       {
+//         result.function_name = std::string("AbNavigation");
+//         result.cmd = 1;
+//         break;
+//       }
+//     case NAVIGATION_TYPE_STOP_FOLLOW:
+//       {
+//         result.function_name = std::string("AbNavigation");
+//         result.cmd = 0;
+//         break;
+//       }
+//     case NAVIGATION_TYPE_START_MAPPING:
+//     case NAVIGATION_TYPE_STOP_MAPPING:
+//     case NAVIGATION_TYPE_START_LOCALIZATION:
+//     case NAVIGATION_TYPE_STOP_LOCALIZATION:
+//     case NAVIGATION_TYPE_START_AUTO_DOCKING:
+//     case NAVIGATION_TYPE_STOP_AUTO_DOCKING:
+//     case NAVIGATION_TYPE_START_UWB_TRACKING:
+//     case NAVIGATION_TYPE_STOP_UWB_TRACKING:
+//     case NAVIGATION_TYPE_START_HUMAN_TRACKING:
+//     case NAVIGATION_TYPE_STOP_HUMAN_TRACKING:
+//   }
 
-}
+// }
 /*
 executor_laser_mapping_ =
     std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
@@ -111,11 +119,6 @@ public:
   ~AlgorithmTaskManager();
 
 private:
-  struct TaskRef
-  {
-    TaskId pre_task;
-    std::shared_ptr<ExecutorBase> executor_ptr;
-  };
   enum class ManagerStatus : uint8_t
   {
     kIdle,
@@ -152,10 +155,21 @@ private:
     goal_handle_new_.reset();
   }
 
-  bool CheckCmdValid(uint8_t nav_type) {
-    auto cmd_struct = TranslateCmd(nav_type);
-    // 提供cancle后，是否还有stop类型指令 ？ 
-  }
+  // bool CheckCmdValid(uint8_t nav_type) {
+  //   auto cmd_struct = TranslateCmd(nav_type);
+  //   // 提供cancle后，是否还有stop类型指令 ？ 
+  // }
+  // bool CheckoutExecutor(const AlgorithmMGR::Goal::SharedPtr goal)
+  // {
+  //   for (auto task : task_map_) {
+  //     if(task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
+  //       if (task.second.executor == nullptr) {
+  //         task.second.executor = std::make_shared<>(task.first);
+  //       }
+  //       activated_executor_ = task.second.executor;
+  //     }
+  //   }
+  // }
 private:
   std::map<std::string, ExecutorBase> executor_map_;  // 执行器管理类
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr navigation_server_;
@@ -173,9 +187,11 @@ private:
   std::mutex executor_start_mutex_, executor_status_mutex_;
   ManagerStatus manager_status_{ManagerStatus::kIdle};
   AlgorithmMGR::Feedback::SharedPtr feedback_;
-  std::unordered_map<TaskId, TaskRef> task_map_;
+  // std::unordered_map<TaskId, TaskRef> task_map_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
   ExecutorData executor_data_;
+  std::unordered_map<std::string, TaskRef> task_map_;
+
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

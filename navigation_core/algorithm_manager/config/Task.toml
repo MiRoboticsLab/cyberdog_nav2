@@ -1,7 +1,20 @@
 [[task]]
+TaskName = "UwbTracking"
 Id = 11
-PreTask = 0
+OutDoor = false
+DepsNav2LifecycleNodes = ["lifecycle_manager_navigation", "lifecycle_manager_mcr_uwb"]
+DepsLifecycleNodes = [""]
 
 [[task]]
-Id = 12
-PreTask = 11
+TaskName = "LaserMapping"
+Id = 5
+OutDoor = false
+DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
+DepsLifecycleNodes = [""]
+
+[[task]]
+TaskName = "VisMapping"
+Id = 5
+OutDoor = true
+DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
+DepsLifecycleNodes = [""]
