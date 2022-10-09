@@ -11,12 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#include <cstdio>
 #include <memory>
 #include <vector>
 #include <string>
-#include "algorithm_manager/algorithm_task_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_common/cyberdog_toml.hpp"
+#include "algorithm_manager/executor_factory.hpp"
+#include "algorithm_manager/algorithm_task_manager.hpp"
+
 
 namespace cyberdog
 {
@@ -25,37 +28,25 @@ namespace algorithm
 AlgorithmTaskManager::AlgorithmTaskManager()
 : rclcpp::Node("AlgorithmTaskManager")
 {
-  executor_laser_mapping_ =
-    std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
-  executor_laser_localization_ =
-    std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
-  executor_ab_navigation_ =
-    std::make_shared<ExecutorAbNavigation>(std::string("AbNavigation"));
-  executor_auto_dock_ =
-    std::make_shared<ExecutorAutoDock>(std::string("AutoDock"));
-  executor_uwb_tracking_ =
-    std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
-  executor_vision_tracking_ =
-    std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+}
 
-  // task_map_.emplace(5, TaskRef{0, executor_uwb_tracking_});
-  // task_map_.emplace(6, TaskRef{5, executor_uwb_tracking_});
-  // task_map_.emplace(11, TaskRef{0, executor_uwb_tracking_});
-  // task_map_.emplace(12, TaskRef{11, executor_uwb_tracking_});
+AlgorithmTaskManager::~AlgorithmTaskManager()
+{
+  // executor_start_cv_.notify_one();
+}
 
-  task_map_.emplace("UwbTracking", TaskRef{
-    std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking")), 
-    std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>>{
-      {"lifecycle_manager_navigation", nullptr},
-      {"lifecycle_manager_mcr_uwb", nullptr}}, 
-    std::unordered_map<std::string, LifecycleClients>{
-      {"", {nullptr, nullptr}},
-      {"", {nullptr, nullptr}}},
-    AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
-    false});
-  feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
-  // ExecutorBase::RegisterUpdateImpl(
+bool AlgorithmTaskManager::Init()
+{
+  // TODO: checkout LifeCycle Configure;
+  // ExecutorBase::RegisterUpdateImpl(  // *** 这里有问题
   //   std::bind(&AlgorithmTaskManager::UpdateExecutorData, this, std::placeholders::_1));
+
+  if(!BuildExecutorMap()) {
+    ERROR("Init failed, cannot build executor map!");
+    return false;
+  }
+  std::thread{std::bind(&AlgorithmTaskManager::TaskFeedBack, this)}.detach();
+
   navigation_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -67,14 +58,52 @@ AlgorithmTaskManager::AlgorithmTaskManager()
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
       this, std::placeholders::_1));
-  std::thread{std::bind(&AlgorithmTaskManager::GetExecutorStatus, this)}.detach();
+  
+  return true;
 }
 
-AlgorithmTaskManager::~AlgorithmTaskManager()
+bool AlgorithmTaskManager::BuildExecutorMap()
 {
-  executor_start_cv_.notify_one();
+  toml::value executor_config;
+  if(!common::CyberdogToml::ParseFile("./config/Executor.toml", executor_config)) {
+    ERROR("BuildExecutorMap failed, cannot parse config file!");
+    return false;
+  }
+  std::vector<std::string> executor_vector;
+  if(!common::CyberdogToml::Get(executor_config, "executors", executor_vector)) {
+    ERROR("BuildExecutorMap failed, cannot get executors array!");
+    return false;
+  }
+  toml::value type_config;
+  if(!common::CyberdogToml::Get(executor_config, "type", type_config)) {
+    ERROR("BuildExecutorMap failed, cannot get executors type!");
+    return false;
+  }
+  auto result = std::all_of(executor_vector.cbegin(), executor_vector.cend(), [this, &type_config](const std::string & name){
+    uint8_t type_value;
+    if(!common::CyberdogToml::Get(type_config, name, type_value)) {
+      ERROR("BuildExecutorMap failed, cannot get executor: %s type value!", name.c_str());
+      return false;
+    }
+    auto executor_ptr = CreateExecutor(type_value);
+    if(executor_ptr == nullptr) {
+      ERROR("BuildExecutorMap failed, cannot create executor: %s!", name.c_str());
+      return false;
+    }
+    if(!executor_ptr->Init(std::bind(&AlgorithmTaskManager::TaskFeedBack, std::placeholders::_1),
+        std::bind(&AlgorithmTaskManager::TaskSuccessd),
+        std::bind(&AlgorithmTaskManager::TaskCancled),
+        std::bind(&AlgorithmTaskManager::TaskAborted))) {
+      ERROR("BuildExecutorMap failed, cannot init executor: %s!", name.c_str());
+      return false;
+    }
+    this->executor_map_.insert(std::make_pair(type_value, executor_ptr));
+  });  // end of all_of
+  if((!result && (!executor_map_.empty()))) {
+    executor_map_.clear();
+  }
+  return result;
 }
-
 
 rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   const rclcpp_action::GoalUUID & uuid,
@@ -83,11 +112,20 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   (void)uuid;
   (void)goal;
   INFO("---------------------");
-  std::unique_lock<std::mutex> lk(executor_start_mutex_);
-  if(manager_status_ != ManagerStatus::kIdle) {
+  if (!CheckStatusValid()) {
+    ERROR(
+      "Cannot accept task: %d, status is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   }
-  executor_start_cv_.notify_one();
+  auto iter = executor_map_.find(goal->nav_type);
+  if(iter == executor_map_.end()) {
+    ERROR(
+      "Cannot accept task: %d, nav type is invalid!", goal->nav_type);
+    return rclcpp_action::GoalResponse::REJECT;
+  } else {
+    // activated_executor_ = iter->second;
+    SetTaskHandle(executor = iter->second);
+  }
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   /* 使用封装风格的check函数
   if(!CheckCmdValid(goal->nav_type)) {
@@ -117,6 +155,7 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 {
   // this needs to return quickly to avoid blocking the executor, so spin up a
   // new thread
+  /* obsolete code
   goal_handle_new_ = goal_handle;
   if (goal_handle_executing_ != nullptr) {
     INFO(
@@ -134,7 +173,10 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   }
 
   std::thread{std::bind(&AlgorithmTaskManager::TaskExecute, this)}.detach();
-  /* 是否有必要启用线程，直接调用算法类指针执行？ */
+  */
+  INFO("%s on call.", __FUNCTION__);
+  SetTaskHandle(goal_handle);
+  executor_map_.find(goal_handle->get_goal()->nav_type)->second->Start(goal_handle->get_goal());
 }
 
 void AlgorithmTaskManager::TaskExecute()
@@ -230,17 +272,24 @@ void AlgorithmTaskManager::TaskExecute()
   }
 }
 
-void AlgorithmTaskManager::GetExecutorStatus()
+void AlgorithmTaskManager::TaskFeedBack()
 {
+  ExecutorData executor_data;
+  auto feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
   while (rclcpp::ok()) {
-    static auto result = std::make_shared<AlgorithmMGR::Result>();
     INFO("Will Check ExecutorData");
-    // ExecutorData executor_data = activated_executor_->GetExecutorData();
-    ExecutorData executor_data = GetExecutorData();
+    if(!GetFeedBack(executor_data)) {
+      continue;
+    }
     INFO("Finish Check ExecutorData");
     if (!rclcpp::ok()) {
       return;
     }
+    *feedback_ = executor_data.feedback;
+    INFO("feedback: %d", feedback_->feedback_code);
+    goal_handle_executing_->publish_feedback(feedback_);
+
+    #if 0 obsolete code
     switch (executor_data.status) {
       case ExecutorStatus::kExecuting:
         {
@@ -296,7 +345,37 @@ void AlgorithmTaskManager::GetExecutorStatus()
       default:
         break;
     }
+    #endif
   }
+}
+
+void AlgorithmTaskManager::TaskSuccessd()
+{
+  INFO("Got ExecutorData Success");
+  auto result = std::make_shared<AlgorithmMGR::Result>();
+  result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
+  goal_handle_executing_->succeed(result);
+  ResetTaskHandle();
+  ResetManagerStatus();
+}
+
+void AlgorithmTaskManager::TaskCancled()
+{
+  INFO("Got ExecutorData cancle");
+  auto result = std::make_shared<AlgorithmMGR::Result>();
+  result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
+  goal_handle_executing_->abort(result);
+  ResetTaskHandle();
+  ResetManagerStatus();
+}
+void AlgorithmTaskManager::TaskAborted()
+{
+  INFO("Got ExecutorData abort");
+  auto result = std::make_shared<AlgorithmMGR::Result>();
+  result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  goal_handle_executing_->abort(result);
+  ResetTaskHandle();
+  ResetManagerStatus();
 }
 }  // namespace algorithm
 }  // namespace cyberdog

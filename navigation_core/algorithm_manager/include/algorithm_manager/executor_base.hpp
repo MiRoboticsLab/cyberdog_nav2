@@ -142,89 +142,38 @@ public:
     //   "lifecycle_manager_mcr_uwb");
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
   }
-  virtual void Stop() {}
   ~ExecutorBase()
   {
     preparation_finished_ = true;
     preparation_finish_cv_.notify_one();
   }
-  // /**
-  //  * @brief 
-  //  * 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
-  //  * 其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
-  //  *
-  //  * @return ExecutorData&
-  //  */
-  // ExecutorData & GetExecutorData()
-  // {
-  //   // INFO("queue size before: %d", executor_data_queue_.Size());
-  //   executor_data_queue_.DeQueue(executor_data_);
-  //   // INFO("queue size after: %d", executor_data_queue_.Size());
-  //   return executor_data_;
-  // }
-  // static void RegisterUpdateImpl(std::function<void(const ExecutorData &)> f)
-  // {
-  //   if (f != nullptr) {
-  //     update_executor_f_ = f;
-  //   }
-  // }
 
-protected:
-  bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
-  {
-    auto clients = task_map_.at(task_name).nav2_lifecycle_clients;
-    for ( auto & client : clients ) {
-      if (client.second == nullptr) {
-        client.second = std::make_shared<Nav2LifecyleMgrClient>(client.first);
-      }
-      auto status = client.second->is_active(
-        std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
-      if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
-        ERROR("Failed to get Nav2LifecycleNode %s state", client.first.c_str());
-        return false;
-      }
-      switch (mode) 
-      {
-        case Nav2LifecycleMode::kPause:
-          {
-            if (status == nav2_lifecycle_manager::SystemStatus::INACTIVE) {
-              continue;
-            }
-            if (client.second->pause()) {
-              return false;
-            }
-          }
-          break;
-
-        case Nav2LifecycleMode::kStartUp:
-          {
-            if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-              continue;
-            }
-            if (!client.second->startup()) {
-              return false;
-            }
-          }
-          break;
-
-        case Nav2LifecycleMode::kResume:
-          {
-            if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-              continue;
-            }
-            if (client.second->resume()) {
-              return false;
-            }
-          }
-          break;
-        
-        default:
-          break;
-      }
-      return true;
-    }
+  bool Init(std::function<void(const ExecutorData &)> feedback_callback, std::function<void(void)> success_callback,
+  std::function<void(void)> cancle_callback, std::function<void(void)> abort_callback) {
+    task_feedback_callback_ = feedback_callback;
+    task_success_callback_ = success_callback;
+    task_cancle_callback_ = cancle_callback;
+    task_abort_callback_ = abort_callback;
   }
-  bool OperateDepsLifecycleNodes(const std::string & task_name)
+
+  virtual void Start(std::shared_ptr<const AlgorithmMGR::Goal> goal) = 0;
+
+  virtual void Stop() {}
+  /**
+   * @brief 
+   * 向任务管理器提供查询当前任务执行器的状态数据，包括执行阶段和反馈数据，
+   * 其中反馈数据包含了激活依赖节点的状态和底层执行器的反馈数据
+   *
+   * @return ExecutorData&
+   */
+  ExecutorData & GetExecutorData()
+  {
+    // INFO("queue size before: %d", executor_data_queue_.Size());
+    executor_data_queue_.DeQueue(executor_data_);
+    // INFO("queue size after: %d", executor_data_queue_.Size());
+    return executor_data_;
+  }
+  static void RegisterUpdateImpl(std::function<void(const ExecutorData &)> f)
   {
     // TODO(Harvey): 非Nav2Lifecycle的node管理方式
     auto clients = task_map_.at(task_name).lifecycle_nodes;
@@ -282,7 +231,8 @@ protected:
   void UpdateExecutorFeedback(AlgorithmMGR::Feedback & feedback)
   {
     // INFO("Will Enqueue");
-    feedback_msg_queue_->EnQueue(feedback);
+    // executor_data_queue_.EnQueueOne(executor_data);
+    set_feedback_callback_(executor_data);
     // INFO("Over Enqueue");
   }
   /**
@@ -427,10 +377,15 @@ private:
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   ExecutorData executor_data_;
-  std::shared_ptr<common::MsgQueue<AlgorithmMGR::Feedback>> feedback_msg_queue_;
-  // common::MsgQueue<ExecutorData> executor_data_queue_;
-  // std::function<void(const ExecutorData &)> update_executor_f_;
+  common::MsgQueue<ExecutorData> executor_data_queue_;
+  std::function<void(const ExecutorData &)> task_feedback_callback_;
+  std::function<void(void)> task_success_callback_;
+  std::function<void(void)> task_cancle_callback_;
+  std::function<void(void)> task_abort_callback_;
   bool preparation_finished_{true};
+
+  /* add by North.D.K. 10.09*/
+  // std::function<void()>
 };   // class ExecutorBase
 }  // namespace algorithm
 }  // namespace cyberdog
