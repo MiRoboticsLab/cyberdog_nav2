@@ -33,7 +33,6 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
-#include "motion_core/realsense_lifecycle_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "motion_core/lifecycle_controller.hpp"
 
@@ -91,7 +90,6 @@ public:
   using Navigation = protocol::action::Navigation;
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
   using TriggerT = std_srvs::srv::SetBool;
-  using RealSenseClient = RealSenseLifecycleServiceClient;
   using LifecycleController = cyberdog::controller::LifecycleController;
 
   NavigationCore();
@@ -132,8 +130,6 @@ public:
 
   // Handle vision and lidar mapping
   uint8_t HandleMapping(bool start, bool outdoor);
-
-  std::shared_ptr<RealSenseClient> GetRealSenseNode() {return client_realsense_;}
   std::shared_ptr<rclcpp::Node> GetClientNode() {return client_node_;}
 
 private:
@@ -184,7 +180,6 @@ private:
   nav2_lifecycle_manager::LifecycleManagerClient client_loc_;
 
   // lifecycle controller
-  std::shared_ptr<RealSenseClient> client_realsense_ {nullptr};
   std::shared_ptr<LifecycleController> realsense_lifecycle_controller_{nullptr};
   std::shared_ptr<LifecycleController> vision_mapping_lifecycle_controller_{nullptr};
   std::shared_ptr<LifecycleController> vision_localization_lifecycle_controller_{nullptr};

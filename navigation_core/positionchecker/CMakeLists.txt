@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(cyberdog_common REQUIRED)
 find_package(std_srvs REQUIRED)
 
 set(executable_name pose_server)
@@ -22,6 +23,7 @@ set(dependencies
   tf2_ros
   std_srvs
   geometry_msgs
+  cyberdog_common
 )
 include_directories(include)
 add_library(${library_name}

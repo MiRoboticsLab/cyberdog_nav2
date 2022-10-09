@@ -56,8 +56,6 @@ NavigationCore::NavigationCore()
   nav_through_poses_goal_ = nav2_msgs::action::NavigateThroughPoses::Goal();
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
-  client_realsense_ = std::make_unique<RealSenseClient>("realsense_client");
-
   realsense_lifecycle_controller_ = std::make_unique<LifecycleController>("camera/camera");
   vision_mapping_lifecycle_controller_ = std::make_unique<LifecycleController>("mivinsmapping");
   vision_localization_lifecycle_controller_ =
@@ -925,19 +923,14 @@ bool NavigationCore::ServiceImpl(
     }
     WARN("service not available, waiting again...");
   }
-  // auto future = client->async_send_request(request);
-  // // Wait for the result.
-  // if (future.wait_for(5s) == std::future_status::timeout) {
-  //   ERROR("Service timeout");
-  //   return false;
-  // }
+  auto future = client->async_send_request(request);
+  // Wait for the result.
+  if (future.wait_for(5s) == std::future_status::timeout) {
+    ERROR("Service timeout");
+    return false;
+  }
 
-  using ServiceFuture = rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture;
-  auto response_callback = [this](ServiceFuture future){
-    
-  };
-  auto call_result = client->async_send_request(request, response_callback);
-  return call_result.get()->success;
+  return future.get()->success;
 }
 
 uint8_t NavigationCore::StartNavThroughPoses(
@@ -1310,34 +1303,33 @@ void NavigationCore::SetTaskState(const TaskState & state)
 std::string NavigationCore::ToString(int type)
 {
   std::string message;
-  switch (type)
-  {
-  case Navigation::Goal::NAVIGATION_TYPE_START_AB:
-    message = "NAVIGATION_TYPE_START_AB";
-    break;
+  switch (type) {
+    case Navigation::Goal::NAVIGATION_TYPE_START_AB:
+      message = "NAVIGATION_TYPE_START_AB";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
-    message = "NAVIGATION_TYPE_STOP_AB";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_AB:
+      message = "NAVIGATION_TYPE_STOP_AB";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
-    message = "NAVIGATION_TYPE_START_MAPPING";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_MAPPING:
+      message = "NAVIGATION_TYPE_START_MAPPING";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
-    message = "NAVIGATION_TYPE_STOP_MAPPING";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_MAPPING:
+      message = "NAVIGATION_TYPE_STOP_MAPPING";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
-    message = "NAVIGATION_TYPE_START_LOCALIZATION";
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+      message = "NAVIGATION_TYPE_START_LOCALIZATION";
+      break;
 
-  case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
-    message = "NAVIGATION_TYPE_STOP_LOCALIZATION";
-    break;
-  
-  default:
-    break;
+    case Navigation::Goal::NAVIGATION_TYPE_STOP_LOCALIZATION:
+      message = "NAVIGATION_TYPE_STOP_LOCALIZATION";
+      break;
+
+    default:
+      break;
   }
 
   return message;
