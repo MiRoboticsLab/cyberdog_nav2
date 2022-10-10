@@ -25,6 +25,7 @@
   <depend>cyberdog_common</depend>
   <depend>cyberdog_debug</depend>
   <depend>mcr_msgs</depend>
+  <depend>motion_action</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <export>
