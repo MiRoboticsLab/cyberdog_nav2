@@ -22,11 +22,11 @@ namespace cyberdog
 {
 namespace algorithm
 {
-LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
+// LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
 // Nav2LifecyleMgrClientMap ExecutorBase::nav2_lifecycle_client_map_;
 std::unordered_map<std::string, ExecutorBase::LifecycleNodeRef> ExecutorBase::task_map_;
-std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
+// std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
 std::shared_ptr<RealSenseClient> ExecutorBase::lifecycle_client_realsense_;
 
-}
-}
+}  // namespace algorithm
+}  // namespace cyberdog

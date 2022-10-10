@@ -106,7 +106,7 @@ install(TARGETS ${library_name}
 install(TARGETS ${PROJECT_NAME} fake_action
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
-install(DIRECTORY 
+install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}
 )

@@ -32,10 +32,12 @@ void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal
   INFO("Vision Tracking started");
 }
 
-void ExecutorVisionTracking::Stop(const StopTaskSrv::Request::SharedPtr request,
-    StopTaskSrv::Response::SharedPtr response)
+void ExecutorVisionTracking::Stop(
+  const StopTaskSrv::Request::SharedPtr request,
+  StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
+  (void)response;
   INFO("Vision Tracking Stopped");
 }
 

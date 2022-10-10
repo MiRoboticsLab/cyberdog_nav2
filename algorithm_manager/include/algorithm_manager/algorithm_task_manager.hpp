@@ -18,11 +18,9 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "ament_index_cpp/get_package_share_directory.hpp"
-// #include "std_srvs/srv/set_bool.hpp"
-// #include "std_msgs/msg/int32.hpp"
-// #include "cyberdog_common/cyberdog_log.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "cyberdog_debug/backtrace.hpp"
 #include "protocol/srv/stop_algo_task.hpp"
@@ -31,8 +29,6 @@ namespace cyberdog
 {
 namespace algorithm
 {
-// std::vector<std::string> ExecutorVector_V{"LaserMapping", "LaserLocalization", "AbNavigation", "AutoDock", "UwbTracking", "VisionTracking"};
-// std::vector<uint8_t> ExecutorVector_V{1, 3, 5, 7, 9, 11};
 
 using TaskId = uint8_t;
 
@@ -66,26 +62,27 @@ public:
   ~AlgorithmTaskManager();
 
   bool Init();
+
 private:
-  /* task result api, callback functions */
   void TaskSuccessd();
   void TaskCancled();
   void TaskAborted();
   void TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback);
 
-  /* task check cmd is valid or not */
-  bool CheckStatusValid() 
+  bool CheckStatusValid()
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
     return manager_status_ == ManagerStatus::kIdle;
   }
 
-  void SetStatus(ManagerStatus status) {
+  void SetStatus(ManagerStatus status)
+  {
     std::lock_guard<std::mutex> lk(status_mutex_);
     manager_status_ = status;
   }
 
-  void ResetManagerStatus() {
+  void ResetManagerStatus()
+  {
     SetStatus(ManagerStatus::kIdle);
   }
 
@@ -100,11 +97,13 @@ private:
   }
   bool BuildExecutorMap();
 
-  void SetTaskHandle(std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr) {
+  void SetTaskHandle(std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr)
+  {
     goal_handle_executing_ = (goal_handle == nullptr ? goal_handle_executing_ : goal_handle);
   }
 
-  void SetTaskExecutor(std::shared_ptr<ExecutorBase> executor = nullptr) {
+  void SetTaskExecutor(std::shared_ptr<ExecutorBase> executor = nullptr)
+  {
     activated_executor_ = (executor == nullptr ? activated_executor_ : executor);
   }
 
@@ -113,6 +112,7 @@ private:
     goal_handle_executing_.reset();
     activated_executor_.reset();
   }
+
 private:
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
@@ -122,8 +122,10 @@ private:
   void HandleAlgorithmManagerAccepted(
     const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle);
   // void TaskExecute();
-  void HandleStopTaskCallback(const protocol::srv::StopAlgoTask::Request::SharedPtr request, 
-  protocol::srv::StopAlgoTask::Response::SharedPtr response);
+  void HandleStopTaskCallback(
+    const protocol::srv::StopAlgoTask::Request::SharedPtr request,
+    protocol::srv::StopAlgoTask::Response::SharedPtr response);
+
 private:
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr start_algo_task_server_{nullptr};
   rclcpp::Service<protocol::srv::StopAlgoTask>::SharedPtr stop_algo_task_server_{nullptr};

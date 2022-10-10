@@ -28,7 +28,8 @@ class ExecutorLaserMapping : public ExecutorBase
 public:
   explicit ExecutorLaserMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop(const StopTaskSrv::Request::SharedPtr request,
+  void Stop(
+    const StopTaskSrv::Request::SharedPtr request,
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
   // void UpdateStatus(const ExecutorStatus & executor_status) override;

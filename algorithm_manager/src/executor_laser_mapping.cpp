@@ -12,28 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
-
+#include <memory>
+#include <vector>
 #include <string>
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/executor_laser_mapping.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class ExecutorVisionTracking : public ExecutorBase
-{
-public:
-  explicit ExecutorVisionTracking(std::string node_name);
-  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop(const StopTaskSrv::Request::SharedPtr request,
-    StopTaskSrv::Response::SharedPtr response) override;
-  void Cancel() override;
+ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
+: ExecutorBase(node_name),
+  client_mapping_("lifecycle_manager_laser_mapping")
+{}
 
-private:
-};  // class ExecutorVisionTracking
+void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Laser Mapping started");
+}
+
+void ExecutorLaserMapping::Stop(
+  const StopTaskSrv::Request::SharedPtr request,
+  StopTaskSrv::Response::SharedPtr response)
+{
+  (void)request;
+  (void)response;
+}
+
+void ExecutorLaserMapping::Cancel()
+{
+  INFO("Laser Mapping canceled");
+}
+
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_

@@ -31,16 +31,15 @@ AlgorithmTaskManager::AlgorithmTaskManager()
 
 AlgorithmTaskManager::~AlgorithmTaskManager()
 {
-  // executor_start_cv_.notify_one();
 }
 
 bool AlgorithmTaskManager::Init()
 {
-  if(!BuildExecutorMap()) {
+  if (!BuildExecutorMap()) {
     ERROR("Init failed, cannot build executor map!");
     return false;
   }
-
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_algo_task_server_ = rclcpp_action::create_server<AlgorithmMGR>(
     this, "CyberdogNavigation",
     std::bind(
@@ -51,13 +50,13 @@ bool AlgorithmTaskManager::Init()
       this, std::placeholders::_1),
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
-      this, std::placeholders::_1));
-  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+      this, std::placeholders::_1), rcl_action_server_get_default_options(), callback_group_);
   stop_algo_task_server_ = this->create_service<protocol::srv::StopAlgoTask>(
-    "stop_algo_task", 
-    std::bind(&AlgorithmTaskManager::HandleStopTaskCallback, this,
-      std::placeholders::_1, std::placeholders::_2), 
-    rmw_qos_profile_services_default, 
+    "stop_algo_task",
+    std::bind(
+      &AlgorithmTaskManager::HandleStopTaskCallback, this,
+      std::placeholders::_1, std::placeholders::_2),
+    rmw_qos_profile_services_default,
     callback_group_);
   SetStatus(ManagerStatus::kIdle);
   return true;
@@ -65,48 +64,6 @@ bool AlgorithmTaskManager::Init()
 
 bool AlgorithmTaskManager::BuildExecutorMap()
 {
-  /**
-  toml::value executor_config;
-  if(!common::CyberdogToml::ParseFile(
-    ament_index_cpp::get_package_share_directory("algorithm_manager") +
-      "/config/Executor.toml", executor_config)) {
-    ERROR("BuildExecutorMap failed, cannot parse config file!");
-    return false;
-  }
-  std::vector<std::string> executor_vector;
-  if(!common::CyberdogToml::Get(executor_config, "executors", executor_vector)) {
-    ERROR("BuildExecutorMap failed, cannot get executors array!");
-    return false;
-  }
-  toml::value type_config;
-  if(!common::CyberdogToml::Get(executor_config, "type", type_config)) {
-    ERROR("BuildExecutorMap failed, cannot get executors type!");
-    return false;
-  }
-  auto result = std::all_of(executor_vector.cbegin(), executor_vector.cend(), 
-    [this, &type_config](const std::string & name){
-      uint8_t type_value;
-      if(!common::CyberdogToml::Get(type_config, name, type_value)) {
-        ERROR("BuildExecutorMap failed, cannot get executor: %s type value!", name.c_str());
-        return false;
-      }
-      auto executor_ptr = CreateExecutor(type_value);
-      if(executor_ptr == nullptr) {
-        ERROR("BuildExecutorMap failed, cannot create executor: %s!", name.c_str());
-        return false;
-      }
-      if(!executor_ptr->Init(std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
-          std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
-          std::bind(&AlgorithmTaskManager::TaskCancled, this),
-          std::bind(&AlgorithmTaskManager::TaskAborted, this))) {
-        ERROR("BuildExecutorMap failed, cannot init executor: %s!", name.c_str());
-        return false;
-      }
-      this->executor_map_.insert(std::make_pair(type_value, executor_ptr));
-      return true;
-    }
-  );  // end of all_of
-  **/
   std::string task_config = ament_index_cpp::get_package_share_directory("algorithm_manager") +
     "/config/Task.toml";
   toml::value tasks;
@@ -129,15 +86,17 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     GET_TOML_VALUE(value, "Id", task_ref.id);
     GET_TOML_VALUE(value, "OutDoor", task_ref.out_door);
     auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door);
-    if(executor_ptr == nullptr) {
+    if (executor_ptr == nullptr) {
       ERROR("BuildExecutorMap failed, cannot create executor: %s!", task_name.c_str());
       result = false;
       break;
     }
-    if(!executor_ptr->Init(std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
-      std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
-      std::bind(&AlgorithmTaskManager::TaskCancled, this),
-      std::bind(&AlgorithmTaskManager::TaskAborted, this))) {
+    if (!executor_ptr->Init(
+        std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
+        std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
+        std::bind(&AlgorithmTaskManager::TaskCancled, this),
+        std::bind(&AlgorithmTaskManager::TaskAborted, this)))
+    {
       ERROR("BuildExecutorMap failed, cannot init executor: %s!", task_name.c_str());
       result = false;
       break;
@@ -145,16 +104,16 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     task_ref.executor = executor_ptr;
     std::vector<std::string> temp;
     GET_TOML_VALUE(value, "DepsNav2LifecycleNodes", temp);
-    for(auto s : temp) {
+    for (auto s : temp) {
       task_ref.nav2_lifecycle_clients.emplace(s, nullptr);
     }
     GET_TOML_VALUE(value, "DepsLifecycleNodes", temp);
-    for(auto s : temp) {
+    for (auto s : temp) {
       task_ref.lifecycle_nodes.emplace(s, LifecycleClients{nullptr, nullptr});
     }
     task_map_.emplace(task_name, task_ref);
   }
-  if((!result && (!task_map_.empty()))) {
+  if ((!result && (!task_map_.empty()))) {
     task_map_.clear();
   }
   return result;
@@ -162,14 +121,14 @@ bool AlgorithmTaskManager::BuildExecutorMap()
 
 void AlgorithmTaskManager::HandleStopTaskCallback(
   const protocol::srv::StopAlgoTask::Request::SharedPtr request,
-  protocol::srv::StopAlgoTask::Response::SharedPtr response) 
+  protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
-  if(static_cast<uint8_t>(manager_status_) != request->task_id) {
+  if (static_cast<uint8_t>(manager_status_) != request->task_id) {
     ERROR("No task to stop");
     return;
   }
   SetStatus(ManagerStatus::kStoppingTask);
-  if( activated_executor_ != nullptr ) {
+  if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
   }
   ResetManagerStatus();
@@ -189,18 +148,16 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if(task.second.id == goal->nav_type) {
+    if (task.second.id == goal->nav_type) {
       task_name = task.first;
     }
   }
-  // auto iter = executor_map_.find(goal->nav_type);
   auto iter = task_map_.find(task_name);
-  if(iter == task_map_.end()) {
+  if (iter == task_map_.end()) {
     ERROR(
       "Cannot accept task: %d, nav type is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   } else {
-    // activated_executor_ = iter->second;
     SetTaskExecutor(iter->second.executor);
   }
   SetStatus(static_cast<ManagerStatus>(goal->nav_type));
@@ -223,9 +180,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
 void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
-  INFO("%s on call.", __FUNCTION__);
   SetTaskHandle(goal_handle);
-  // executor_map_.find(goal_handle->get_goal()->nav_type)->second->Start(goal_handle->get_goal());
   activated_executor_->Start(goal_handle->get_goal());
 }
 
