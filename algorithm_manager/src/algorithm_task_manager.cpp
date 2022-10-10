@@ -41,7 +41,7 @@ bool AlgorithmTaskManager::Init()
   }
   callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_algo_task_server_ = rclcpp_action::create_server<AlgorithmMGR>(
-    this, "CyberdogNavigation",
+    this, "start_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerGoal,
       this, std::placeholders::_1, std::placeholders::_2),
