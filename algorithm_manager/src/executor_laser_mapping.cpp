@@ -14,15 +14,37 @@
 
 #include <memory>
 #include <vector>
-#include <unordered_map>
 #include <string>
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/executor_laser_mapping.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
-LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
-std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
+
+ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
+: ExecutorBase(node_name),
+  client_mapping_("lifecycle_manager_laser_mapping")
+{}
+
+void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Laser Mapping started");
 }
+
+void ExecutorLaserMapping::Stop(
+  const StopTaskSrv::Request::SharedPtr request,
+  StopTaskSrv::Response::SharedPtr response)
+{
+  (void)request;
+  (void)response;
 }
+
+void ExecutorLaserMapping::Cancel()
+{
+  INFO("Laser Mapping canceled");
+}
+
+}  // namespace algorithm
+}  // namespace cyberdog

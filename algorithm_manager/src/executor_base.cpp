@@ -12,30 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
-
+#include <memory>
+#include <vector>
+#include <unordered_map>
 #include <string>
 #include "algorithm_manager/executor_base.hpp"
-
+#include "algorithm_manager/algorithm_task_manager.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
+// LifecyleNav2LifecyleMgrClientMap ExecutorBase::lifecycle_client_map_;
+// Nav2LifecyleMgrClientMap ExecutorBase::nav2_lifecycle_client_map_;
+std::unordered_map<std::string, ExecutorBase::LifecycleNodeRef> ExecutorBase::task_map_;
+// std::unordered_map<LifecycleClientID, std::string> ExecutorBase::lifecycle_client_ids_;
+std::shared_ptr<RealSenseClient> ExecutorBase::lifecycle_client_realsense_;
 
-class ExecutorLaserMapping : public ExecutorBase
-{
-public:
-  explicit ExecutorLaserMapping(std::string node_name);
-  bool Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Cancel() override;
-  // void UpdateStatus(const ExecutorStatus & executor_status) override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
-
-private:
-  ExecutorData executor_laser_mapping_data_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
-};  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_

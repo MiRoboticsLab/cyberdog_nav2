@@ -12,25 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
-
+#include <memory>
+#include <vector>
 #include <string>
-#include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/executor_vision_tracking.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
-class ExecutorAutoDock : public ExecutorBase
-{
-public:
-  explicit ExecutorAutoDock(std::string node_name);
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Cancel() override;
 
-private:
-};  // class ExecutorAutoDock
+ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
+: ExecutorBase(node_name)
+{}
+
+void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+{
+  (void)goal;
+  INFO("Vision Tracking started");
+}
+
+void ExecutorVisionTracking::Stop(
+  const StopTaskSrv::Request::SharedPtr request,
+  StopTaskSrv::Response::SharedPtr response)
+{
+  (void)request;
+  (void)response;
+  INFO("Vision Tracking Stopped");
+}
+
+void ExecutorVisionTracking::Cancel()
+{
+  INFO("Vision Tracking Stopped");
+}
+
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_

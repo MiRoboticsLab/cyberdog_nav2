@@ -1,0 +1,5 @@
+executors = ["LaserMapping", "UwbTracking"]
+
+[type]
+LaserMapping = 5
+UwbTracking = 11

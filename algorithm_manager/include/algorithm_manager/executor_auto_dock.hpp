@@ -12,27 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+#ifndef ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
 
 #include <string>
-#include "rclcpp/rclcpp.hpp"
 #include "algorithm_manager/executor_base.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
 {
-
-class ExecutorAbNavigation : public ExecutorBase
+class ExecutorAutoDock : public ExecutorBase
 {
 public:
-  explicit ExecutorAbNavigation(std::string node_name);
-  ~ExecutorAbNavigation() {}
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorAutoDock(std::string node_name);
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Cancel() override;
 
 private:
-};  // class ExecutorAbNavigation
+};  // class ExecutorAutoDock
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_

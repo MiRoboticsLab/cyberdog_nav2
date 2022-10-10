@@ -52,12 +52,13 @@ set(dependencies
 )
 
 set(sources
+  src/main.cpp
   src/algorithm_task_manager.cpp
   src/executor_base.cpp
-  src/executor_ab_navigation.cpp
-  src/executor_auto_dock.cpp
+  # src/executor_ab_navigation.cpp
+  # src/executor_auto_dock.cpp
   src/executor_laser_mapping.cpp
-  src/executor_laser_localization.cpp
+  # src/executor_laser_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
 )
@@ -87,15 +88,29 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+add_executable(fake_action test/fake_action.cpp)
+ament_target_dependencies(fake_action
+  ${dependencies}
+)
+target_include_directories(fake_action PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(fake_action PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} fake_action
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

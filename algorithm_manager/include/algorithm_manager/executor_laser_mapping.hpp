@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
 
 #include <string>
 #include "algorithm_manager/executor_base.hpp"
@@ -23,16 +23,22 @@ namespace cyberdog
 namespace algorithm
 {
 
-class ExecutorLaserLocalization : public ExecutorBase
+class ExecutorLaserMapping : public ExecutorBase
 {
 public:
-  explicit ExecutorLaserLocalization(std::string node_name);
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  explicit ExecutorLaserMapping(std::string node_name);
+  void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop(
+    const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
+  // void UpdateStatus(const ExecutorStatus & executor_status) override;
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
-};  // class ExecutorLaserLocalization
+  ExecutorData executor_laser_mapping_data_;
+  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
+};  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_

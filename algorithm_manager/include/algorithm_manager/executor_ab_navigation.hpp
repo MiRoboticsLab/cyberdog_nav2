@@ -12,31 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <vector>
-#include <string>
-#include "algorithm_manager/executor_vision_tracking.hpp"
+#ifndef ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
 
+#include <string>
+#include "rclcpp/rclcpp.hpp"
+#include "algorithm_manager/executor_base.hpp"
 namespace cyberdog
 {
 namespace algorithm
 {
 
-ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
-: ExecutorBase(node_name)
-{}
-
-bool ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+class ExecutorAbNavigation : public ExecutorBase
 {
-  (void)goal;
-  INFO("Vision Tracking started");
-  return true;
-}
+public:
+  explicit ExecutorAbNavigation(std::string node_name);
+  ~ExecutorAbNavigation() {}
+  void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Cancel() override;
 
-void ExecutorVisionTracking::Cancel()
-{
-  INFO("Vision Tracking Stopped");
-}
-
+private:
+};  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog
+#endif  // ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_

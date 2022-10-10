@@ -30,11 +30,11 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target");
+    action_client_node_, "tracking_target_fake");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
-bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
   target_tracking_goal.keep_distance = goal->keep_distance;
@@ -57,31 +57,33 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
     default:
       ERROR("Get Invalid tracking pos");
-      return false;
+      task_abort_callback_();
+      return;
   }
 
   INFO("UWB Tracking will start");
+  // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
-  if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
-    !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
-  {
-    ERROR("Failed to Launch lifecycle nodes");
+  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    return false;
+    task_abort_callback_();
+    return;
   }
+  // TODO(Harvey): 当有Realsense的依赖时
+  // TODO(Harvey): 当有其他没有继承Nav2Lifecycle的依赖节点时
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
     ERROR("TrackingTarget action server is not available.");
-    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
-    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    return false;
+    task_abort_callback_();
+    return;
   }
-
+  // 结束激活进度的上报
+  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   // Send the goal pose
-  // Enable result awareness by providing an empty lambda function
   auto send_goal_options =
     rclcpp_action::Client<McrTargetTracking>::SendGoalOptions();
   send_goal_options.goal_response_callback =
@@ -96,69 +98,86 @@ bool ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     std::bind(
     &ExecutorUwbTracking::HandleResultCallback,
     this, std::placeholders::_1);
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal, send_goal_options);
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send TrackingTarget goal failed");
-    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
-    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
-    return false;
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    task_abort_callback_();
+    return;
   }
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("TrackingTarget Goal was rejected by server");
-    GetNav2LifecycleMgrClient(LifecycleClientID::kNav)->pause();
-    GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)->pause();
-    return false;
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    task_abort_callback_();
+    return;
   }
   INFO("UWB Tracking started");
-  return true;
+}
+
+void ExecutorUwbTracking::Stop(
+  const StopTaskSrv::Request::SharedPtr request,
+  StopTaskSrv::Response::SharedPtr response)
+{
+  (void)request;
+  INFO("UWB Tracking will stop");
+  if (target_tracking_goal_handle_ != nullptr) {
+    // 只有在向底层执行器发送目标后才需要发送取消指令
+    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  } else {
+    task_abort_callback_();
+  }
+  StopReportPreparationThread();
+  target_tracking_goal_handle_.reset();
+  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+    StopTaskSrv::Response::SUCCESS :
+    StopTaskSrv::Response::FAILED;
+  INFO("UWB Tracking Stoped");
 }
 
 void ExecutorUwbTracking::Cancel()
 {
-  INFO("UWB Tracking will stop");
+  INFO("UWB Tracking will cancel");
   if (target_tracking_goal_handle_ != nullptr) {
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  } else {
+    task_abort_callback_();
   }
   StopReportPreparationThread();
-  executor_uwb_tracking_data_.status = ExecutorStatus::kCanceled;
-  UpdateExecutorData(executor_uwb_tracking_data_);
-  INFO("UWB Tracking Stopped");
+  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+  target_tracking_goal_handle_.reset();
+  INFO("UWB Tracking Canceled");
 }
 
 void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
-  // INFO("Got feedback: %d", feedback->exception_code);
-  executor_uwb_tracking_data_.status = ExecutorStatus::kExecuting;
-  executor_uwb_tracking_data_.feedback.feedback_code = feedback->exception_code;
-  UpdateExecutorData(executor_uwb_tracking_data_);
+  feedback_->feedback_code = feedback->exception_code;
+  task_feedback_callback_(feedback_);
 }
 
 void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult result)
 {
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kSuccess;
       INFO("UWB Tracking reported succeeded");
+      task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
       ERROR("UWB Tracking reported aborted");
+      task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
       ERROR("UWB Tracking reported canceled");
+      task_cancle_callback_();
       break;
     default:
-      executor_uwb_tracking_data_.status = ExecutorStatus::kAborted;
       ERROR("UWB Tracking reported unknown result code");
+      task_abort_callback_();
       break;
   }
-  UpdateExecutorData(executor_uwb_tracking_data_);
 }
 }  // namespace algorithm
 }  // namespace cyberdog

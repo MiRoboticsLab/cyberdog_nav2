@@ -12,26 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
+#include <memory>
+#include "rclcpp/rclcpp.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_debug/backtrace.hpp"
+#include "algorithm_manager/algorithm_task_manager.hpp"
 
-#include <string>
-#include "algorithm_manager/executor_base.hpp"
-
-namespace cyberdog
+int main(int argc, char ** argv)
 {
-namespace algorithm
-{
-
-class ExecutorVisionTracking : public ExecutorBase
-{
-public:
-  explicit ExecutorVisionTracking(std::string node_name);
-  bool Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Cancel() override;
-
-private:
-};  // class ExecutorVisionTracking
-}  // namespace algorithm
-}  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
+  LOGGER_MAIN_INSTANCE("AlgorithmTaskManager");
+  cyberdog::debug::register_signal();
+  rclcpp::init(argc, argv);
+  auto atm_ptr = std::make_shared<cyberdog::algorithm::AlgorithmTaskManager>();
+  if (!atm_ptr->Init()) {
+    ERROR("Init failed, will exit with error!");
+    return -1;
+  }
+  rclcpp::spin(atm_ptr);
+  return 0;
+}
