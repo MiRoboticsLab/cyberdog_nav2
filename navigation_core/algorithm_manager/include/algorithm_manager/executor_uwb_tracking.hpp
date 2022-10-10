@@ -29,7 +29,8 @@ class ExecutorUwbTracking : public ExecutorBase
 public:
   explicit ExecutorUwbTracking(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
-  void Stop(const StopTaskSrv::Request::SharedPtr request) override;
+  void Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
 
 private:

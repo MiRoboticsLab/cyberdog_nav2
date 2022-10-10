@@ -35,6 +35,10 @@
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "cyberdog_common/cyberdog_msg_queue.hpp"
 #include "protocol/srv/stop_algo_task.hpp"
+#include "cyberdog_common/cyberdog_toml.hpp"
+#include "motion_action/motion_macros.hpp"
+#include "ament_index_cpp/get_package_share_directory.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -64,13 +68,6 @@ struct LifecycleClients
   rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr client_get_state_;
   rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr client_change_state_;
 };
-
-// struct TaskRef
-// {
-//   uint8_t id;
-//   bool out_door;
-//   std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
-// };
 
 enum class Nav2LifecycleMode : uint8_t
 {
@@ -105,32 +102,31 @@ struct ExecutorData
   ExecutorStatus status;
   AlgorithmMGR::Feedback feedback;
 };  // struct ExecutorData
+
 class ExecutorInterface
 {
 public:
   ExecutorInterface() {}
   virtual void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) = 0;
-  virtual void Stop(const StopTaskSrv::Request::SharedPtr request) = 0;
+  virtual void Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response) = 0;
   virtual void Cancel() = 0;
 };
 
 class ExecutorBase : public ExecutorInterface, public rclcpp::Node
 {
 public:
+  struct LifecycleNodeRef
+  {
+    std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
+    std::unordered_map<std::string, LifecycleClients> lifecycle_nodes;
+  };
+
   explicit ExecutorBase(std::string node_name)
   : rclcpp::Node(node_name)
   {
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
-    // task_map_.emplace("UwbTracking", TaskRef{
-    //   std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking")), 
-    //   std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>>{
-    //     {"lifecycle_manager_navigation", nullptr},
-    //     {"lifecycle_manager_mcr_uwb", nullptr}}, 
-    //   std::unordered_map<std::string, LifecycleClients>{
-    //     {"", {nullptr, nullptr}},
-    //     {"", {nullptr, nullptr}}},
-    //   AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
-    //   false});
+
     lifecycle_client_ids_.emplace(
       LifecycleClientID::kNav,
       "lifecycle_manager_navigation");
@@ -169,6 +165,36 @@ public:
     task_success_callback_ = success_callback;
     task_cancle_callback_ = cancle_callback;
     task_abort_callback_ = abort_callback;
+
+    std::string task_config = ament_index_cpp::get_package_share_directory("algorithm_manager") +
+      "/config/Task.toml";
+    toml::value tasks;
+    if (!cyberdog::common::CyberdogToml::ParseFile(task_config, tasks)) {
+      FATAL("Cannot parse %s", task_config.c_str());
+      return false;
+    }
+    if (!tasks.is_table()) {
+      FATAL("Toml format error");
+      return false;
+    }
+    toml::value values;
+    cyberdog::common::CyberdogToml::Get(tasks, "task", values);
+    for (size_t i = 0; i < values.size(); i++) {
+      auto value = values.at(i);
+      std::string task_name;
+      LifecycleNodeRef lifecycle_ref;
+      GET_TOML_VALUE(value, "TaskName", task_name);
+      std::vector<std::string> temp;
+      GET_TOML_VALUE(value, "DepsNav2LifecycleNodes", temp);
+      for(auto s : temp) {
+        lifecycle_ref.nav2_lifecycle_clients.emplace(s, nullptr);
+      }
+      GET_TOML_VALUE(value, "DepsLifecycleNodes", temp);
+      for(auto s : temp) {
+        lifecycle_ref.lifecycle_nodes.emplace(s, LifecycleClients{nullptr, nullptr});
+      }
+      task_map_.emplace(task_name, lifecycle_ref);
+    }
     return true;
   }
 
@@ -199,72 +225,76 @@ protected:
     }
     return lifecycle_client_map_.at(id);
   }
-  // bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
-  // {
-  //   auto clients = task_map_.at(task_name).nav2_lifecycle_clients;
-  //   for ( auto & client : clients ) {
-  //     if (client.second == nullptr) {
-  //       client.second = std::make_shared<Nav2LifecyleMgrClient>(client.first);
-  //     }
-  //     auto status = client.second->is_active(
-  //       std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
-  //     if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
-  //       ERROR("Failed to get Nav2LifecycleNode %s state", client.first.c_str());
-  //       return false;
-  //     }
-  //     switch (mode) 
-  //     {
-  //       case Nav2LifecycleMode::kPause:
-  //         {
-  //           if (status == nav2_lifecycle_manager::SystemStatus::INACTIVE) {
-  //             continue;
-  //           }
-  //           if (client.second->pause()) {
-  //             return false;
-  //           }
-  //         }
-  //         break;
+  bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
+  {
+    auto clients = task_map_.at(task_name).nav2_lifecycle_clients;
+    for ( auto & client : clients ) {
+      if (client.second == nullptr) {
+        client.second = std::make_shared<Nav2LifecyleMgrClient>(client.first);
+      }
+      auto status = client.second->is_active(
+        std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
+      if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
+        ERROR("Failed to get Nav2LifecycleNode %s state", client.first.c_str());
+        return false;
+      }
+      switch (mode) 
+      {
+        case Nav2LifecycleMode::kPause:
+          {
+            if (status == nav2_lifecycle_manager::SystemStatus::INACTIVE) {
+              continue;
+            }
+            if (!client.second->pause()) {
+              ERROR("Failed to Pause Nav2LifecycleNode %s", client.first.c_str());
+              return false;
+            }
+          }
+          break;
 
-  //       case Nav2LifecycleMode::kStartUp:
-  //         {
-  //           if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-  //             continue;
-  //           }
-  //           if (!client.second->startup()) {
-  //             return false;
-  //           }
-  //         }
-  //         break;
+        case Nav2LifecycleMode::kStartUp:
+          {
+            if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+              continue;
+            }
+            if (!client.second->startup()) {
+              ERROR("Failed to Startup av2LifecycleNode %s", client.first.c_str());
+              return false;
+            }
+          }
+          break;
 
-  //       case Nav2LifecycleMode::kResume:
-  //         {
-  //           if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-  //             continue;
-  //           }
-  //           if (client.second->resume()) {
-  //             return false;
-  //           }
-  //         }
-  //         break;
+        case Nav2LifecycleMode::kResume:
+          {
+            if(status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+              continue;
+            }
+            if (client.second->resume()) {
+              ERROR("Failed to Resume Nav2LifecycleNode %s", client.first.c_str());
+              return false;
+            }
+          }
+          break;
         
-  //       default:
-  //         break;
-  //     }
-  //     return true;
-  //   }
-  // }
-  // bool OperateDepsLifecycleNodes(const std::string & task_name)
-  // {
-  //   // TODO(Harvey): 非Nav2Lifecycle的node管理方式
-  //   auto clients = task_map_.at(task_name).lifecycle_nodes;
-  //   for (auto client : clients) {
-  //     if(client.second.client_change_state_ == nullptr || client.second.client_get_state_ == nullptr) {
-  //       client.second.client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(client.first);
-  //       client.second.client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(client.first);
-  //     }
-  //   }
-  //   // TODO configure、activate节点，deactive、unconfigure节点
-  // }
+        default:
+          break;
+      }
+    }
+    return true;
+  }
+  bool OperateDepsLifecycleNodes(const std::string & task_name)
+  {
+    // TODO(Harvey): 非Nav2Lifecycle的node管理方式
+    auto clients = task_map_.at(task_name).lifecycle_nodes;
+    for (auto client : clients) {
+      if(client.second.client_change_state_ == nullptr || client.second.client_get_state_ == nullptr) {
+        client.second.client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(client.first);
+        client.second.client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(client.first);
+      }
+    }
+    // TODO configure、activate节点，deactive、unconfigure节点
+    return true;
+  }
   static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
   {
     if (lifecycle_client_realsense_ == nullptr) {
@@ -344,7 +374,7 @@ protected:
   }
   static LifecyleNav2LifecyleMgrClientMap lifecycle_client_map_;
   // static Nav2LifecyleMgrClientMap nav2_lifecycle_client_map_;
-  // static std::unordered_map<std::string, TaskRef> task_map_;
+  static std::unordered_map<std::string, LifecycleNodeRef> task_map_;
   // static LifecyleNodesMap lifecycle_clients_map_;
   static std::unordered_map<LifecycleClientID, std::string> lifecycle_client_ids_;
   static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;

@@ -26,11 +26,17 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
 : ExecutorBase(node_name)
 {}
 
-bool ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("Vision Tracking started");
-  return true;
+}
+
+void ExecutorVisionTracking::Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response)
+{
+  (void)request;
+  INFO("Vision Tracking Stopped");
 }
 
 void ExecutorVisionTracking::Cancel()

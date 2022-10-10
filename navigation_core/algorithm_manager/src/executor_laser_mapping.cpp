@@ -33,7 +33,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Laser Mapping started");
 }
 
-void ExecutorLaserMapping::Stop(const StopTaskSrv::Request::SharedPtr request)
+void ExecutorLaserMapping::Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
 }

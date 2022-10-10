@@ -60,7 +60,7 @@ set(sources
   src/executor_laser_mapping.cpp
   # src/executor_laser_localization.cpp
   src/executor_uwb_tracking.cpp
-  # src/executor_vision_tracking.cpp
+  src/executor_vision_tracking.cpp
 )
 
 add_executable(${PROJECT_NAME} ${sources})

@@ -26,6 +26,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "cyberdog_debug/backtrace.hpp"
 #include "protocol/srv/stop_algo_task.hpp"
+#include "motion_action/motion_macros.hpp"
 namespace cyberdog
 {
 namespace algorithm
@@ -133,6 +134,7 @@ private:
   std::mutex status_mutex_;
   common::MsgQueue<ExecutorData> executor_data_queue_;
   std::unordered_map<uint8_t, std::shared_ptr<ExecutorBase>> executor_map_;
+  std::unordered_map<std::string, TaskRef> task_map_;
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

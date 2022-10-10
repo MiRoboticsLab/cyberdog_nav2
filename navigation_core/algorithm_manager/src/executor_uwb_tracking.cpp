@@ -65,11 +65,10 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
   // ActiveDependNode(self_name);
-  if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
-    !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
-  // if (OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp))
+  // if (!LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kNav)) ||
+  //   !LaunchNav2LifeCycleNode(GetNav2LifecycleMgrClient(LifecycleClientID::kMcrUwb)))
+  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp))
   {
-    ERROR("Failed to Launch lifecycle nodes");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -129,7 +128,8 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   return;
 }
 
-void ExecutorUwbTracking::Stop(const StopTaskSrv::Request::SharedPtr request)
+void ExecutorUwbTracking::Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
   INFO("UWB Tracking will stop");
@@ -142,6 +142,7 @@ void ExecutorUwbTracking::Stop(const StopTaskSrv::Request::SharedPtr request)
     // UpdateExecutorData(executor_uwb_tracking_data_);
   }
   StopReportPreparationThread();
+  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Stoped");
 }

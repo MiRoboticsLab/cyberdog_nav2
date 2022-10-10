@@ -28,6 +28,8 @@ class ExecutorVisionTracking : public ExecutorBase
 public:
   explicit ExecutorVisionTracking(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop(const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
 
 private:

@@ -36,13 +36,17 @@ namespace algorithm
  * @param algorithm_type executor type by design
  * @return std::shared_ptr<cyberdog::algorithm::ExecutorBase> 
  */
-std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(uint8_t algorithm_type)
+std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(uint8_t algorithm_type, bool out_door)
 {
   std::shared_ptr<cyberdog::algorithm::ExecutorBase> result = nullptr;
   switch (algorithm_type)
   {
   case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
-    result = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+    if (out_door) {
+      result = std::make_shared<ExecutorVisionTracking>(std::string("VisMapping"));
+    } else {
+      result = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+    }
     break;
 
   case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
