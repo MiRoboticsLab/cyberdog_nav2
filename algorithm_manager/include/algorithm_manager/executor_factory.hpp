@@ -44,7 +44,8 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
   switch (algorithm_type) {
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       if (out_door) {
-        result = std::make_shared<ExecutorVisionTracking>(std::string("VisMapping"));
+        // 改为ExecutorVisMapping
+        // result = std::make_shared<ExecutorVisionTracking>(std::string("VisMapping"));
       } else {
         result = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
       }
