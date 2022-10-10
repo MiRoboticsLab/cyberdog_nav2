@@ -25,6 +25,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(cyberdog_debug REQUIRED)
 find_package(mcr_msgs REQUIRED)
+find_package(motion_action REQUIRED)
 # find_package(visualization REQUIRED)
 
 # uncomment the following section in order to fill in
@@ -48,6 +49,7 @@ set(dependencies
   rclcpp_action
   rclcpp_components
   mcr_msgs
+  motion_action
   # visualization
 )
 

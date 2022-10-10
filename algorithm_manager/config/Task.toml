@@ -12,9 +12,9 @@ OutDoor = false
 DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
 DepsLifecycleNodes = [""]
 
-[[task]]
-TaskName = "VisMapping"
-Id = 5
-OutDoor = true
-DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
-DepsLifecycleNodes = [""]
+# [[task]]
+# TaskName = "VisMapping"
+# Id = 5
+# OutDoor = true
+# DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
+# DepsLifecycleNodes = [""]
