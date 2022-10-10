@@ -23,8 +23,7 @@ namespace algorithm
 {
 
 ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
-: ExecutorBase(node_name),
-  client_mapping_("lifecycle_manager_laser_mapping")
+: ExecutorBase(node_name)
 {}
 
 void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)

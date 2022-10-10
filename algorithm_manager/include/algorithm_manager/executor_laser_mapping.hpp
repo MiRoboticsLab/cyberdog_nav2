@@ -36,8 +36,6 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
-  ExecutorData executor_laser_mapping_data_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog
