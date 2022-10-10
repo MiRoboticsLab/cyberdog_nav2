@@ -36,6 +36,11 @@
 #include "visualization/srv/stop.hpp"
 #include "motion_core/lifecycle_controller.hpp"
 
+// TODO(PDF)
+#include "protocol/srv/body_region.hpp"
+#include "protocol/srv/algo_manager.hpp"
+#include "nav2_util/lifecycle_service_client.hpp"
+
 enum ActionType
 {
   kActionNone,
@@ -93,6 +98,9 @@ public:
   using GoalHandleNavigation = rclcpp_action::ServerGoalHandle<Navigation>;
   using TriggerT = std_srvs::srv::SetBool;
   using LifecycleController = cyberdog::controller::LifecycleController;
+  // TODO(PDF):
+  using BodyRegionT = protocol::srv::BodyRegion;
+
 
   NavigationCore();
   ~NavigationCore() = default;
@@ -122,7 +130,7 @@ public:
 
   void GetCurrentLocStatus();
 
-  // lidar mapping
+  // mapping
   uint8_t HandleMapping(bool start, const std::string & map_saved_name);
   ActionExecStage HandleLocalization(bool start);
   // TODO(PDF)
