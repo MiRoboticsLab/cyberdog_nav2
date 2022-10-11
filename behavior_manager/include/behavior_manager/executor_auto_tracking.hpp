@@ -29,12 +29,15 @@ namespace cyberdog
 namespace algorithm
 {
 
-class ExecutorAutoTracking : public rclcpp::Node
+class ExecutorAutoTracking
 {
 public:
-  ExecutorAutoTracking();
-  ~ExecutorAutoTracking();
-  void Execute(bool trigger);
+  explicit ExecutorAutoTracking(const std::string & node_name)
+  {
+    node_ = std::make_shared<rclcpp::Node>(node_name);
+  }
+  ~ExecutorAutoTracking(){}
+  void Execute(bool trigger){(void)trigger;}
 private:
   // void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
   // {
@@ -51,9 +54,9 @@ private:
   void DecideBehaviorMode();
   bool CheckTargetStatic()
   {
-
+    return true;
   }
-  void DoAutonomouslyTracking();
+  void DoAutoTracking();
   void DoStairJumping();
   // rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
   // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_finished_sub_;
@@ -64,9 +67,7 @@ private:
   // rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stair_align_trigger_client_;
   // rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
   // geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;
-  Stage stage_;
-  int8_t stair_detection_{0};
-  bool stair_aligned_{false};
+  rclcpp::Node::SharedPtr node_;
 
 };  // class ExecutorAutoTracking
 }  // namespace algorithm

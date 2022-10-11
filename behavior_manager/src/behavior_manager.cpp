@@ -22,8 +22,8 @@ namespace cyberdog
 namespace algorithm
 {
 
-BehaviorManager::BehaviorManager()
-: rclcpp::Node("behavior_manager")
+BehaviorManager::BehaviorManager(const std::string & node_name)
+: rclcpp::Node(node_name)
 {
   // stair_detected_sub_ = this->create_subscription<std_msgs::msg::Int8>(
   //   "elevation_mapping/stair_detected",
@@ -59,34 +59,34 @@ void BehaviorManager::DecideBehaviorMode()
   {
     switch (stage_working_)
     {
-      case Stage::kNormallyTracking:
+      case ModeDetector::Stage::kNormallyTracking:
       {
-        if (stage_detected_ == Stage::kAutonomouslyTracking) {
+        if (stage_detected_ == ModeDetector::Stage::kAutonomouslyTracking) {
           // 进入自主遛狗模式
-          stage_working_ = Stage::kAutonomouslyTracking;
-        } else if (stage_detected_ == Stage::kStairJumping) {
+          stage_working_ = ModeDetector::Stage::kAutonomouslyTracking;
+        } else if (stage_detected_ == ModeDetector::Stage::kStairJumping) {
           // 进入跳台阶模式
-          stage_working_ = Stage::kStairJumping;
+          stage_working_ = ModeDetector::Stage::kStairJumping;
         }
       }
         break;
       
-      case Stage::kStairJumping:
+      case ModeDetector::Stage::kStairJumping:
       {
         if (executor_stair_jumping_.GetStatus() == ExecutorStairJumping::JumpingStatus::kIdle) {
           executor_stair_jumping_.Execute(true);
         } else if (executor_stair_jumping_.GetStatus() == ExecutorStairJumping::JumpingStatus::kJumped) {
-          stage_working_ = Stage::kNormallyTracking;
+          stage_working_ = ModeDetector::Stage::kNormallyTracking;
         } else if (executor_stair_jumping_.GetStatus() == ExecutorStairJumping::JumpingStatus::kAbnorm) {
-          stage_working_ = Stage::kAbnorm;
+          stage_working_ = ModeDetector::Stage::kAbnorm;
         }
       }
         break;
 
-      case Stage::kAutonomouslyTracking:
+      case ModeDetector::Stage::kAutonomouslyTracking:
       {
-        if (stage_detected_ == Stage::kNormallyTracking) {
-          stage_working_ = Stage::kNormallyTracking;
+        if (stage_detected_ == ModeDetector::Stage::kNormallyTracking) {
+          stage_working_ = ModeDetector::Stage::kNormallyTracking;
           // 恢复正常跟随
           executor_auto_tracking_.Execute(false);
         }
@@ -95,7 +95,7 @@ void BehaviorManager::DecideBehaviorMode()
       }
         break;
 
-      case Stage::kAbnorm:
+      case ModeDetector::Stage::kAbnorm:
       {
         executor_auto_tracking_.Execute(false);
         executor_stair_jumping_.Execute(false);
@@ -108,12 +108,5 @@ void BehaviorManager::DecideBehaviorMode()
   }
   
 }
-
-int main(int argc, char ** argv)
-{
-  LOGGER_MAIN_INSTANCE("BehaviorManager");
-  cyberdog::debug::register_signal();
-  rclcpp::init(argc, argv);
-  auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>();
-  rclcpp::spin(atm);
+}
 }

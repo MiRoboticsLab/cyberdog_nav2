@@ -32,37 +32,101 @@ namespace cyberdog
 namespace algorithm
 {
 
-class BehaviorManager : public rclcpp::Node
+class BehaviorManager
 {
 public:
-  BehaviorManager();
-  ~BehaviorManager();
-  void Tick();
+  enum class Status : uint8_t
+  {
+    kNormTracking,
+    kAutoTracking,
+    kStairJumping,
+    kAbnorm
+  };
+  explicit BehaviorManager(const std::string & node_name)
+  {
+    node_ = std::make_shared<rclcpp::Node>(node_name);
+    mode_detector_ = std::make_shared<ModeDetector>("mode_detector");
+    mode_detector_->Init(
+      std::bind(&BehaviorManager::DoStairJump, this, std::placeholders::_1),
+      std::bind(&BehaviorManager::DoAutoTracking, this),
+      std::bind(&BehaviorManager::DoNormallyTracking, this, std::placeholders::_1)
+    );
+    executor_auto_tracking_ = std::make_shared<ExecutorAutoTracking>("executor_auto_tracking");
+    executor_stair_jumping_ = std::make_shared<ExecutorStairJumping>("executor_stair_jumping");
+    executor_stair_jumping_->Init(
+      std::bind(&BehaviorManager::HandleJumped, this),
+      std::bind(&BehaviorManager::HandleJumpFailed, this));
+    tracking_switch_client_ = node_->create_client<std_srvs::srv::SetBool>("tracking_command");
+
+    std::thread{[this](){rclcpp::spin(node_);}}.detach();
+    // ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    // ros_executor_->add_node(mode_detector_);
+    // ros_executor_->add_node(executor_auto_tracking_);
+    // ros_executor_->add_node(executor_stair_jumping_);
+    // std::thread{[this](){ros_executor_->spin();}}.detach();
+  }
+  ~BehaviorManager(){}
 private:
-  // void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg);
-  // void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  // void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-  void DecideBehaviorMode();
-  bool CheckTargetStatic();
-  void DoAutonomouslyTracking();
-  void DoStairJumping();
-  void GetMode(const Stage & stage){ stage_detected_ = stage; }
-  // rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
-  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_finished_sub_;
-  // rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_client_;
+  bool CheckStatusValid()
+  {
+    return status_ == Status::kNormTracking;
+  }
+  void DoAutoTracking()
+  {
+    if(!CheckStatusValid()) {
+      return;
+    }
+    DoNormallyTracking(false);
+    executor_auto_tracking_->Execute(true);
+  }
+  void DoStairJump(bool trigger)
+  {
+    INFO("111");
+    if(!CheckStatusValid()) {
+      return;
+    }
+    DoNormallyTracking(false);
+    executor_stair_jumping_->Execute(trigger);
+    status_ = Status::kStairJumping;
+    INFO("999");
+  }
+  bool DoNormallyTracking(bool trigger)
+  {
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = trigger;
+    auto future = tracking_switch_client_->async_send_request(request);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::ready) {
+      return future.get()->success;
+    }
+    return false;
+  }
+  bool HandleJumped()
+  {
+    DoNormallyTracking(true);
+    status_ = Status::kNormTracking;
+    return true;
+  }
+  bool HandleJumpFailed()
+  {
+    status_ = Status::kAbnorm;
+    HandleAbnormStatus();
+    return true;
+  }
+  void HandleAbnormStatus()
+  {}
+  // void GetMode(const ModeDetector::Stage & stage){ stage_detected_ = stage; }
+  rclcpp::Node::SharedPtr node_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr autonomously_tracking_client_;
-  // rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stair_align_trigger_client_;
-  // rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
-  Stage stage_working_, stage_detected_;
-  ModeDetector mode_detector_;
-  ExecutorAutoTracking executor_auto_tracking_;
-  ExecutorStairJumping executor_stair_jumping_;
+  ModeDetector::Stage stage_working_, stage_detected_;
+  std::shared_ptr<ModeDetector> mode_detector_;
+  std::shared_ptr<ExecutorAutoTracking> executor_auto_tracking_;
+  std::shared_ptr<ExecutorStairJumping> executor_stair_jumping_;
+  rclcpp::Executor::SharedPtr ros_executor_;
+  Status status_{Status::kNormTracking};
   bool stair_detected_{false}, stair_aligned_{false}, stair_align_timeout_{false};
   bool stair_possible_jump_{false};
 
-};  // class behavior_manager
+};  // class BehaviorManager
 }  // namespace algorithm
 }  // namespace cyberdog
 #endif  // BEHAVIOR_MANAGER__BEHAVIOR_MANAGER_HPP_

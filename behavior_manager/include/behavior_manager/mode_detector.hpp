@@ -28,52 +28,82 @@ namespace cyberdog
 {
 namespace algorithm
 {
-
-enum class Stage : uint8_t
-{
-  kNormallyTracking,
-  kAutonomouslyTracking,
-  kStairJumping,
-  kAbnorm,
-};
-class ModeDetector : public rclcpp::Node
+class ModeDetector
 {
 public:
-  ModeDetector();
-  ~ModeDetector();
-  void GetMode();
+  enum class Stage : uint8_t
+  {
+    kNormallyTracking,
+    kAutonomouslyTracking,
+    kStairJumping,
+    kAbnorm,
+  };
+  enum class StairDetection : int8_t
+  {
+    kUpStair = 1,
+    kNothing = 0,
+    kDownStair = -1,
+  };
+  explicit ModeDetector(const std::string & node_name)
+  {
+    node_ = std::make_shared<rclcpp::Node>(node_name);
+    stair_detected_sub_ = node_->create_subscription<std_msgs::msg::Int8>(
+      "elevation_mapping/stair_detected",
+      rclcpp::SystemDefaultsQoS(),
+      std::bind(&ModeDetector::HandleStairDetectionCallback,
+        this, std::placeholders::_1)); 
+    target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
+      "tracking_pose",
+      rclcpp::SystemDefaultsQoS(),
+      std::bind(&ModeDetector::HandleTargetPoseCallback,
+        this, std::placeholders::_1));
+    std::thread{[this]{rclcpp::spin(node_);}}.detach();
+  }
+  ~ModeDetector(){}
+  bool Init(
+    std::function<void(bool)> do_stair_jump_func,
+    std::function<void()> do_auto_tracking_func,
+    std::function<void(bool)> do_normal_tracking_func
+  )
+  {
+    do_stair_jump_func_ = do_stair_jump_func;
+    do_auto_tracking_func_ = do_auto_tracking_func;
+    do_normal_tracking_func_ = do_normal_tracking_func;
+    return true;
+  }
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
   {
+    INFO("0");
     stair_detection_ = msg->data;
+    if (stair_detection_ == static_cast<int8_t>(StairDetection::kUpStair)) {
+      do_stair_jump_func_(true);
+    } else if (stair_detection_ == static_cast<int8_t>(StairDetection::kDownStair)) {
+      do_stair_jump_func_(false);
+    }
   }
-  // void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg)
-  // {
-  //   stair_aligned_ = msg->data;
-  // }
   void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
-    current_pose_ = msg;
+    if (!CheckTargetStatic(msg)) {
+      do_auto_tracking_func_();
+    } else {
+      do_normal_tracking_func_(true);
+    }
   }
-  void DecideBehaviorMode();
-  bool CheckTargetStatic()
+  bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
-
+    (void)msg;
+    return true;
   }
-  void DoAutonomouslyTracking();
-  void DoStairJumping();
+  rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
-  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_finished_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_client_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr autonomously_tracking_client_;
-  // rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stair_align_trigger_client_;
-  // rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
   geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;
   Stage stage_;
+  std::function<void(bool)> do_stair_jump_func_;
+  std::function<void()> do_auto_tracking_func_;
+  std::function<void(bool)> do_normal_tracking_func_;
   int8_t stair_detection_{0};
-  bool stair_aligned_{false};
 
 };  // class ModeDetector
 }  // namespace algorithm
