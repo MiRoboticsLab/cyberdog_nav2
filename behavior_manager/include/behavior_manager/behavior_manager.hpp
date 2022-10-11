@@ -81,30 +81,32 @@ private:
   }
   void DoStairJump(bool trigger)
   {
-    INFO("111");
     if(!CheckStatusValid()) {
+      ERROR("Cannot do %s jump when %d", trigger ? "upstair" : "downstair", (int)status_);
       return;
     }
-    DoNormallyTracking(false);
+    if (!DoNormallyTracking(false)) {
+      ERROR("Cannot Pause NormTracking");
+      return;
+    }
     executor_stair_jumping_->Execute(trigger);
     status_ = Status::kStairJumping;
-    INFO("999");
   }
   bool DoNormallyTracking(bool trigger)
   {
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     request->data = trigger;
     auto future = tracking_switch_client_->async_send_request(request);
-    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::ready) {
-      return future.get()->success;
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get result of %s NormTracking", trigger ? "resume" : "pause");
+      return false;
     }
-    return false;
+    return future.get()->success;
   }
   bool HandleJumped()
   {
-    DoNormallyTracking(true);
     status_ = Status::kNormTracking;
-    return true;
+    return DoNormallyTracking(true);
   }
   bool HandleJumpFailed()
   {
@@ -113,8 +115,9 @@ private:
     return true;
   }
   void HandleAbnormStatus()
-  {}
-  // void GetMode(const ModeDetector::Stage & stage){ stage_detected_ = stage; }
+  {
+    INFO("Abnorm");
+  }
   rclcpp::Node::SharedPtr node_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
   ModeDetector::Stage stage_working_, stage_detected_;

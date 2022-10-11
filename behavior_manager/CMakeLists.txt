@@ -59,6 +59,14 @@ add_executable(${PROJECT_NAME} ${sources})
 ament_target_dependencies(${PROJECT_NAME}
   ${dependencies}
 )
+
+add_executable(fake_nodes 
+  test/main.cpp
+)
+ament_target_dependencies(fake_nodes
+  ${dependencies}
+)
+
 # target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
 # add_executable(core_client test/motioncore_client.cpp)
@@ -86,7 +94,7 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} fake_nodes
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)

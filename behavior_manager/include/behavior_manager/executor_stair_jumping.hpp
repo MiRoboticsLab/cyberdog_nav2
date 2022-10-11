@@ -50,31 +50,58 @@ public:
   explicit ExecutorStairJumping(const std::string & node_name)
   {
     node_ = std::make_shared<rclcpp::Node>(node_name);
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    executor_->add_node(node_);
+    callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    rclcpp::SubscriptionOptions option;
+    option.callback_group = callback_group_;
     stair_align_status_sub_ = node_->create_subscription<std_msgs::msg::Bool>(
       "stair_align_finished_flag", 
       rclcpp::SystemDefaultsQoS(),
       std::bind(&ExecutorStairJumping::HandleStairAlginStatusCallback,
-        this, std::placeholders::_1));
-    std::thread{[this]{rclcpp::spin(node_);}}.detach();
+        this, std::placeholders::_1),
+      option);
+    stair_align_trigger_client_ = node_->create_client<std_srvs::srv::SetBool>(
+      "stair_align",
+      rmw_qos_profile_services_default,
+      callback_group_);
+    stair_jump_condition_client_ = node_->create_client<std_srvs::srv::SetBool>(
+      "elevation_mapping/stair_jump_detected",
+      rmw_qos_profile_services_default,
+      callback_group_);
+    motion_jump_client_ = node_->create_client<protocol::srv::MotionResultCmd>(
+      "motion_result_cmd",
+      rmw_qos_profile_services_default,
+      callback_group_);
+    std::thread{[this]{this->executor_->spin();}}.detach();
+    std::thread{std::bind(&ExecutorStairJumping::CheckAlignTimeout, this)}.detach();
   }
-  ~ExecutorStairJumping(){}
+  ~ExecutorStairJumping()
+  {
+    check_align_timeout_cv_.notify_one();
+  }
   void Execute(bool trigger)
   {
-    INFO("222");
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     request->data = trigger;
     jump_mode_ = trigger ? StairDetection::kUpStair : StairDetection::kDownStair;
-    auto callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future){
+    auto callback = [this, trigger](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future){
       if(future.get()->success){
+        std::unique_lock<std::mutex> lk(this->check_align_timeout_mutex_);
         jumping_status_ = JumpingStatus::kAligning;
+        this->check_align_timeout_cv_.notify_one();
       } else {
+        INFO("Cannot launch %s align", trigger ? "upstair" : "downstair");
         jumping_status_ = JumpingStatus::kAbnorm;
         handle_abnorm_func_();
       }
     };
-    stair_align_trigger_client_->async_send_request(request, callback);
-    INFO("333");
-
+    INFO("Will launch %s align", trigger ? "upstair" : "downstair" );
+    auto future = stair_align_trigger_client_->async_send_request(request, callback);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot Get result when launching %s align", trigger ? "upstair" : "downstair");
+      handle_abnorm_func_();
+    }
   }
   bool Init(
     std::function<void()> handle_jumped_func,
@@ -87,21 +114,56 @@ public:
   JumpingStatus &
   GetStatus(){return jumping_status_;}
 private:
+  void CheckAlignTimeout()
+  {
+    static int unit = 500;
+    static int count = 0;
+    static int timeout_count = 60;
+    while (rclcpp::ok()) {
+      if (!check_align_timeout_start_) {
+        std::unique_lock<std::mutex> lk(check_align_timeout_mutex_);
+        check_align_timeout_cv_.wait(lk);
+        check_align_timeout_start_ = true;
+      }
+      INFO("Jumping status: %d", (int)jumping_status_);
+      if (jumping_status_ == JumpingStatus::kAligning) {
+        ++count;
+      } else {
+        count = 0;
+        check_align_timeout_start_ = false;
+      }
+      if (count > timeout_count) {
+        ERROR("Stair align timeout for %d s", unit * timeout_count / 1000);
+        count = 0;
+        check_align_timeout_start_ = false;
+        handle_abnorm_func_();
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(unit));
+    }
+  }
   void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg)
   {
-    if (msg->data == true) {
+    if (msg->data == false) {
       return;
     }
+    if (jumping_status_ != JumpingStatus::kAligning) {
+      return;
+    }
+    jumping_status_ = JumpingStatus::kJumping;
     static auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     if (jump_mode_ == StairDetection::kUpStair ) {
       request->data = true;
     } else if (jump_mode_ == StairDetection::kDownStair) {
       request->data = false;
     }
-    stair_jump_condition_client_->async_send_request(
+    auto future = stair_jump_condition_client_->async_send_request(
       request,
       std::bind(&ExecutorStairJumping::CheckStairJumpCondition, 
         this, std::placeholders::_1));
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot check stair jump condition");
+      handle_abnorm_func_();
+    }
   }
   bool CheckStairJumpCondition(rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future)
   {
@@ -114,10 +176,14 @@ private:
         // TODO(Harvey): 下台阶的动作
         // request->motion_id = protocol::msg::MotionID::JUMP_STAIR;
       }
-      motion_jump_client_->async_send_request(
+      auto future = motion_jump_client_->async_send_request(
         request,
         std::bind(&ExecutorStairJumping::CheckStairJumpResult,
           this, std::placeholders::_1));
+      if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot Get stair jump result");
+        handle_abnorm_func_();
+      }
     } else {
       jumping_status_ = JumpingStatus::kAbnorm;
       handle_abnorm_func_();
@@ -126,7 +192,7 @@ private:
   }
   bool CheckStairJumpResult(rclcpp::Client<protocol::srv::MotionResultCmd>::SharedFuture future)
   {
-    if(future.get()->code){
+    if(future.get()->code == 0){
       jumping_status_ = JumpingStatus::kJumped;
       handle_jumped_func_();
     } else {
@@ -136,6 +202,8 @@ private:
     return true;
   }
   rclcpp::Node::SharedPtr node_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_status_sub_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_condition_client_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_align_trigger_client_;
@@ -144,9 +212,12 @@ private:
   std::function<void()> handle_jumped_func_;
   // Stage stage_;
   JumpingStatus jumping_status_;
+  std::mutex check_align_timeout_mutex_;
+  std::condition_variable check_align_timeout_cv_;
+  StairDetection jump_mode_{StairDetection::kNothing};
   int8_t stair_detection_{0};
   bool stair_aligned_{false};
-  StairDetection jump_mode_{StairDetection::kNothing};
+  bool check_align_timeout_start_{false};
 };  // class ExecutorStairJumping
 }  // namespace algorithm
 }  // namespace cyberdog
