@@ -24,8 +24,10 @@ find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(cyberdog_debug REQUIRED)
+find_package(cyberdog_system REQUIRED)
+find_package(motion_action REQUIRED)
 find_package(mcr_msgs REQUIRED)
-# find_package(visualization REQUIRED)
+find_package(visualization REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -48,19 +50,23 @@ set(dependencies
   rclcpp_action
   rclcpp_components
   mcr_msgs
-  # visualization
+  motion_action
+  cyberdog_debug
+  cyberdog_system
+  visualization
 )
 
 set(sources
   src/main.cpp
   src/algorithm_task_manager.cpp
   src/executor_base.cpp
-  # src/executor_ab_navigation.cpp
+  src/executor_ab_navigation.cpp
   # src/executor_auto_dock.cpp
   src/executor_laser_mapping.cpp
-  # src/executor_laser_localization.cpp
+  src/executor_laser_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
+  src/lifecycle_node_manager.cpp
 )
 
 add_executable(${PROJECT_NAME} ${sources})

@@ -95,6 +95,7 @@ private:
   {
     return executor_data_queue_.DeQueue(executor_data);
   }
+
   bool BuildExecutorMap();
 
   void SetTaskHandle(std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr)

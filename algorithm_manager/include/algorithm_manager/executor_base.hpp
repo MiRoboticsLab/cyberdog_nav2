@@ -237,6 +237,7 @@ protected:
     }
     return true;
   }
+
   bool OperateDepsLifecycleNodes(const std::string & task_name)
   {
     // TODO(Harvey): 非Nav2Lifecycle的node管理方式
@@ -254,6 +255,7 @@ protected:
     // TODO(Harvey): configure、activate节点，deactive、unconfigure节点
     return true;
   }
+
   static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
   {
     if (lifecycle_client_realsense_ == nullptr) {
@@ -320,6 +322,7 @@ protected:
     preparation_count_cv_.wait(lk);
     StopReportPreparationThread();
   }
+
   void StopReportPreparationThread()
   {
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);

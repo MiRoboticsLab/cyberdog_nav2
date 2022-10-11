@@ -16,7 +16,11 @@
 #define ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
 
 #include <string>
+#include <memory>
+
 #include "algorithm_manager/executor_base.hpp"
+#include "algorithm_manager/lifecycle_node_manager.hpp"
+#include "visualization/srv/stop.hpp"
 
 namespace cyberdog
 {
@@ -36,8 +40,57 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
+  /**
+   * @brief Check `camera/camera` real sense sensor status
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool IsDependsReady();
+
+  /**
+   * @brief Lidar start build mapping
+   * 
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool StartBuildMapping();
+
+  /**
+   * @brief Lidar stop build mapping
+   * 
+   * @param map_filename Set lidar save map filename
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool StopBuildMapping(const std::string & map_filename);
+
+  /**
+   * @brief Turn on ot turn off report realtime robot pose
+   * 
+   * @param enable True enable report, false disenable report
+   * @return true Return success 
+   * @return false Return failure
+   */
+  bool EnableReportRealtimePose(bool enable);
+
+  // feedback data
   ExecutorData executor_laser_mapping_data_;
-  nav2_lifecycle_manager::LifecycleManagerClient client_mapping_;
+
+  // // Control lidar mapping lifecycle(Nav2 lifecycle)
+  // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
+
+  // service client
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
+  rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+
+  // Control realsense camera lifecycle
+  std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
+
+  // realtime robot pose
+  bool start_report_realtime_pose_ {false};
+   
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog
