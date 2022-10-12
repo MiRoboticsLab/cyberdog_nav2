@@ -55,6 +55,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!ready) {
     ERROR("Laser Mapping lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -66,6 +67,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!success) {
     ERROR("Start laser mapping failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -74,6 +76,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -92,6 +95,7 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -99,7 +103,9 @@ void ExecutorLaserMapping::Stop(
   success = StopBuildMapping(request->map_name);
   if (!success) {
      response->result = StopTaskSrv::Response::FAILED;
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     ERROR("Laser Mapping stop failed.");
+    task_abort_callback_();
     return;
   }
 
@@ -114,6 +120,7 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("Laser Mapping stop failed.");
+    task_abort_callback_();
     return;
   }
 
@@ -172,23 +179,17 @@ bool ExecutorLaserMapping::IsDependsReady()
   // RealSense camera lifecycle(configure state)
   bool success = LifecycleNodeManager::GetSingleton()->Configure(LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
   // RealSense camera lifecycle(activate state)
   success = LifecycleNodeManager::GetSingleton()->Startup(LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
   // Nav lifecycle
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
   return true;

@@ -45,6 +45,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!ready) {
     ERROR("AB navigation lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -53,6 +54,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -64,6 +66,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -74,6 +77,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!SendGoal(goal->poses[0])) {
     ERROR("Send navigation AB point request failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -149,8 +153,6 @@ bool ExecutorAbNavigation::IsDependsReady()
 {
   // Nav lifecycle
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
@@ -167,8 +169,6 @@ bool ExecutorAbNavigation::IsConnectServer()
   if (!is_action_server_ready) {
     ERROR("navigation action server is not available.");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
   return true;
@@ -206,7 +206,6 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send Navigation AB goal failed");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    task_abort_callback_();
     return false;
   }
 
@@ -214,7 +213,6 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
   if (!nav_goal_handle_) {
     ERROR("Navigation AB Goal was rejected by server");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    task_abort_callback_();
     return false;
   }
   return true;

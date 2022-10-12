@@ -192,23 +192,17 @@ bool ExecutorLaserLocalization::IsDependsReady()
   // RealSense camera lifecycle(configure state)
   bool success = LifecycleNodeManager::GetSingleton()->Configure(LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
   // RealSense camera lifecycle(activate state)
   success = LifecycleNodeManager::GetSingleton()->Startup(LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
   // Nav lifecycle
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     return false;
   }
 
