@@ -30,7 +30,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target_fake");
+    action_client_node_, "tracking_target");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
