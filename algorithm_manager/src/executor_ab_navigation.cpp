@@ -28,6 +28,11 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
   action_client_ =
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
+
+  // spin
+  std::thread{[this]() {
+    rclcpp::spin(this->get_node_base_interface());}
+  }.detach();
 }
 
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -39,6 +44,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("AB navigation lifecycle depend start up failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     return;
   }
 
@@ -46,6 +52,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool connect = IsConnectServer();
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     return;
   }
 

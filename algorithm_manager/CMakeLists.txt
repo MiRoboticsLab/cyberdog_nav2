@@ -67,6 +67,7 @@ set(sources
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
   src/lifecycle_node_manager.cpp
+  src/lifecycle_controller.cpp
 )
 
 add_executable(${PROJECT_NAME} ${sources})
@@ -103,6 +104,16 @@ target_include_directories(fake_action PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(fake_action PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+# fake_nav_send_goal_action_test
+add_executable(fake_nav_send_goal_action_test test/fake_nav_send_goal_action_test.cpp)
+ament_target_dependencies(fake_nav_send_goal_action_test
+  ${dependencies}
+)
+target_include_directories(fake_nav_send_goal_action_test PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(fake_nav_send_goal_action_test PUBLIC c_std_99 cxx_std_17)
+
 install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -112,6 +123,11 @@ install(TARGETS ${library_name}
 install(TARGETS ${PROJECT_NAME} fake_action
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+
+install(TARGETS ${PROJECT_NAME} fake_nav_send_goal_action_test
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}

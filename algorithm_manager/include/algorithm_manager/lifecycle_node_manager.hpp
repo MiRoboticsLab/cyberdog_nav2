@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 
 #include "nav2_util/lifecycle_service_client.hpp"
 #include "nav2_msgs/srv/manage_lifecycle_nodes.hpp"
@@ -24,59 +25,128 @@
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
+#include "algorithm_manager/lifecycle_controller.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
+// class LifecycleNodeManager
+// {
+// public:
+//   explicit LifecycleNodeManager(const std::string & node_name);
+//   ~LifecycleNodeManager();
+
+//   /**
+//    * @brief Lifecycle set configure state
+//    * 
+//    * @return true 
+//    * @return false 
+//    */
+//   bool Configure();
+
+//   /**
+//    * @brief Lifecycle set configure state
+//    *
+//    * @return true
+//    * @return false
+//    */
+//   bool Startup();
+
+//   /**
+//    * @brief Lifecycle set deactivate state 
+//    *
+//    * @return true
+//    * @return false
+//    */
+//   bool Pause();
+
+//   /**
+//    * @brief Lifecycle set cleanup state
+//    *
+//    * @return true
+//    * @return false
+//    */
+//   bool Cleanup();
+
+// private:
+//   // Get current lifecycle node name
+//   std::string node_name();
+
+//   // change state
+//   std::shared_ptr<nav2_util::LifecycleServiceClient> node_controller_ {nullptr};
+
+//   // Record node's name
+//   std::string node_name_;
+// };
+
+
 class LifecycleNodeManager
 {
 public:
-  explicit LifecycleNodeManager(const std::string & node_name);
-  ~LifecycleNodeManager();
+  /**
+   * @brief Which lifecycle node set state
+   */
+  enum class LifeCycleNode
+  {
+    RealSenseCameraSensor,
+    RGBCameraSensor,
+  };
 
   /**
-   * @brief Lifecycle set configure state
+   * @brief Get the Singleton object
+   *
+   * @return std::shared_ptr<LifecycleNodeManager> 
+   */
+  static std::shared_ptr<LifecycleNodeManager> GetSingleton();
+
+  /**
+   * @brief LifeCycle configure state
    * 
-   * @return true 
-   * @return false 
+   * @param which which lifecycle node set configure state
+   * @return true Success
+   * @return false Failure
    */
-  bool Configure();
+  static bool Configure(const LifeCycleNode & which);
 
   /**
-   * @brief Lifecycle set configure state
+   * @brief LifeCycle activate state
    *
-   * @return true
-   * @return false
+   * @param which which lifecycle node set activate state
+   * @return true Success
+   * @return false Failure
    */
-  bool Startup();
+  static bool Startup(const LifeCycleNode & which);
 
   /**
-   * @brief Lifecycle set deactivate state 
-   *
-   * @return true
-   * @return false
+   * @brief LifeCycle deactivate state
+   * 
+   * @param which which lifecycle node set deactivate state
+   * @return true Success
+   * @return false Failure
    */
-  bool Pause();
+  static bool Pause(const LifeCycleNode & which);
 
   /**
-   * @brief Lifecycle set cleanup state
-   *
-   * @return true
-   * @return false
+   * @brief LifeCycle cleanup state
+   * 
+   * @param which which lifecycle node set cleanup state
+   * @return true Success
+   * @return false Failure
    */
-  bool Cleanup();
+  static bool Cleanup(const LifeCycleNode & which);
 
 private:
-  // Get current lifecycle node name
-  std::string node_name();
+  LifecycleNodeManager();
 
-  // change state
-  std::shared_ptr<nav2_util::LifecycleServiceClient> node_controller_ {nullptr};
+  // RealSense Lifecycle
+  static std::shared_ptr<LifecycleController> realsense_lifecycle_;
 
-  // Record node's name
-  std::string node_name_;
+  // RGB-G camera Lifecycle
+  static std::shared_ptr<LifecycleController> camera_lifecycle_;
 };
+
+
 
 }  // namespace algorithm
 }  // namespace cyberdog

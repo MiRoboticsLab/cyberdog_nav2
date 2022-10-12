@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
+#ifndef ALGORITHM_MANAGER__EXECUTOR_VISION_MAPPING_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_VISION_MAPPING_HPP_
 
 #include <string>
 #include <memory>
@@ -27,23 +27,20 @@ namespace cyberdog
 namespace algorithm
 {
 
-class ExecutorLaserMapping : public ExecutorBase
+class ExecutorVisionMapping : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
-
   explicit ExecutorLaserMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(
     const StopTaskSrv::Request::SharedPtr request,
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
-  // void UpdateStatus(const ExecutorStatus & executor_status) override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
   /**
-   * @brief Check `camera/camera` real sense sensor status
+   * @brief Check `camera/camera` real sense sensor status 
+   * and RGB-D sensor
    *
    * @return true Return success
    * @return false Return failure
@@ -51,7 +48,7 @@ private:
   bool IsDependsReady();
 
   /**
-   * @brief Lidar start build mapping
+   * @brief Vision start build mapping
    * 
    * @return true Return success
    * @return false Return failure
@@ -59,9 +56,9 @@ private:
   bool StartBuildMapping();
 
   /**
-   * @brief Lidar stop build mapping
+   * @brief Vision stop build mapping
    * 
-   * @param map_filename Set lidar save map filename
+   * @param map_filename Set Vision save map filename
    * @return true Return success
    * @return false Return failure
    */
@@ -88,12 +85,11 @@ private:
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
 
   // Control realsense camera lifecycle
-  // std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
+  std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
 
   // realtime robot pose
   bool start_report_realtime_pose_ {false};
-   
-};  // class ExecutorLaserMapping
+};  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_MAPPING_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_VISION_MAPPING_HPP_

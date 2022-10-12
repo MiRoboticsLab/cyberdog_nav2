@@ -29,6 +29,13 @@ namespace algorithm
 class ExecutorLaserLocalization : public ExecutorBase
 {
 public:
+  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+
+  /**
+   * @brief Construct a new Executor Laser Localization object
+   * 
+   * @param node_name Executor node name
+   */
   explicit ExecutorLaserLocalization(std::string node_name);
 
    /**
@@ -107,7 +114,7 @@ private:
   ExecutorData executor_laser_mapping_data_;
 
   // Control realsense camera lifecycle
-  std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
+  // std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};

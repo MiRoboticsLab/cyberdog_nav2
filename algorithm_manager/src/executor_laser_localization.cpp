@@ -27,8 +27,8 @@ namespace algorithm
 ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {
-  // Control realsense sensor turn on and turn off
-  realsense_lifecycle_ = std::make_shared<LifecycleNodeManager>("camera/camera");
+  // // Control realsense sensor turn on and turn off
+  // realsense_lifecycle_ = std::make_shared<LifecycleNodeManager>("camera/camera");
 
   // Subscription Lidar relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
@@ -64,6 +64,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -75,6 +76,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Turn on relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -83,6 +85,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Laser localization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -90,6 +93,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -98,10 +102,12 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
   INFO("Laser localization success.");
+  task_success_callback_();
 }
 
 void ExecutorLaserLocalization::Stop(
@@ -116,6 +122,7 @@ void ExecutorLaserLocalization::Stop(
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
@@ -124,12 +131,21 @@ void ExecutorLaserLocalization::Stop(
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     return;
   }
 
   // RealSense camera lifecycle
-  if (!realsense_lifecycle_->Pause()) {
+  // if (!realsense_lifecycle_->Pause()) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  //   return;
+  // }
+
+  // RealSense camera lifecycle
+  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
+    task_abort_callback_();
     return;
   }
 
@@ -160,14 +176,30 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 bool ExecutorLaserLocalization::IsDependsReady()
 { 
   // RealSense camera lifecycle(configure state)
-  if (!realsense_lifecycle_->Configure()) {
+  // if (!realsense_lifecycle_->Configure()) {
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   task_abort_callback_();
+  //   return false;
+  // }
+
+  // RealSense camera lifecycle(activate state)
+  // if (!realsense_lifecycle_->Startup()) {
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   task_abort_callback_();
+  //   return false;
+  // }
+
+  // RealSense camera lifecycle(configure state)
+  bool success = LifecycleNodeManager::GetSingleton()->Configure(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return false;
   }
 
   // RealSense camera lifecycle(activate state)
-  if (!realsense_lifecycle_->Startup()) {
+  success = LifecycleNodeManager::GetSingleton()->Startup(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return false;

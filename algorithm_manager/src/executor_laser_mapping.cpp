@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+
 #include "algorithm_manager/executor_laser_mapping.hpp"
 
 namespace cyberdog
@@ -25,8 +26,8 @@ namespace algorithm
 ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
-  // Control realsense sensor startup and down
-  realsense_lifecycle_ = std::make_shared<LifecycleNodeManager>("camera/camera");
+  // // Control realsense sensor startup and down
+  // realsense_lifecycle_ = std::make_shared<LifecycleNodeManager>("camera/camera");
 
   // ontrol lidar mapping turn on
   start_client_ = create_client<std_srvs::srv::SetBool>(
@@ -103,8 +104,16 @@ void ExecutorLaserMapping::Stop(
   }
 
   // RealSense camera lifecycle
-  if (!realsense_lifecycle_->Pause()) {
+  // if (!realsense_lifecycle_->Pause()) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  //   return;
+  // }
+
+  // RealSense camera lifecycle
+  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
+    ERROR("Laser Mapping stop failed.");
     return;
   }
 
@@ -129,7 +138,14 @@ void ExecutorLaserMapping::Cancel()
   }
 
   // RealSense camera lifecycle
-  if (!realsense_lifecycle_->Pause()) {
+  // if (!realsense_lifecycle_->Pause()) {
+  //   task_abort_callback_();
+  //   return;
+  // }
+
+  // RealSense camera lifecycle
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     task_abort_callback_();
     return;
   }
@@ -140,14 +156,30 @@ void ExecutorLaserMapping::Cancel()
 bool ExecutorLaserMapping::IsDependsReady()
 {
   // RealSense camera lifecycle(configure state)
-  if (!realsense_lifecycle_->Configure()) {
+  // if (!realsense_lifecycle_->Configure()) {
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   task_abort_callback_();
+  //   return false;
+  // }
+
+  // RealSense camera lifecycle(activate state)
+  // if (!realsense_lifecycle_->Startup()) {
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   task_abort_callback_();
+  //   return false;
+  // }
+
+  // RealSense camera lifecycle(configure state)
+  bool success = LifecycleNodeManager::GetSingleton()->Configure(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return false;
   }
 
   // RealSense camera lifecycle(activate state)
-  if (!realsense_lifecycle_->Startup()) {
+  success = LifecycleNodeManager::GetSingleton()->Startup(LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return false;
