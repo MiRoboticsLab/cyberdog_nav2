@@ -59,9 +59,6 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
@@ -80,6 +77,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
+  // 结束激活进度的上报
+  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   INFO("Laser Mapping success.");
 }
 
@@ -102,7 +101,7 @@ void ExecutorLaserMapping::Stop(
   // MapServer
   success = StopBuildMapping(request->map_name);
   if (!success) {
-     response->result = StopTaskSrv::Response::FAILED;
+    response->result = StopTaskSrv::Response::FAILED;
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     ERROR("Laser Mapping stop failed.");
     task_abort_callback_();
@@ -151,7 +150,8 @@ void ExecutorLaserMapping::Cancel()
   // }
 
   // RealSense camera lifecycle
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
     task_abort_callback_();
     return;
@@ -177,7 +177,8 @@ bool ExecutorLaserMapping::IsDependsReady()
   // }
 
   // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(LifeCycleNodeType::RealSenseCameraSensor);
+  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+    LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
     return false;
   }
@@ -231,7 +232,8 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   // Set request data
   auto request = std::make_shared<visualization::srv::Stop::Request>();
   request->finish = true;
-  request->map_name = map_filename;
+  // request->map_name = map_filename;
+  request->map_name = "map";
   INFO("Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request
@@ -245,7 +247,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 }
 
 bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
-{ 
+{
   // Wait service
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {

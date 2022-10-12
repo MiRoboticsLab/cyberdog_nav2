@@ -39,9 +39,9 @@ namespace algorithm
 
 //   /**
 //    * @brief Lifecycle set configure state
-//    * 
-//    * @return true 
-//    * @return false 
+//    *
+//    * @return true
+//    * @return false
 //    */
 //   bool Configure();
 
@@ -54,7 +54,7 @@ namespace algorithm
 //   bool Startup();
 
 //   /**
-//    * @brief Lifecycle set deactivate state 
+//    * @brief Lifecycle set deactivate state
 //    *
 //    * @return true
 //    * @return false
@@ -96,13 +96,13 @@ public:
   /**
    * @brief Get the Singleton object
    *
-   * @return std::shared_ptr<LifecycleNodeManager> 
+   * @return std::shared_ptr<LifecycleNodeManager>
    */
   static std::shared_ptr<LifecycleNodeManager> GetSingleton();
 
   /**
    * @brief LifeCycle configure state
-   * 
+   *
    * @param which which lifecycle node set configure state
    * @return true Success
    * @return false Failure
@@ -120,7 +120,7 @@ public:
 
   /**
    * @brief LifeCycle deactivate state
-   * 
+   *
    * @param which which lifecycle node set deactivate state
    * @return true Success
    * @return false Failure
@@ -129,7 +129,7 @@ public:
 
   /**
    * @brief LifeCycle cleanup state
-   * 
+   *
    * @param which which lifecycle node set cleanup state
    * @return true Success
    * @return false Failure
@@ -145,7 +145,6 @@ private:
   // RGB-G camera Lifecycle
   static std::shared_ptr<LifecycleController> camera_lifecycle_;
 };
-
 
 
 }  // namespace algorithm

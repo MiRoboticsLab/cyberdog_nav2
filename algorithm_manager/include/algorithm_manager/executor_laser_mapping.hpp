@@ -52,7 +52,7 @@ private:
 
   /**
    * @brief Lidar start build mapping
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */
@@ -60,7 +60,7 @@ private:
 
   /**
    * @brief Lidar stop build mapping
-   * 
+   *
    * @param map_filename Set lidar save map filename
    * @return true Return success
    * @return false Return failure
@@ -69,9 +69,9 @@ private:
 
   /**
    * @brief Turn on ot turn off report realtime robot pose
-   * 
+   *
    * @param enable True enable report, false disenable report
-   * @return true Return success 
+   * @return true Return success
    * @return false Return failure
    */
   bool EnableReportRealtimePose(bool enable);
@@ -92,7 +92,6 @@ private:
 
   // realtime robot pose
   bool start_report_realtime_pose_ {false};
-   
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

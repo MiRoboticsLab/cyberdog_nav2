@@ -37,9 +37,9 @@ public:
 
   /**
    * @brief Lifecycle set configure state
-   * 
-   * @return true 
-   * @return false 
+   *
+   * @return true
+   * @return false
    */
   bool Configure();
 
@@ -52,7 +52,7 @@ public:
   bool Startup();
 
   /**
-   * @brief Lifecycle set deactivate state 
+   * @brief Lifecycle set deactivate state
    *
    * @return true
    * @return false

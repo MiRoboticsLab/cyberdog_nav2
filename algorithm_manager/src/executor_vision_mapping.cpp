@@ -24,4 +24,3 @@ namespace algorithm
 
 }  // namespace algorithm
 }  // namespace cyberdog
-

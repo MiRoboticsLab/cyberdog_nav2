@@ -16,6 +16,8 @@
 #define ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
 
 #include <string>
+#include <memory>
+
 #include "rclcpp/rclcpp.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
@@ -33,7 +35,7 @@ public:
 
   /**
    * @brief Start Navigation AB
-   * 
+   *
    * @param goal APP or rviz set target pose goal
    */
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -41,7 +43,7 @@ public:
   /**
    * @brief Handle APP set stop Navigation AB
    *
-   * @param request The 
+   * @param request The
    * @param response The
    */
   void Stop(
@@ -54,18 +56,17 @@ public:
   void Cancel() override;
 
 private:
-
   /**
    * @brief Handle `nav_action_client_` action client response callback function
    *
-   * @param goal_handle 
+   * @param goal_handle
    */
   void HandleGoalResponseCallback(NavigationGoalHandle::SharedPtr goal_handle);
 
   /**
    * @brief Handle `nav_action_client_` action client feedback callback function
-   * 
-   * @param feedback 
+   *
+   * @param feedback
    */
   void HandleFeedbackCallback(
     NavigationGoalHandle::SharedPtr,
@@ -73,7 +74,7 @@ private:
 
   /**
    * @brief Handle `nav_action_client_` action client result callback function
-   * 
+   *
    * @param goal_handle
    */
   void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
@@ -89,7 +90,7 @@ private:
 
   /**
    * @brief Check action connect server
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */
@@ -97,7 +98,7 @@ private:
 
   /**
    * @brief Check current given pose is available
-   * 
+   *
    * @param pose Target pose goal
    * @return true  Return success
    * @return false  Return failure
@@ -106,23 +107,23 @@ private:
 
   /**
    * @brief Send APP or rviz set target pose goal
-   * 
+   *
    * @param pose Target pose goal
    * @return true Return success
    * @return false Return failure
    */
   bool SendGoal(const geometry_msgs::msg::PoseStamped & pose);
-  
+
   /**
    * @brief Normalized app given pose
    *
-   * @param pose 
+   * @param pose
    */
   void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
    * @brief Print target goal pose
-   * 
+   *
    * @param pose APP or rviz set target pose goal
    */
   void Debug2String(const geometry_msgs::msg::PoseStamped & pose);
@@ -135,13 +136,12 @@ private:
 
   // nav client as request
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_ {nullptr};
- 
+
   // navigation goal handle
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};
-
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

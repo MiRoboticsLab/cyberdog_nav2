@@ -31,7 +31,8 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 
   // spin
   std::thread{[this]() {
-    rclcpp::spin(this->get_node_base_interface());}
+      rclcpp::spin(this->get_node_base_interface());
+    }
   }.detach();
 }
 
@@ -58,9 +59,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
   // Check input target goal is legal
   bool legal = IsLegal(goal);
   if (!legal) {
@@ -81,8 +79,9 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
+  // 结束激活进度的上报
+  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   INFO("Navigation AB point success.");
-  task_success_callback_();
 }
 
 void ExecutorAbNavigation::Stop(
@@ -103,7 +102,6 @@ void ExecutorAbNavigation::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped");
-  task_success_callback_();
 }
 
 void ExecutorAbNavigation::Cancel()
@@ -119,10 +117,10 @@ void ExecutorAbNavigation::HandleGoalResponseCallback(
 }
 
 void ExecutorAbNavigation::HandleFeedbackCallback(
-    NavigationGoalHandle::SharedPtr,
-    const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
+  NavigationGoalHandle::SharedPtr,
+  const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
-  // feedback_->feedback_code = feedback->exception_code;
+  feedback_->feedback_code = 100;
   task_feedback_callback_(feedback_);
 }
 
@@ -165,7 +163,7 @@ bool ExecutorAbNavigation::IsConnectServer()
 {
   std::chrono::seconds timeout(5);
   auto is_action_server_ready = action_client_->wait_for_action_server(timeout);
-  
+
   if (!is_action_server_ready) {
     ERROR("navigation action server is not available.");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);

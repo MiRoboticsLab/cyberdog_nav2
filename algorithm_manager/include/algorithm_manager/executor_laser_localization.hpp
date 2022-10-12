@@ -33,16 +33,16 @@ public:
 
   /**
    * @brief Construct a new Executor Laser Localization object
-   * 
+   *
    * @param node_name Executor node name
    */
   explicit ExecutorLaserLocalization(std::string node_name);
 
-   /**
-   * @brief Start lidar localization
-   *
-   * @param goal APP or rviz set target goal
-   */
+  /**
+  * @brief Start lidar localization
+  *
+  * @param goal APP or rviz set target goal
+  */
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
 
   /**
@@ -68,17 +68,17 @@ private:
    */
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
 
-   /**
-   * @brief Check `camera/camera` real sense sensor status
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
+  /**
+  * @brief Check `camera/camera` real sense sensor status
+  *
+  * @return true Return success
+  * @return false Return failure
+  */
   bool IsDependsReady();
 
   /**
    * @brief Wait relocalization result is success
-   * 
+   *
    * @param timeout Wait time
    * @return true Return success
    * @return false Return failure
@@ -87,7 +87,7 @@ private:
 
   /**
    * @brief Enable Lidar Relocalization turn on
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */
@@ -95,7 +95,7 @@ private:
 
   /**
    * @brief Enable Lidar Relocalization turn off
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */
@@ -103,9 +103,9 @@ private:
 
   /**
    * @brief Turn on ot turn off report realtime robot pose
-   * 
+   *
    * @param enable True enable report, false disenable report
-   * @return true Return success 
+   * @return true Return success
    * @return false Return failure
    */
   bool EnableReportRealtimePose(bool enable);

@@ -39,7 +39,7 @@ public:
 
 private:
   /**
-   * @brief Check `camera/camera` real sense sensor status 
+   * @brief Check `camera/camera` real sense sensor status
    * and RGB-D sensor
    *
    * @return true Return success
@@ -49,7 +49,7 @@ private:
 
   /**
    * @brief Vision start build mapping
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */
@@ -57,7 +57,7 @@ private:
 
   /**
    * @brief Vision stop build mapping
-   * 
+   *
    * @param map_filename Set Vision save map filename
    * @return true Return success
    * @return false Return failure
@@ -66,9 +66,9 @@ private:
 
   /**
    * @brief Turn on ot turn off report realtime robot pose
-   * 
+   *
    * @param enable True enable report, false disenable report
-   * @return true Return success 
+   * @return true Return success
    * @return false Return failure
    */
   bool EnableReportRealtimePose(bool enable);

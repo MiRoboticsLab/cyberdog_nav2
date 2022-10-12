@@ -121,7 +121,7 @@ std::shared_ptr<LifecycleNodeManager> LifecycleNodeManager::GetSingleton()
   if (g_lifecycle_manager == nullptr) {
     std::unique_lock<std::mutex> lock(singleton_mutex);
     if (g_lifecycle_manager == nullptr) {
-      auto lifecycle_manager = 
+      auto lifecycle_manager =
         std::shared_ptr<LifecycleNodeManager>(new LifecycleNodeManager());
       g_lifecycle_manager = lifecycle_manager;
     }
@@ -135,7 +135,7 @@ bool LifecycleNodeManager::Configure(const LifeCycleNode & which)
     case LifeCycleNode::RealSenseCameraSensor:
       return realsense_lifecycle_->Configure();
       break;
-    
+
     case LifeCycleNode::RGBCameraSensor:
       return camera_lifecycle_->Configure();
       break;
@@ -152,7 +152,7 @@ bool LifecycleNodeManager::Startup(const LifeCycleNode & which)
     case LifeCycleNode::RealSenseCameraSensor:
       return realsense_lifecycle_->Startup();
       break;
-    
+
     case LifeCycleNode::RGBCameraSensor:
       return camera_lifecycle_->Startup();
       break;
@@ -169,7 +169,7 @@ bool LifecycleNodeManager::Pause(const LifeCycleNode & which)
     case LifeCycleNode::RealSenseCameraSensor:
       return realsense_lifecycle_->Pause();
       break;
-    
+
     case LifeCycleNode::RGBCameraSensor:
       return camera_lifecycle_->Pause();
       break;
@@ -186,7 +186,7 @@ bool LifecycleNodeManager::Cleanup(const LifeCycleNode & which)
     case LifeCycleNode::RealSenseCameraSensor:
       return realsense_lifecycle_->Cleanup();
       break;
-    
+
     case LifeCycleNode::RGBCameraSensor:
       return camera_lifecycle_->Cleanup();
       break;
