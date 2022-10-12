@@ -57,7 +57,10 @@ public:
       std::bind(&BehaviorManager::HandleJumped, this),
       std::bind(&BehaviorManager::HandleJumpFailed, this));
     tracking_switch_client_ = node_->create_client<std_srvs::srv::SetBool>("tracking_command");
-
+    status_map_.emplace(Status::kAutoTracking, "AutoTracking");
+    status_map_.emplace(Status::kNormTracking, "NormTracking");
+    status_map_.emplace(Status::kStairJumping, "StairJumping");
+    status_map_.emplace(Status::kAbnorm, "Abnorm");
     std::thread{[this](){rclcpp::spin(node_);}}.detach();
     // ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     // ros_executor_->add_node(mode_detector_);
@@ -82,7 +85,7 @@ private:
   void DoStairJump(bool trigger)
   {
     if(!CheckStatusValid()) {
-      ERROR("Cannot do %s jump when %d", trigger ? "upstair" : "downstair", (int)status_);
+      ERROR("Cannot do %s jump when %s", trigger ? "upstair" : "downstair", status_map_.at(status_).c_str());
       return;
     }
     if (!DoNormallyTracking(false)) {
@@ -126,6 +129,7 @@ private:
   std::shared_ptr<ExecutorStairJumping> executor_stair_jumping_;
   rclcpp::Executor::SharedPtr ros_executor_;
   Status status_{Status::kNormTracking};
+  std::unordered_map<Status, std::string> status_map_;
   bool stair_detected_{false}, stair_aligned_{false}, stair_align_timeout_{false};
   bool stair_possible_jump_{false};
 

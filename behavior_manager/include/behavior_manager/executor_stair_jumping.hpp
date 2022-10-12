@@ -61,8 +61,12 @@ public:
       std::bind(&ExecutorStairJumping::HandleStairAlginStatusCallback,
         this, std::placeholders::_1),
       option);
-    stair_align_trigger_client_ = node_->create_client<std_srvs::srv::SetBool>(
-      "stair_align",
+    start_stair_align_client_ = node_->create_client<std_srvs::srv::SetBool>(
+      "start_stair_align",
+      rmw_qos_profile_services_default,
+      callback_group_);
+    stop_stair_align_client_ = node_->create_client<std_srvs::srv::Trigger>(
+      "stop_stair_align",
       rmw_qos_profile_services_default,
       callback_group_);
     stair_jump_condition_client_ = node_->create_client<std_srvs::srv::SetBool>(
@@ -73,6 +77,11 @@ public:
       "motion_result_cmd",
       rmw_qos_profile_services_default,
       callback_group_);
+    jump_status_map_.emplace(JumpingStatus::kIdle, "Idle");
+    jump_status_map_.emplace(JumpingStatus::kAligning, "Aligning");
+    jump_status_map_.emplace(JumpingStatus::kJumping, "Jumping");
+    jump_status_map_.emplace(JumpingStatus::kJumped, "Jumped");
+    jump_status_map_.emplace(JumpingStatus::kAbnorm, "Abnorm");
     std::thread{[this]{this->executor_->spin();}}.detach();
     std::thread{std::bind(&ExecutorStairJumping::CheckAlignTimeout, this)}.detach();
   }
@@ -97,7 +106,7 @@ public:
       }
     };
     INFO("Will launch %s align", trigger ? "upstair" : "downstair" );
-    auto future = stair_align_trigger_client_->async_send_request(request, callback);
+    auto future = start_stair_align_client_->async_send_request(request, callback);
     if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
       ERROR("Cannot Get result when launching %s align", trigger ? "upstair" : "downstair");
       handle_abnorm_func_();
@@ -125,7 +134,7 @@ private:
         check_align_timeout_cv_.wait(lk);
         check_align_timeout_start_ = true;
       }
-      INFO("Jumping status: %d", (int)jumping_status_);
+      INFO("Jumping status: %s", jump_status_map_.at(jumping_status_).c_str());
       if (jumping_status_ == JumpingStatus::kAligning) {
         ++count;
       } else {
@@ -133,9 +142,19 @@ private:
         check_align_timeout_start_ = false;
       }
       if (count > timeout_count) {
-        ERROR("Stair align timeout for %d s", unit * timeout_count / 1000);
+        ERROR("Stair align timeout for %ds", unit * timeout_count / 1000);
         count = 0;
         check_align_timeout_start_ = false;
+        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+        auto callback = [](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future){
+          if (!future.get()->success) {
+            ERROR("Cannot stop stair align");
+          }
+        };
+        auto future = stop_stair_align_client_->async_send_request(request, callback);
+        if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+          ERROR("Cannot get result of stopping stair align");
+        }
         handle_abnorm_func_();
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(unit));
@@ -206,11 +225,12 @@ private:
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_status_sub_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_condition_client_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_align_trigger_client_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_stair_align_client_;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stop_stair_align_client_;
   rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
   std::function<void()> handle_abnorm_func_;
   std::function<void()> handle_jumped_func_;
-  // Stage stage_;
+  std::unordered_map<JumpingStatus, std::string> jump_status_map_;
   JumpingStatus jumping_status_;
   std::mutex check_align_timeout_mutex_;
   std::condition_variable check_align_timeout_cv_;
