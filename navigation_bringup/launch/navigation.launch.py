@@ -55,6 +55,7 @@ def generate_launch_description():
         'lifecycle_mgr_nav',
         'lifecycle_mgr_laser_mapping',
         'lifecycle_mgr_mcr_uwb',
+        'lifecycle_mgr_vis_vo',
         # 'navigation_interfaces',
         'mivins_localization',
         'mivins_mapping',
