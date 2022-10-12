@@ -35,40 +35,50 @@ public:
   explicit ExecutorAutoTracking(const std::string & node_name)
   {
     node_ = std::make_shared<rclcpp::Node>(node_name);
+    std::thread{[this]{rclcpp::spin(node_);}}.detach();
   }
   ~ExecutorAutoTracking(){}
-  void Execute(bool trigger){(void)trigger;}
-private:
-  // void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
-  // {
-  //   stair_detection_ = msg->data;
-  // }
-  // void HandleStairAlginStatusCallback(const std_msgs::msg::Bool::SharedPtr msg)
-  // {
-  //   stair_aligned_ = msg->data;
-  // }
-  // void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-  // {
-  //   current_pose_ = msg;
-  // }
-  void DecideBehaviorMode();
-  bool CheckTargetStatic()
+  /**
+   * @brief 
+   * trigger=true时启动自主遛狗，trigger=false时停止自主遛狗
+   * 
+   * @param trigger 
+   */
+  void Execute(bool trigger)
   {
-    return true;
+    std::unique_lock<std::mutex> lk(auto_tracking_start_mutex_);
+    auto_tracking_start_ = trigger;
+    if(auto_tracking_start_) {
+      auto_tracking_start_cv_.notify_one();
+    }
   }
-  void DoAutoTracking();
-  void DoStairJumping();
-  // rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
-  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stair_align_finished_sub_;
-  // rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_jump_client_;
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr autonomously_tracking_client_;
-  // rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stair_align_trigger_client_;
-  // rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_jump_client_;
-  // geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;
-  rclcpp::Node::SharedPtr node_;
+private:
+  void DoAutoTracking()
+  {
+    while (rclcpp::ok())
+    {
+      if (!auto_tracking_start_) {
+        std::unique_lock<std::mutex> lk(auto_tracking_start_mutex_);
+        auto_tracking_start_cv_.wait(lk);
+        auto_tracking_start_ = true;
+      }
+      // 按顺序执行不同的动作列表，围绕目标转圈的动作能被打断
+      WalkAround();
+      // 其他的动作实现接口
+      // Foo0();
+      // Foo1();
+    }
+  }
+  bool WalkAround()
+  {}
+  // 其他的动作实现接口
+  // Foo0()
+  // Foo1();
 
+  rclcpp::Node::SharedPtr node_;
+  std::mutex auto_tracking_start_mutex_;
+  std::condition_variable auto_tracking_start_cv_;
+  bool auto_tracking_start_{false};
 };  // class ExecutorAutoTracking
 }  // namespace algorithm
 }  // namespace cyberdog

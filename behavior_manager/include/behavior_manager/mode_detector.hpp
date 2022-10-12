@@ -90,6 +90,14 @@ private:
       do_normal_tracking_func_(true);
     }
   }
+  /**
+   * @brief 
+   * 检测目标是否处于静止状态，判断依据：在设定时长内目标的位姿没有设定范围外的变化
+   * 
+   * @param msg 
+   * @return true 
+   * @return false 
+   */
   bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
     (void)msg;
