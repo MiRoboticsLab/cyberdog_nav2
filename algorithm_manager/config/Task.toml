@@ -2,7 +2,7 @@
 TaskName = "UwbTracking"
 Id = 11
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_navigation", "lifecycle_manager_mcr_uwb"]
+DepsNav2LifecycleNodes = ["lifecycle_manager_navigation", "lifecycle_manager_mcr_uwb", 'lifecycle_manager_vis_vo']
 DepsLifecycleNodes = [""]
 
 [[task]]

@@ -18,6 +18,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -37,6 +38,8 @@ namespace navigation
 
 class VelocityAdaptor : public ::rclcpp::Node
 {
+  using MotionResultSrv = protocol::srv::MotionResultCmd;
+
 public:
   VelocityAdaptor();
   ~VelocityAdaptor();
@@ -56,8 +59,23 @@ private:
    */
   void PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg);
 
+  /**
+   * @brief
+   *
+   * @param request
+   * @param response
+   */
+  void VelocityAdaptorGaitCallback(
+    const MotionResultSrv::Request::SharedPtr request,
+    MotionResultSrv::Response::SharedPtr response);
+
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_cmd_vel_sub_ {nullptr};
   rclcpp::Publisher<::protocol::msg::MotionServoCmd>::SharedPtr motion_vel_cmd_pub_ {nullptr};
+  rclcpp::Service<MotionResultSrv>::SharedPtr change_gait_srv_ {nullptr};
+
+  int32_t gait_motion_id;
+  int32_t gait_shape_value;
+  std::vector<float> gait_step_height;
 };
 
 }  // namespace navigation
