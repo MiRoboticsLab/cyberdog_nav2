@@ -26,7 +26,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 : ExecutorBase(node_name)
 {
   auto options = rclcpp::NodeOptions().arguments(
-    {"--ros-args --remap __node:=tracking_target_action_client"});
+    {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
@@ -63,7 +63,9 @@ bool ExecutorUwbTracking::ActivateDepsLifecycleNodes()
 bool ExecutorUwbTracking::DeactivateDepsLifecycleNodes()
 {
   for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
+    if (client.lifecycle_client->get_state() ==
+      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+    {
       INFO("Lifecycle node %s already be inactive", client.name.c_str());
       continue;
     } else {
