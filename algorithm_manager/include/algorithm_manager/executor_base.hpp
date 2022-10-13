@@ -39,6 +39,7 @@
 #include "cyberdog_common/cyberdog_toml.hpp"
 #include "motion_action/motion_macros.hpp"
 #include "ament_index_cpp/get_package_share_directory.hpp"
+#include "nav2_util/lifecycle_service_client.hpp"
 
 namespace cyberdog
 {
@@ -119,10 +120,16 @@ public:
 class ExecutorBase : public ExecutorInterface, public rclcpp::Node
 {
 public:
+  struct LifecycleNodeIndexs
+  {
+    std::vector<std::string> nav2_lifecycle_indexs;
+    std::vector<std::string> lifecycle_indexs;
+  };
+
   struct LifecycleNodeRef
   {
-    std::unordered_map<std::string, std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
-    std::unordered_map<std::string, LifecycleClients> lifecycle_nodes;
+    std::string name;
+    std::shared_ptr<nav2_util::LifecycleServiceClient> lifecycle_client;
   };
 
   explicit ExecutorBase(std::string node_name)
@@ -164,17 +171,10 @@ public:
     for (size_t i = 0; i < values.size(); i++) {
       auto value = values.at(i);
       std::string task_name;
-      LifecycleNodeRef lifecycle_ref;
+      LifecycleNodeIndexs lifecycle_ref;
       GET_TOML_VALUE(value, "TaskName", task_name);
-      std::vector<std::string> temp;
-      GET_TOML_VALUE(value, "DepsNav2LifecycleNodes", temp);
-      for (auto s : temp) {
-        lifecycle_ref.nav2_lifecycle_clients.emplace(s, nullptr);
-      }
-      GET_TOML_VALUE(value, "DepsLifecycleNodes", temp);
-      for (auto s : temp) {
-        lifecycle_ref.lifecycle_nodes.emplace(s, LifecycleClients{nullptr, nullptr});
-      }
+      GET_TOML_VALUE(value, "DepsNav2LifecycleNodes", lifecycle_ref.nav2_lifecycle_indexs);
+      GET_TOML_VALUE(value, "DepsLifecycleNodes", lifecycle_ref.lifecycle_indexs);
       task_map_.emplace(task_name, lifecycle_ref);
     }
     return true;
@@ -183,15 +183,18 @@ public:
 protected:
   bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
   {
-    auto clients = task_map_.at(task_name).nav2_lifecycle_clients;
-    for (auto & client : clients) {
-      if (client.second == nullptr) {
-        client.second = std::make_shared<Nav2LifecyleMgrClient>(client.first);
+    auto indexs = task_map_.at(task_name).nav2_lifecycle_indexs;
+    INFO("%ld", indexs.size());
+    for (auto & index : indexs) {
+      if (nav2_lifecycle_clients.find(index) == nav2_lifecycle_clients.end()) {
+        nav2_lifecycle_clients.emplace(
+          index,
+          std::make_shared<Nav2LifecyleMgrClient>(index));
       }
-      auto status = client.second->is_active(
+      auto status = nav2_lifecycle_clients.find(index)->second->is_active(
         std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
       if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
-        ERROR("Failed to get Nav2LifecycleNode %s state", client.first.c_str());
+        ERROR("Failed to get Nav2LifecycleNode %s state", index.c_str());
         return false;
       }
       switch (mode) {
@@ -200,8 +203,8 @@ protected:
             if (status == nav2_lifecycle_manager::SystemStatus::INACTIVE) {
               continue;
             }
-            if (!client.second->pause()) {
-              ERROR("Failed to Pause Nav2LifecycleNode %s", client.first.c_str());
+            if (!nav2_lifecycle_clients.find(index)->second->pause()) {
+              ERROR("Failed to Pause Nav2LifecycleNode %s", index.c_str());
               return false;
             }
           }
@@ -212,8 +215,8 @@ protected:
             if (status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
               continue;
             }
-            if (!client.second->startup()) {
-              ERROR("Failed to Startup av2LifecycleNode %s", client.first.c_str());
+            if (!nav2_lifecycle_clients.find(index)->second->startup()) {
+              ERROR("Failed to Startup Nav2LifecycleNode %s", index.c_str());
               return false;
             }
           }
@@ -224,8 +227,8 @@ protected:
             if (status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
               continue;
             }
-            if (client.second->resume()) {
-              ERROR("Failed to Resume Nav2LifecycleNode %s", client.first.c_str());
+            if (nav2_lifecycle_clients.find(index)->second->resume()) {
+              ERROR("Failed to Resume Nav2LifecycleNode %s", index.c_str());
               return false;
             }
           }
@@ -237,30 +240,56 @@ protected:
     }
     return true;
   }
-  bool OperateDepsLifecycleNodes(const std::string & task_name)
+  // bool OperateDepsLifecycleNodes(const std::string & task_name, const uint8_t transition)
+  // {
+  //   // TODO(Harvey): 非Nav2Lifecycle的node管理方式
+  //   auto indexs = task_map_.at(task_name).lifecycle_indexs;
+  //   for (auto index : indexs) {
+  //     if (lifecycle_clients.find(index) == lifecycle_clients.end()) {
+  //       lifecycle_clients.emplace(index,
+  //         std::make_shared<nav2_util::LifecycleServiceClient>(index));
+  //     }
+  //     auto status = lifecycle_clients.find(index)->second->get_state(
+  //       std::chrono::seconds(get_lifecycle_timeout_));
+  //     if (status == transition) {
+  //       INFO("LifecycleNode %s already be %d", index.c_str(), transition);
+  //       continue;
+  //     } else {
+  //       if (!lifecycle_clients.find(index)->second->change_state(transition)) {
+  //         ERROR("Failed transitioning LifecycleNode %s to %d", index.c_str(), transition);
+  //         return false;
+  //       }
+  //       INFO("LifecycleNode %s transitioned to %d", index.c_str(), transition);
+  //     }
+  //   }
+  //   // TODO(Harvey): configure、activate节点，deactive、unconfigure节点
+  //   return true;
+  // }
+  std::vector<LifecycleNodeRef>
+  GetDepsLifecycleNodes(const std::string & task_name)
   {
     // TODO(Harvey): 非Nav2Lifecycle的node管理方式
-    auto clients = task_map_.at(task_name).lifecycle_nodes;
-    for (auto client : clients) {
-      if (client.second.client_change_state_ == nullptr ||
-        client.second.client_get_state_ == nullptr)
-      {
-        client.second.client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
-          client.first);
-        client.second.client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(
-          client.first);
+    std::vector<LifecycleNodeRef> clients;
+    auto indexs = task_map_.at(task_name).lifecycle_indexs;
+    for (auto index : indexs) {
+      if (lifecycle_clients.find(index) == lifecycle_clients.end()) {
+        lifecycle_clients.emplace(
+          index,
+          std::make_shared<nav2_util::LifecycleServiceClient>(index));
       }
+      clients.push_back({index, lifecycle_clients.find(index)->second});
     }
     // TODO(Harvey): configure、activate节点，deactive、unconfigure节点
-    return true;
+    return clients;
   }
-  static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
-  {
-    if (lifecycle_client_realsense_ == nullptr) {
-      lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
-    }
-    return lifecycle_client_realsense_;
-  }
+
+  // static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
+  // {
+  //   if (lifecycle_client_realsense_ == nullptr) {
+  //     lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
+  //   }
+  //   return lifecycle_client_realsense_;
+  // }
   void UpdateExecutorFeedback(const AlgorithmMGR::Feedback::SharedPtr feedback)
   {
     // INFO("Will Enqueue");
@@ -330,8 +359,11 @@ protected:
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
-  static std::unordered_map<std::string, LifecycleNodeRef> task_map_;
-  static std::shared_ptr<RealSenseClient> lifecycle_client_realsense_;
+  static std::unordered_map<std::string,
+    std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
+  static std::unordered_map<std::string,
+    std::shared_ptr<nav2_util::LifecycleServiceClient>> lifecycle_clients;
+  static std::unordered_map<std::string, LifecycleNodeIndexs> task_map_;
   static constexpr uint8_t preparation_finished_report_time_ = 5;  // count
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
