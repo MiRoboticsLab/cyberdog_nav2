@@ -2,8 +2,8 @@
 TaskName = "UwbTracking"
 Id = 11
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_navigation", "lifecycle_manager_mcr_uwb", 'lifecycle_manager_vis_vo']
-DepsLifecycleNodes = ["camera/camera"]
+DepsNav2LifecycleNodes = ["lifecycle_manager_navigation"]
+DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb"]
 
 [[task]]
 TaskName = "LaserMapping"

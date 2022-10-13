@@ -184,7 +184,6 @@ protected:
   bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
   {
     auto indexs = task_map_.at(task_name).nav2_lifecycle_indexs;
-    INFO("%ld", indexs.size());
     for (auto & index : indexs) {
       if (nav2_lifecycle_clients.find(index) == nav2_lifecycle_clients.end()) {
         nav2_lifecycle_clients.emplace(
@@ -194,7 +193,7 @@ protected:
       auto status = nav2_lifecycle_clients.find(index)->second->is_active(
         std::chrono::nanoseconds(get_lifecycle_timeout_ * 1000 * 1000 * 1000));
       if (status == nav2_lifecycle_manager::SystemStatus::TIMEOUT) {
-        ERROR("Failed to get Nav2LifecycleNode %s state", index.c_str());
+        ERROR("Failed to get %s state", index.c_str());
         return false;
       }
       switch (mode) {
@@ -204,9 +203,10 @@ protected:
               continue;
             }
             if (!nav2_lifecycle_clients.find(index)->second->pause()) {
-              ERROR("Failed to Pause Nav2LifecycleNode %s", index.c_str());
+              ERROR("Failed to Pause %s", index.c_str());
               return false;
             }
+            INFO("Success to Pause %s", index.c_str());
           }
           break;
 
@@ -216,9 +216,10 @@ protected:
               continue;
             }
             if (!nav2_lifecycle_clients.find(index)->second->startup()) {
-              ERROR("Failed to Startup Nav2LifecycleNode %s", index.c_str());
+              ERROR("Failed to Startup %s", index.c_str());
               return false;
             }
+            INFO("Success to Startup %s", index.c_str());
           }
           break;
 
@@ -228,9 +229,10 @@ protected:
               continue;
             }
             if (nav2_lifecycle_clients.find(index)->second->resume()) {
-              ERROR("Failed to Resume Nav2LifecycleNode %s", index.c_str());
+              ERROR("Failed to Resume %s", index.c_str());
               return false;
             }
+            INFO("Success to Resume %s", index.c_str());
           }
           break;
 
@@ -240,31 +242,6 @@ protected:
     }
     return true;
   }
-  // bool OperateDepsLifecycleNodes(const std::string & task_name, const uint8_t transition)
-  // {
-  //   // TODO(Harvey): 非Nav2Lifecycle的node管理方式
-  //   auto indexs = task_map_.at(task_name).lifecycle_indexs;
-  //   for (auto index : indexs) {
-  //     if (lifecycle_clients.find(index) == lifecycle_clients.end()) {
-  //       lifecycle_clients.emplace(index,
-  //         std::make_shared<nav2_util::LifecycleServiceClient>(index));
-  //     }
-  //     auto status = lifecycle_clients.find(index)->second->get_state(
-  //       std::chrono::seconds(get_lifecycle_timeout_));
-  //     if (status == transition) {
-  //       INFO("LifecycleNode %s already be %d", index.c_str(), transition);
-  //       continue;
-  //     } else {
-  //       if (!lifecycle_clients.find(index)->second->change_state(transition)) {
-  //         ERROR("Failed transitioning LifecycleNode %s to %d", index.c_str(), transition);
-  //         return false;
-  //       }
-  //       INFO("LifecycleNode %s transitioned to %d", index.c_str(), transition);
-  //     }
-  //   }
-  //   // TODO(Harvey): configure、activate节点，deactive、unconfigure节点
-  //   return true;
-  // }
   std::vector<LifecycleNodeRef>
   GetDepsLifecycleNodes(const std::string & task_name)
   {
@@ -279,17 +256,9 @@ protected:
       }
       clients.push_back({index, lifecycle_clients.find(index)->second});
     }
-    // TODO(Harvey): configure、activate节点，deactive、unconfigure节点
     return clients;
   }
 
-  // static std::shared_ptr<RealSenseClient> GetRealsenseLifecycleMgrClient()
-  // {
-  //   if (lifecycle_client_realsense_ == nullptr) {
-  //     lifecycle_client_realsense_ = std::make_shared<RealSenseClient>("realsense_client");
-  //   }
-  //   return lifecycle_client_realsense_;
-  // }
   void UpdateExecutorFeedback(const AlgorithmMGR::Feedback::SharedPtr feedback)
   {
     // INFO("Will Enqueue");
