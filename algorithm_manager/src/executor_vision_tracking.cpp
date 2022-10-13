@@ -26,7 +26,7 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
 : ExecutorBase(node_name)
 {
   auto options = rclcpp::NodeOptions().arguments(
-    {"--ros-args --remap __node:=vision_tracking_target_action_client"});
+    {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
 
   // TODO(PDF):
