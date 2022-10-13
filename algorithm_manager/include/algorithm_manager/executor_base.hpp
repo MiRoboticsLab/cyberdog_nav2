@@ -303,6 +303,11 @@ protected:
     feedback_->feedback_code = AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING;
     preparation_finish_cv_.notify_one();
   }
+
+  void SetFeedbackCode(uint32_t feedback)
+  {
+    feedback_->feedback_code = feedback;
+  }
   /**
    * @brief
    * 结束向底层任务执行器send_goal前的状态上报

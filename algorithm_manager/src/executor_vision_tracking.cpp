@@ -28,9 +28,6 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=vision_tracking_target_action_client"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
-  target_tracking_action_client_ =
-    rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target");
 
   // TODO(PDF):
   client_realsense_manager_ =
@@ -47,6 +44,9 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
       &ExecutorVisionTracking::TrackingSrv_callback, this,
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   client_tracking_object_ = action_client_node_->create_client<BodyRegionT>("tracking_object");
+  target_tracking_action_client_ =
+    rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
+    action_client_node_, "tracking_target");
 
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
@@ -56,8 +56,11 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("Vision Tracking starting");
+  ReportPreparationStatus();
   uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
   if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
+    ERROR("ExecutorVisionTracking::Start Error");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
   }
   return;
@@ -70,11 +73,13 @@ void ExecutorVisionTracking::Stop(
   (void)request;
   (void)response;
   INFO("Vision Tracking Stopped");
+  Cancel();
+  return;
 }
 
 void ExecutorVisionTracking::Cancel()
 {
-  INFO("Vision Tracking Stopped");
+  INFO("Vision Tracking Cancel");
   OnCancel();
   return;
 }
@@ -179,10 +184,10 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
 {
   (void)relative_pos;
   (void)keep_distance;
-  vision_action_client_feedback_ = 500;
-  start_vision_tracking_ = true;
-  feedback_timer_ = this->create_wall_timer(
-    2000ms, std::bind(&ExecutorVisionTracking::FeedbackMonitor, this));
+  // vision_action_client_feedback_ = 500;
+  SetFeedbackCode(500);
+  // feedback_timer_ = this->create_wall_timer(
+  //   2000ms, std::bind(&ExecutorVisionTracking::FeedbackMonitor, this));
   // start realsense lifecycle node
   if (client_realsense_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
     if ((!client_realsense_manager_->change_state(
@@ -215,10 +220,10 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
     }
     INFO("vision_manager lifecycle TRANSITION_ACTIVATE success");
   }
-
+  start_vision_tracking_ = true;
   CallVisionTrackAlgo();
-
-  vision_action_client_feedback_ = 501;
+  SetFeedbackCode(501);
+  // vision_action_client_feedback_ = 501;
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 // TODO(PDF):
@@ -233,6 +238,8 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     res->success = true;
   } else {
     ERROR("TrackingClient_call_service failed");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     res->success = false;
     return;
   }
@@ -248,16 +255,21 @@ void ExecutorVisionTracking::TrackingSrv_callback(
         lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
     {
       ERROR("tracking_manager_ lifecycle TRANSITION_ACTIVATE failed");
+      ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+      task_abort_callback_();
       res->success = false;
       return;
     }
   }
-  vision_action_client_feedback_ = 502;
+  SetFeedbackCode(502);
+  // vision_action_client_feedback_ = 502;
   // return;
   // start navigation stack
   if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!client_nav_.startup()) {
       ERROR("start navigation stack");
+      ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+      task_abort_callback_();
       res->success = false;
       return;
     }
@@ -268,6 +280,8 @@ void ExecutorVisionTracking::TrackingSrv_callback(
   if (!is_action_server_ready) {
     client_nav_.pause();
     ERROR("Tracking target action server is not available.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     res->success = false;
     return;
   }
@@ -293,6 +307,8 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     rclcpp::FutureReturnCode::SUCCESS)
   {
     ERROR("Send goal call failed");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     client_nav_.pause();
     return;
   }
@@ -302,10 +318,13 @@ void ExecutorVisionTracking::TrackingSrv_callback(
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
     client_nav_.pause();
     return;
   }
-  vision_action_client_feedback_ = 503;
+  // vision_action_client_feedback_ = 503;
+  SetFeedbackCode(503);
 }
 // TODO(PDF):
 bool ExecutorVisionTracking::TrackingClient_call_service(
