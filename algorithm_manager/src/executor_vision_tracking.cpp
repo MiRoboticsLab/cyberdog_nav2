@@ -23,19 +23,19 @@ namespace algorithm
 {
 
 ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
-: ExecutorBase(node_name), client_nav_("lifecycle_manager_navigation")
+: ExecutorBase(node_name)
 {
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=vision_tracking_target_action_client"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
 
   // TODO(PDF):
-  client_realsense_manager_ =
-    std::make_shared<nav2_util::LifecycleServiceClient>("camera/camera");
-  client_vision_manager_ =
-    std::make_shared<nav2_util::LifecycleServiceClient>("vision_manager");
-  client_tracking_manager_ =
-    std::make_shared<nav2_util::LifecycleServiceClient>("tracking");
+  // client_realsense_manager_ =
+  //   std::make_shared<nav2_util::LifecycleServiceClient>("camera/camera");
+  // client_vision_manager_ =
+  //   std::make_shared<nav2_util::LifecycleServiceClient>("vision_manager");
+  // client_tracking_manager_ =
+  //   std::make_shared<nav2_util::LifecycleServiceClient>("tracking");
   client_vision_algo_ =
     action_client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
   // Create service server
@@ -85,25 +85,37 @@ void ExecutorVisionTracking::OnCancel()
 {
   if (start_vision_tracking_) {
     StopReportPreparationThread();
-    if ((!client_realsense_manager_->change_state(
-        lifecycle_msgs::msg::Transition::
-        TRANSITION_DEACTIVATE)))
-    {
-      ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
-    }
-    if ((!client_vision_manager_->change_state(
-        lifecycle_msgs::msg::Transition::
-        TRANSITION_DEACTIVATE)))
-    {
-      ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
-    }
-    if (target_tracking_goal_handle_) {
-      if (!client_tracking_manager_->change_state(
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+
+    for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+      if (!client.lifecycle_client->change_state(
           lifecycle_msgs::msg::Transition::
           TRANSITION_DEACTIVATE))
       {
-        ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
+        ERROR("Failed to deactive %s", client.name.c_str());
+        continue;
       }
+      INFO("Success to deactive %s", client.name.c_str());
+    }
+    // if ((!client_realsense_manager_->change_state(
+    //     lifecycle_msgs::msg::Transition::
+    //     TRANSITION_DEACTIVATE)))
+    // {
+    //   ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
+    // }
+    // if ((!client_vision_manager_->change_state(
+    //     lifecycle_msgs::msg::Transition::
+    //     TRANSITION_DEACTIVATE)))
+    // {
+    //   ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
+    // }
+    if (target_tracking_goal_handle_) {
+      // if (!client_tracking_manager_->change_state(
+      //     lifecycle_msgs::msg::Transition::
+      //     TRANSITION_DEACTIVATE))
+      // {
+      //   ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
+      // }
       auto future_cancel =
         target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
 
@@ -117,7 +129,7 @@ void ExecutorVisionTracking::OnCancel()
         // target_tracking_action_client_.reset();
         INFO("canceled navigation goal");
       }
-      client_nav_.pause();
+      // client_nav_.pause();
     }
     start_vision_tracking_ = false;
     return;
@@ -186,38 +198,64 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
   SetFeedbackCode(500);
   // feedback_timer_ = this->create_wall_timer(
   //   2000ms, std::bind(&ExecutorVisionTracking::FeedbackMonitor, this));
-  // start realsense lifecycle node
-  if (client_realsense_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-    if ((!client_realsense_manager_->change_state(
-        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
-    {
-      ERROR("realsense_manager lifecycle TRANSITION_CONFIGURE failed");
-    }
 
-    if (!client_realsense_manager_->change_state(
-        lifecycle_msgs::msg::Transition::
-        TRANSITION_ACTIVATE))
-    {
-      ERROR("realsense_manager lifecycle TRANSITION_ACTIVATE failed");
-      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      INFO("Lifecycle node %s already be active", client.name.c_str());
+      continue;
+    } else {
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_CONFIGURE))
+      {
+        WARN("Get error when configuring %s, try to active", client.name.c_str());
+      }
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_ACTIVATE))
+      {
+        ERROR("Get error when activing %s", client.name.c_str());
+        ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+        task_abort_callback_();
+        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+      }
+      INFO("Success to active %s", client.name.c_str());
     }
-    INFO("realsense_manager  TRANSITION_ACTIVATE success");
   }
-  // start vision_manager lifecycle node
-  if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-    if ((!client_vision_manager_->change_state(
-        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
-    {
-      ERROR("vision_manager lifecycle TRANSITION_CONFIGURE failed");
-    }
+  // // start realsense lifecycle node
+  // if (client_realsense_manager_->get_state()
+  //     != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  //   if ((!client_realsense_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
+  //   {
+  //     ERROR("realsense_manager lifecycle TRANSITION_CONFIGURE failed");
+  //   }
 
-    if (!client_vision_manager_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
-    {
-      ERROR("vision_manager lifecycle TRANSITION_ACTIVATE failed");
-      return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-    }
-    INFO("vision_manager lifecycle TRANSITION_ACTIVATE success");
-  }
+  //   if (!client_realsense_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::
+  //       TRANSITION_ACTIVATE))
+  //   {
+  //     ERROR("realsense_manager lifecycle TRANSITION_ACTIVATE failed");
+  //     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  //   }
+  //   INFO("realsense_manager  TRANSITION_ACTIVATE success");
+  // }
+  // // start vision_manager lifecycle node
+  // if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  //   if ((!client_vision_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
+  //   {
+  //     ERROR("vision_manager lifecycle TRANSITION_CONFIGURE failed");
+  //   }
+
+  //   if (!client_vision_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+  //   {
+  //     ERROR("vision_manager lifecycle TRANSITION_ACTIVATE failed");
+  //     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  //   }
+  //   INFO("vision_manager lifecycle TRANSITION_ACTIVATE success");
+  // }
   start_vision_tracking_ = true;
   CallVisionTrackAlgo();
   SetFeedbackCode(501);
@@ -241,45 +279,52 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     res->success = false;
     return;
   }
-  // start tracking_manager lifecycle node
-  if (client_tracking_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-    if (!client_tracking_manager_->change_state(
-        lifecycle_msgs::msg::Transition::
-        TRANSITION_CONFIGURE))
-    {
-      ERROR("tracking_manager_ lifecycle TRANSITION_CONFIGURE failed");
-    }
-    if (!client_tracking_manager_->change_state(
-        lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
-    {
-      ERROR("tracking_manager_ lifecycle TRANSITION_ACTIVATE failed");
-      ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-      task_abort_callback_();
-      res->success = false;
-      return;
-    }
-  }
+  // // start tracking_manager lifecycle node
+  // if (client_tracking_manager_->get_state()
+  //     != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  //   if (!client_tracking_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::
+  //       TRANSITION_CONFIGURE))
+  //   {
+  //     ERROR("tracking_manager_ lifecycle TRANSITION_CONFIGURE failed");
+  //   }
+  //   if (!client_tracking_manager_->change_state(
+  //       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
+  //   {
+  //     ERROR("tracking_manager_ lifecycle TRANSITION_ACTIVATE failed");
+  //     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //     task_abort_callback_();
+  //     res->success = false;
+  //     return;
+  //   }
+  // }
   SetFeedbackCode(502);
   // vision_action_client_feedback_ = 502;
   // return;
   // start navigation stack
-  if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-    if (!client_nav_.startup()) {
-      ERROR("start navigation stack");
-      ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-      task_abort_callback_();
-      res->success = false;
-      return;
-    }
+  // if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //   if (!client_nav_.startup()) {
+  //     ERROR("start navigation stack");
+  //     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //     task_abort_callback_();
+  //     res->success = false;
+  //     return;
+  //   }
+  // }
+  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
+    return;
   }
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    client_nav_.pause();
+    // client_nav_.pause();
     ERROR("Tracking target action server is not available.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     res->success = false;
     return;
   }
@@ -307,7 +352,8 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     ERROR("Send goal call failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
-    client_nav_.pause();
+    // client_nav_.pause();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     return;
   }
 
@@ -318,7 +364,8 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     ERROR("Goal was rejected by server");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
-    client_nav_.pause();
+    // client_nav_.pause();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     return;
   }
   // vision_action_client_feedback_ = 503;
