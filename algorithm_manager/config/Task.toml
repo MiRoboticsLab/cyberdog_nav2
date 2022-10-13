@@ -12,6 +12,13 @@ OutDoor = false
 DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
 DepsLifecycleNodes = [""]
 
+[[task]]
+TaskName = "VisionTracking"
+Id = 13
+OutDoor = false
+DepsNav2LifecycleNodes = [""]
+DepsLifecycleNodes = [""]
+
 # [[task]]
 # TaskName = "VisMapping"
 # Id = 5
