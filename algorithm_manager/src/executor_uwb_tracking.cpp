@@ -69,6 +69,31 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
+
+  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      INFO("Lifecycle node %s already be active", client.name.c_str());
+      continue;
+    } else {
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_CONFIGURE))
+      {
+        WARN("Get error when configuring %s, try to active", client.name.c_str());
+      }
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_ACTIVATE))
+      {
+        ERROR("Get error when activing %s", client.name.c_str());
+        ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+        task_abort_callback_();
+        return;
+      }
+      INFO("Success to active %s", client.name.c_str());
+    }
+  }
+
   // TODO(Harvey): 当有Realsense的依赖时
   // TODO(Harvey): 当有其他没有继承Nav2Lifecycle的依赖节点时
   auto is_action_server_ready =
