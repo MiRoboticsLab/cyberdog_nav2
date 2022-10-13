@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
 
 #include <string>
+#include <memory>
 #include "algorithm_manager/executor_base.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "protocol/srv/body_region.hpp"
@@ -56,6 +57,7 @@ public:
   void CallVisionTrackAlgo();
   void FeedbackMonitor();
   void OnCancel();
+
 private:
   rclcpp::Node::SharedPtr client_node_;
   nav2_lifecycle_manager::LifecycleManagerClient client_nav_;

@@ -23,7 +23,7 @@ namespace algorithm
 {
 
 ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
-: ExecutorBase(node_name),client_nav_("lifecycle_manager_navigation")
+: ExecutorBase(node_name), client_nav_("lifecycle_manager_navigation")
 {
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args --remap __node:=vision_tracking_target_action_client"});
@@ -63,7 +63,6 @@ void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
   }
-  return;
 }
 
 void ExecutorVisionTracking::Stop(
@@ -74,19 +73,18 @@ void ExecutorVisionTracking::Stop(
   (void)response;
   INFO("Vision Tracking Stopped");
   Cancel();
-  return;
 }
 
 void ExecutorVisionTracking::Cancel()
 {
   INFO("Vision Tracking Cancel");
   OnCancel();
-  return;
 }
 // TODO(PDF):
 void ExecutorVisionTracking::OnCancel()
 {
   if (start_vision_tracking_) {
+    StopReportPreparationThread();
     if ((!client_realsense_manager_->change_state(
         lifecycle_msgs::msg::Transition::
         TRANSITION_DEACTIVATE)))
