@@ -54,7 +54,9 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       result = std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
       break;
-
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING:
+      result = std::make_shared<ExecutorVisionTracking>(std::string("VisionTracking"));
+      break;
     default:
       ERROR("Create executor failed, name is invalid!");
       break;
