@@ -113,8 +113,8 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // Control realsense camera lifecycle
-  // std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
+  // Control localization_node lifecycle
+  std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};

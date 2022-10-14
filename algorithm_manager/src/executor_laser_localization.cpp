@@ -27,6 +27,8 @@ namespace algorithm
 ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {
+  localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
+
   // Subscription Lidar relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
     "laser_reloc_result",
@@ -142,10 +144,14 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
-  // Nav lifecycle
-  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  // // Nav lifecycle
+  // response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+  //   StopTaskSrv::Response::SUCCESS :
+  //   StopTaskSrv::Response::FAILED;
+  response->result = localization_lifecycle_->Pause() ?
+  StopTaskSrv::Response::SUCCESS :
+  StopTaskSrv::Response::FAILED;
+
 
   INFO("Laser localization stoped success");
   feedback_->feedback_code = 0;
@@ -177,20 +183,6 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 bool ExecutorLaserLocalization::IsDependsReady()
 {
   // RealSense camera lifecycle(configure state)
-  // if (!realsense_lifecycle_->Configure()) {
-  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //   task_abort_callback_();
-  //   return false;
-  // }
-
-  // RealSense camera lifecycle(activate state)
-  // if (!realsense_lifecycle_->Startup()) {
-  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //   task_abort_callback_();
-  //   return false;
-  // }
-
-  // RealSense camera lifecycle(configure state)
   bool success = LifecycleNodeManager::GetSingleton()->Configure(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
@@ -198,13 +190,19 @@ bool ExecutorLaserLocalization::IsDependsReady()
   }
 
   // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(LifeCycleNodeType::RealSenseCameraSensor);
+  success = LifecycleNodeManager::GetSingleton()->Startup(
+    LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
     return false;
   }
 
-  // Nav lifecycle
-  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+  // localization_node lifecycle(configure state)
+  if (!localization_lifecycle_->Configure()) {
+    return false;
+  }
+
+  // localization_node lifecycle(activate state)
+  if (!localization_lifecycle_->Startup()) {
     return false;
   }
 
@@ -247,6 +245,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
     return false;
   }
 
+  INFO("Send start relocalization service request.");
   return future.get()->success;
 }
 

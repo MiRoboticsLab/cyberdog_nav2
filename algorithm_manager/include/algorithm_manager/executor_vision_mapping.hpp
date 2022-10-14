@@ -30,7 +30,9 @@ namespace algorithm
 class ExecutorVisionMapping : public ExecutorBase
 {
 public:
-  explicit ExecutorLaserMapping(std::string node_name);
+  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+ 
+  explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(
     const StopTaskSrv::Request::SharedPtr request,
@@ -76,19 +78,10 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // // Control lidar mapping lifecycle(Nav2 lifecycle)
-  // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
-
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
-
-  // Control realsense camera lifecycle
-  std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
-
-  // realtime robot pose
-  bool start_report_realtime_pose_ {false};
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

@@ -21,7 +21,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
-
+#include "algorithm_manager/lifecycle_controller.hpp"
 namespace cyberdog
 {
 namespace algorithm
@@ -31,7 +31,7 @@ class ExecutorAbNavigation : public ExecutorBase
 {
 public:
   explicit ExecutorAbNavigation(std::string node_name);
-  ~ExecutorAbNavigation() {}
+  ~ExecutorAbNavigation();
 
   /**
    * @brief Start Navigation AB
@@ -122,6 +122,67 @@ private:
   void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
+   * @brief Deactivate Nav2 Lifecycle Nodes
+   * 
+   * @return true Success
+   * @return false Failure
+   */
+  bool DeactivateLifecycleNodes();
+
+  /**
+   * @brief Initialize all navigation lifecycle nodes
+   */
+  void InitializeNavigationLifecycleNodes();
+
+  /**
+   * @brief Set lifecycle configure state
+   *  controller_server
+   *  planner_server
+   *  recoveries_server
+   *  bt_navigator
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool LifecycleNodesConfigure();
+
+  /**
+   * @brief Set lifecycle activate state
+   *  controller_server
+   *  planner_server
+   *  recoveries_server
+   *  bt_navigator
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool LifecycleNodesStartup();
+
+  /**
+   * @brief Set lifecycle deactivate state
+   *  controller_server
+   *  planner_server
+   *  recoveries_server
+   *  bt_navigator
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool LifecycleNodesPause();
+
+  /**
+   * @brief Set lifecycle Cleanup state
+   *  controller_server
+   *  planner_server
+   *  recoveries_server
+   *  bt_navigator
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool LifecycleNodesCleanup();
+
+  /**
    * @brief Print target goal pose
    *
    * @param pose APP or rviz set target pose goal
@@ -131,6 +192,9 @@ private:
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
+  // Navigation lifecycles
+  std::unordered_map<std::string, std::shared_ptr<LifecycleController>> navigation_lifecycle_;
+
   // navigation target goal
   nav2_msgs::action::NavigateToPose::Goal target_goal_;
 
@@ -139,6 +203,9 @@ private:
 
   // navigation goal handle
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
+
+  // Lifecycle controller
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};

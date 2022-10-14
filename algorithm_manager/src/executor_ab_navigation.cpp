@@ -29,11 +29,22 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
 
+  // navigation lifecycle
+  // InitializeNavigationLifecycleNodes();
+
+  nav_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
+    "lifecycle_manager_navigation");
+
   // spin
   std::thread{[this]() {
       rclcpp::spin(this->get_node_base_interface());
     }
   }.detach();
+}
+
+ExecutorAbNavigation::~ExecutorAbNavigation()
+{
+  LifecycleNodesCleanup();
 }
 
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -96,11 +107,12 @@ void ExecutorAbNavigation::Stop(
     task_abort_callback_();
   }
 
-  StopReportPreparationThread();
   nav_goal_handle_.reset();
-  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+  response->result = LifecycleNodesPause() ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
+  
+  StopReportPreparationThread();
   INFO("Navigation AB Stoped");
 }
 
@@ -145,17 +157,33 @@ void ExecutorAbNavigation::HandleResultCallback(
       task_abort_callback_();
       break;
   }
+
+  // Deactivate all nav2 lifecycle nodes
+  // DeactivateLifecycleNodes();
 }
 
 bool ExecutorAbNavigation::IsDependsReady()
 {
   // Nav lifecycle
-  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-    return false;
-  }
+  // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+  //   return false;
+  // }
 
-  // Customize lifecycle and not depend Nav lifecycle
-  // TODO(quan)
+  // bool success = LifecycleNodesConfigure();
+  // if (!success) {
+  //   return false;
+  // }
+
+  // success = LifecycleNodesStartup();
+  //  if (!success) {
+  //   return false;
+  // }
+  if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+    if (!nav_client_->startup()) {
+      WARN("navigation client startup failed.");
+      return false;
+    }
+  }
   return true;
 }
 
@@ -166,8 +194,7 @@ bool ExecutorAbNavigation::IsConnectServer()
 
   if (!is_action_server_ready) {
     ERROR("navigation action server is not available.");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    return false;
+    return DeactivateLifecycleNodes();
   }
   return true;
 }
@@ -203,15 +230,13 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
 
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send Navigation AB goal failed");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    return false;
+    return DeactivateLifecycleNodes();
   }
 
   nav_goal_handle_ = future_goal_handle.get();
   if (!nav_goal_handle_) {
     ERROR("Navigation AB Goal was rejected by server");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    return false;
+    return DeactivateLifecycleNodes();
   }
   return true;
 }
@@ -222,6 +247,97 @@ void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped 
   target_goal_.pose = pose;
   target_goal_.pose.header.frame_id = "map";
   target_goal_.pose.pose.orientation.w = 1;
+}
+
+bool ExecutorAbNavigation::DeactivateLifecycleNodes()
+{
+  // bool success = LifecycleNodesPause();
+  // if (!success) {
+  //   ERROR("Deactivate Navigation AB Lifecycle nodes failed.");
+  //   return false;
+  // }
+
+  bool success = nav_client_->pause();
+  if (!success) {
+    ERROR("Deactivate Navigation AB Lifecycle nodes failed.");
+    return false;
+  }
+  return true;
+}
+
+void ExecutorAbNavigation::InitializeNavigationLifecycleNodes()
+{
+  // nav2 lifecycle node name
+  std::vector<std::string>  lifecycle_nodes {
+    "controller_server",
+    "planner_server",
+    "recoveries_server",
+    "bt_navigator"
+  };
+
+  for (const auto & name : lifecycle_nodes) {
+    navigation_lifecycle_.insert(std::make_pair(name, std::make_shared<LifecycleController>(name)));
+  }
+}
+
+bool ExecutorAbNavigation::LifecycleNodesConfigure()
+{
+  INFO("Lifecycle Node number : %d", navigation_lifecycle_.size());
+  for (auto it = navigation_lifecycle_.begin(); it != navigation_lifecycle_.end(); ++it) {
+    bool success = it->second.get()->Configure();
+    if (!success) {
+      ERROR("Lifecycle node : %s configure state failed.", it->first.c_str());
+      return false;
+    } else {
+      INFO("Lifecycle node : %s configure state success.", it->first.c_str());
+    }
+  }
+  return true;
+}
+
+bool ExecutorAbNavigation::LifecycleNodesStartup()
+{
+  INFO("Lifecycle Node number : %d", navigation_lifecycle_.size());
+  for (auto it = navigation_lifecycle_.begin(); it != navigation_lifecycle_.end(); ++it) {
+    bool success = it->second.get()->Startup();
+    if (!success) {
+      ERROR("Lifecycle node : %s startup failed.", it->first.c_str());
+      return false;
+    } else {
+      INFO("Lifecycle node : %s startup success.", it->first.c_str());
+    }
+  }
+  return true;
+}
+
+bool ExecutorAbNavigation::LifecycleNodesPause()
+{
+  INFO("Lifecycle Node number : %d", navigation_lifecycle_.size());
+  for (auto it = navigation_lifecycle_.begin(); it != navigation_lifecycle_.end(); ++it) {
+    bool success = it->second.get()->Pause();
+    if (!success) {
+      ERROR("Lifecycle node : %s deactivate state failed.", it->first.c_str());
+      return false;
+    } else {
+      INFO("Lifecycle node : %s deactivate state success.", it->first.c_str());
+    }
+  }
+  return true;
+}
+
+bool ExecutorAbNavigation::LifecycleNodesCleanup()
+{
+  INFO("Lifecycle Node number : %d", navigation_lifecycle_.size());
+  for (auto it = navigation_lifecycle_.begin(); it != navigation_lifecycle_.end(); ++it) {
+    bool success = it->second.get()->Cleanup();
+    if (!success) {
+      ERROR("Lifecycle node : %s cleanup state failed.", it->first.c_str());
+      return false;
+    } else {
+      INFO("Lifecycle node : %s cleanup state success.", it->first.c_str());
+    }
+  }
+  return true;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)

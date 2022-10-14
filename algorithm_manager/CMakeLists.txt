@@ -64,6 +64,7 @@ set(sources
   # src/executor_auto_dock.cpp
   src/executor_laser_mapping.cpp
   src/executor_laser_localization.cpp
+  src/executor_vision_mapping.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
   src/lifecycle_node_manager.cpp
