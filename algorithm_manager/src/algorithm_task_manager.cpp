@@ -25,7 +25,6 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
-: rclcpp::Node("AlgorithmTaskManager")
 {
 }
 
@@ -35,13 +34,16 @@ AlgorithmTaskManager::~AlgorithmTaskManager()
 
 bool AlgorithmTaskManager::Init()
 {
+  node_ = std::make_shared<rclcpp::Node>("algorithm_manager");
   if (!BuildExecutorMap()) {
     ERROR("Init failed, cannot build executor map!");
     return false;
   }
-  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  ros_executor_->add_node(node_);
+  callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_algo_task_server_ = rclcpp_action::create_server<AlgorithmMGR>(
-    this, "start_algo_task",
+    node_, "start_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerGoal,
       this, std::placeholders::_1, std::placeholders::_2),
@@ -51,7 +53,7 @@ bool AlgorithmTaskManager::Init()
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
       this, std::placeholders::_1), rcl_action_server_get_default_options(), callback_group_);
-  stop_algo_task_server_ = this->create_service<protocol::srv::StopAlgoTask>(
+  stop_algo_task_server_ = node_->create_service<protocol::srv::StopAlgoTask>(
     "stop_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleStopTaskCallback, this,
@@ -60,6 +62,12 @@ bool AlgorithmTaskManager::Init()
     callback_group_);
   SetStatus(ManagerStatus::kIdle);
   return true;
+}
+
+void AlgorithmTaskManager::Run()
+{
+  ros_executor_->spin();
+  rclcpp::shutdown();
 }
 
 bool AlgorithmTaskManager::BuildExecutorMap()

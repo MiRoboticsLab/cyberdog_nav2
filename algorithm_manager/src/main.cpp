@@ -28,6 +28,6 @@ int main(int argc, char ** argv)
     ERROR("Init failed, will exit with error!");
     return -1;
   }
-  rclcpp::spin(atm_ptr);
+  atm_ptr->Run();
   return 0;
 }
