@@ -84,7 +84,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
-    ERROR("Send navigation AB point request failed.");
+    ERROR("Send navigation AB point send target goal request failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -92,7 +92,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-  INFO("Navigation AB point success.");
+  INFO("Navigation AB point send target goal request success.");
 }
 
 void ExecutorAbNavigation::Stop(
@@ -125,7 +125,7 @@ void ExecutorAbNavigation::HandleGoalResponseCallback(
   NavigationGoalHandle::SharedPtr goal_handle)
 {
   (void)goal_handle;
-  INFO("Goal accepted");
+  INFO("Navigation AB Goal accepted");
 }
 
 void ExecutorAbNavigation::HandleFeedbackCallback(
@@ -141,19 +141,19 @@ void ExecutorAbNavigation::HandleResultCallback(
 {
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      INFO("Navigation AB reported succeeded");
+      INFO("Navigation AB point run target goal succeeded");
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      ERROR("Navigation AB reported aborted");
+      ERROR("Navigation AB run target goal aborted");
       task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      ERROR("Navigation AB reported canceled");
+      ERROR("Navigation AB run target goal canceled");
       task_cancle_callback_();
       break;
     default:
-      ERROR("Navigation AB reported unknown result code");
+      ERROR("Navigation AB run target goal unknown result code");
       task_abort_callback_();
       break;
   }
@@ -180,7 +180,7 @@ bool ExecutorAbNavigation::IsDependsReady()
   // }
   if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!nav_client_->startup()) {
-      WARN("navigation client startup failed.");
+      WARN("navigation client lifecycle startup failed.");
       return false;
     }
   }

@@ -175,6 +175,7 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
+    relocalization_failure_ = true;
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     WARN("Relocalization failed.");
   }
@@ -217,6 +218,11 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
     auto time_left = end - now;
     if (time_left <= std::chrono::seconds(0)) {
       WARN("Wait relocalization result timeout.");
+      return false;
+    }
+
+    if (relocalization_failure_) {
+      ERROR("Relocalization result failure.");
       return false;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(50));

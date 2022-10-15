@@ -36,6 +36,6 @@ DepsLifecycleNodes = [""]
 [[task]]
 TaskName = "NavAB"
 Id = 1
-OutDoor = true
+OutDoor = false
 DepsNav2LifecycleNodes = ["lifecycle_manager_navigation"]
 DepsLifecycleNodes = [""]
