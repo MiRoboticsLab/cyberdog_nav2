@@ -93,7 +93,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     GET_TOML_VALUE(value, "TaskName", task_name);
     GET_TOML_VALUE(value, "Id", task_ref.id);
     GET_TOML_VALUE(value, "OutDoor", task_ref.out_door);
-    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door);
+    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door, task_name);
     if (executor_ptr == nullptr) {
       ERROR("BuildExecutorMap failed, cannot create executor: %s!", task_name.c_str());
       result = false;
