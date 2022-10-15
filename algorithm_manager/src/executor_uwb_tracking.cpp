@@ -37,6 +37,10 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 bool ExecutorUwbTracking::ActivateDepsLifecycleNodes()
 {
   for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if(!client.lifecycle_client->service_exist(std::chrono::seconds(2))){
+        ERROR("Lifecycle %s not exist", client.name.c_str());
+        return false;
+    }
     if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
       INFO("Lifecycle node %s already be active", client.name.c_str());
       continue;
@@ -63,6 +67,10 @@ bool ExecutorUwbTracking::ActivateDepsLifecycleNodes()
 bool ExecutorUwbTracking::DeactivateDepsLifecycleNodes()
 {
   for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if(!client.lifecycle_client->service_exist(std::chrono::seconds(2))){
+        WARN("Lifecycle %s not exist, will not deactive it", client.name.c_str());
+        continue;
+    }
     if (client.lifecycle_client->get_state() ==
       lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
     {
