@@ -36,10 +36,34 @@ public:
   ~LifecycleController();
 
   /**
+   * @brief Check lifecycle is configure state
+   * 
+   * @return true Success
+   * @return false Failure
+   */
+  bool IsConfigure();
+
+  /**
+   * @brief Check lifecycle is activate state
+   * 
+   * @return true Success
+   * @return false Failure
+   */
+  bool IsActivate();
+
+  /**
+   * @brief Check lifecycle is deactivate state
+   * 
+   * @return true Success
+   * @return false Failure
+   */
+  bool IsDeactivate();
+
+  /**
    * @brief Lifecycle set configure state
    *
-   * @return true
-   * @return false
+   * @return true Success
+   * @return false Failure
    */
   bool Configure();
 

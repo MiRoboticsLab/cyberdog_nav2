@@ -31,11 +31,33 @@ LifecycleController::LifecycleController(const std::string & node_name)
 
 LifecycleController::~LifecycleController()
 {
+  Pause();
   Cleanup();
+}
+
+bool LifecycleController::IsConfigure()
+{
+  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE;
+}
+
+bool LifecycleController::IsActivate()
+{
+  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+}
+
+bool LifecycleController::IsDeactivate()
+{
+  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
 }
 
 bool LifecycleController::Configure()
 {
+  // Checker node configure state
+  if (IsConfigure()) {
+    WARN("Current lifecycle node(%s) has configure state", node_name().c_str());
+    return true;
+  }
+
   // Set node configure state
   if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE) ) {
     ERROR("Set current lifecycle node(%s) configure state failed", node_name().c_str());
@@ -68,7 +90,7 @@ bool LifecycleController::Pause()
 {
   // Checker node deactivate state
   if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-    WARN("Current lifecycle node has(%s) deactivate state", node_name().c_str());
+    WARN("Current lifecycle node (%s) has deactivate state", node_name().c_str());
     return true;
   }
 
@@ -84,9 +106,15 @@ bool LifecycleController::Pause()
 
 bool LifecycleController::Cleanup()
 {
+  // Checker node cleanup state
+  if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) {
+    WARN("Current lifecycle node (%s) has cleanup state", node_name().c_str());
+    return true;
+  }
+
   // Set node cleanup state
   if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) ) {
-    INFO("Set current lifecycle node(%s) cleanup state failed", node_name().c_str());
+    WARN("Set current lifecycle node(%s) cleanup state failed", node_name().c_str());
     return false;
   }
 
