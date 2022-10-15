@@ -74,4 +74,9 @@ uint8_t LifecycleServiceClient::get_state(
   return result->current_state.id;
 }
 
+bool LifecycleServiceClient::service_exist(const std::chrono::seconds timeout)
+{
+  return get_state_.wait_for_service(timeout);
+}
+
 }  // namespace nav2_util
