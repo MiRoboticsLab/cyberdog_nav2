@@ -45,11 +45,16 @@ bool ExecutorUwbTracking::ActivateDepsLifecycleNodes()
       INFO("Lifecycle node %s already be active", client.name.c_str());
       continue;
     } else {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_CONFIGURE))
-      {
-        WARN("Get error when configuring %s, try to active", client.name.c_str());
+      if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
+        if (!client.lifecycle_client->change_state(
+            lifecycle_msgs::msg::Transition::
+            TRANSITION_CONFIGURE))
+        {
+          WARN("Get error when configuring %s, try to active", client.name.c_str());
+        }
+      }
+      if (client.name == std::string("camera/camera")) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
       }
       if (!client.lifecycle_client->change_state(
           lifecycle_msgs::msg::Transition::
@@ -194,10 +199,10 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
-  DeactivateDepsLifecycleNodes();
-  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  // DeactivateDepsLifecycleNodes();
+  // response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+  //   StopTaskSrv::Response::SUCCESS :
+  //   StopTaskSrv::Response::FAILED;
   INFO("UWB Tracking Stoped");
 }
 
@@ -210,8 +215,8 @@ void ExecutorUwbTracking::Cancel()
     task_abort_callback_();
   }
   StopReportPreparationThread();
-  DeactivateDepsLifecycleNodes();
-  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+  // DeactivateDepsLifecycleNodes();
+  // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");
 }

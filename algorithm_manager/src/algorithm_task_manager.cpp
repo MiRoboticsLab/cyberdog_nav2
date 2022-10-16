@@ -131,9 +131,33 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   const protocol::srv::StopAlgoTask::Request::SharedPtr request,
   protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
-  if (static_cast<uint8_t>(manager_status_) != request->task_id) {
-    ERROR("No task to stop");
-    return;
+  INFO("=====================");
+  if (request->task_id == 0) {
+    if (!CheckStatusValid()) {
+      ERROR("Cannot Reset Nav, status %d is invalid!", manager_status_);
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    }
+    std::string task_name;
+    for (auto task : task_map_) {
+      if (task.second.id == request->task_id) {
+        task_name = task.first;
+      }
+    }
+    auto iter = task_map_.find(task_name);
+    if (iter == task_map_.end()) {
+      ERROR("Error when get ResetNav executor");
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    } else {
+      SetTaskExecutor(iter->second.executor);
+    }
+    INFO("Will Reset Nav");
+  } else {
+    if (static_cast<uint8_t>(manager_status_) != request->task_id) {
+      ERROR("No task to stop");
+      return;
+    }
   }
   SetStatus(ManagerStatus::kStoppingTask);
   if (activated_executor_ != nullptr) {
