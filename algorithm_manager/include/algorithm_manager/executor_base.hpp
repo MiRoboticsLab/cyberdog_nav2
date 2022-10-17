@@ -285,9 +285,6 @@ protected:
             WARN("Get error when configuring %s, try to active", client.name.c_str());
           }
         }
-        if (client.name == std::string("camera/camera")) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-        }
         INFO("%s 2nd: %d", client.name.c_str(), client.lifecycle_client->get_state());
         if (!client.lifecycle_client->change_state(
             lifecycle_msgs::msg::Transition::
