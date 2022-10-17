@@ -95,23 +95,23 @@ def generate_launch_description():
                                 namespace=namespace,
                                 arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'uwb'],
                                 )        
-    tf2_node_uwb_to_head = Node(
+    tf2_node_uwb_to_head_tof = Node(
                                 package='tf2_ros',
                                 executable='static_transform_publisher',
                                 name='static_tf_uwb_to_head_uwb',
                                 namespace=namespace,
-                                arguments=['0.2185', '0', '-0.00495', '0', '0', '0', 'uwb', 'head_uwb']
+                                arguments=['0.2185', '0', '-0.00495', '0', '0', '0', 'uwb', 'head_tof']
                                 )
 
-    tf2_node_uwb_to_head_tof = Node(
+    tf2_node_uwb_to_head_uwb = Node(
                                 package='tf2_ros',
                                 executable='static_transform_publisher',
                                 name='static_tf_uwb_to_head_tof',
                                 namespace=namespace,
-                                arguments=['0.17', '0', '0.164', '3.14159', '0', '0', 'uwb', 'head_tof']
+                                arguments=['0.17', '0', '0.164', '3.14159', '0', '0', 'uwb', 'head_uwb']
                                 )
 
-    tf2_node_uwb_to_rear = Node(
+    tf2_node_uwb_to_rear_uwb = Node(
                                 package='tf2_ros',
                                 executable='static_transform_publisher',
                                 name='static_tf_uwb_to_rear_uwb',
@@ -139,9 +139,9 @@ def generate_launch_description():
         tf2_node_map_to_odom,
         tf2_node_map_to_vodom,
         tf2_node_base_to_uwb,
-        tf2_node_uwb_to_head,
+        tf2_node_uwb_to_head_uwb,
         tf2_node_uwb_to_head_tof,
-        tf2_node_uwb_to_rear,
+        tf2_node_uwb_to_rear_uwb,
         tf2_node_uwb_to_rear_tof
     ])
     return ld
