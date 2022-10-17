@@ -43,22 +43,25 @@ public:
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
 
-  void TrackingSrv_callback(
+  void TrackingSrvCallback(
     const std::shared_ptr<rmw_request_id_t>,
     const std::shared_ptr<BodyRegionT::Request> req,
     std::shared_ptr<BodyRegionT::Response> res);
 
   uint8_t StartVisionTracking(uint8_t relative_pos, float keep_distance);
 
-  bool TrackingClient_call_service(
+  bool TrackingClientCallService(
     rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
     const sensor_msgs::msg::RegionOfInterest & roi);
 
   void CallVisionTrackAlgo();
-  void FeedbackMonitor();
-  void OnCancel();
 
 private:
+  bool ActivateDepsLifecycleNodes();
+  bool DeactivateDepsLifecycleNodes();
+
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
   rclcpp::Node::SharedPtr client_node_;
   // nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
   // std::shared_ptr<nav2_util::LifecycleServiceClient> client_vision_manager_;

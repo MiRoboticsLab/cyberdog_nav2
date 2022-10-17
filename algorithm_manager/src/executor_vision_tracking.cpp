@@ -28,6 +28,11 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(action_client_node_);
+  callback_group_ = action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  rclcpp::SubscriptionOptions option;
+  option.callback_group = callback_group_;
 
   // TODO(PDF):
   // client_realsense_manager_ =
@@ -41,16 +46,23 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   // Create service server
   service_tracking_object_ = action_client_node_->create_service<BodyRegionT>(
     "tracking_object_srv", std::bind(
-      &ExecutorVisionTracking::TrackingSrv_callback, this,
-      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  client_tracking_object_ = action_client_node_->create_client<BodyRegionT>("tracking_object");
+      &ExecutorVisionTracking::TrackingSrvCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+      rmw_qos_profile_services_default,
+      callback_group_
+  );
+  client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
+    "tracking_object",
+    rmw_qos_profile_services_default,
+    callback_group_
+  );
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target");
+    action_client_node_, "tracking_target",callback_group_);
 
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
-  std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
+  std::thread{[this]{this->executor_->spin();}}.detach();
 }
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -70,86 +82,85 @@ void ExecutorVisionTracking::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  (void)response;
   INFO("Vision Tracking Stopped");
-  Cancel();
+  if (start_vision_tracking_) {
+    if (target_tracking_goal_handle_) {
+      auto future_cancel =
+        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+    }
+    StopReportPreparationThread();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
+    target_tracking_goal_handle_.reset();
+    response->result = StopTaskSrv::Response::SUCCESS :
+    start_vision_tracking_ = false;
+    return;
+  }
+
 }
 
 void ExecutorVisionTracking::Cancel()
 {
   INFO("Vision Tracking Cancel");
-  OnCancel();
-}
-// TODO(PDF):
-void ExecutorVisionTracking::OnCancel()
-{
   if (start_vision_tracking_) {
-    StopReportPreparationThread();
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-
-    for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_DEACTIVATE))
-      {
-        ERROR("Failed to deactive %s", client.name.c_str());
-        continue;
-      }
-      INFO("Success to deactive %s", client.name.c_str());
-    }
-    // if ((!client_realsense_manager_->change_state(
-    //     lifecycle_msgs::msg::Transition::
-    //     TRANSITION_DEACTIVATE)))
-    // {
-    //   ERROR("realsense_manager lifecycle TRANSITION_DEACTIVATE failed");
-    // }
-    // if ((!client_vision_manager_->change_state(
-    //     lifecycle_msgs::msg::Transition::
-    //     TRANSITION_DEACTIVATE)))
-    // {
-    //   ERROR("vision_manager lifecycle TRANSITION_DEACTIVATE failed");
-    // }
     if (target_tracking_goal_handle_) {
-      // if (!client_tracking_manager_->change_state(
-      //     lifecycle_msgs::msg::Transition::
-      //     TRANSITION_DEACTIVATE))
-      // {
-      //   ERROR("tracking_manager_ lifecycle TRANSITION_DEACTIVATE failed");
-      // }
       auto future_cancel =
         target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
-
-      if (rclcpp::spin_until_future_complete(
-          client_node_, future_cancel,
-          server_timeout_) !=
-        rclcpp::FutureReturnCode::SUCCESS)
-      {
-        ERROR("Failed to cancel goal");
-      } else {
-        // target_tracking_action_client_.reset();
-        INFO("canceled navigation goal");
-      }
-      // client_nav_.pause();
     }
+    StopReportPreparationThread();
+    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
+    target_tracking_goal_handle_.reset();
     start_vision_tracking_ = false;
     return;
   }
 }
-// TODO(PDF):
-void ExecutorVisionTracking::FeedbackMonitor()
+
+bool ExecutorVisionTracking::ActivateDepsLifecycleNodes()
 {
-  // RCLCPP_INFO(client_node_->get_logger(), "Navigation status monitor ...");
-  if (start_vision_tracking_) {
-    rclcpp::spin_some(client_node_);
-    {
-      feedback_->feedback_code = vision_action_client_feedback_;
-      task_feedback_callback_(feedback_);
-      // state_machine_.postEvent(new ROSActionQEvent(QActionState::ACTIVE));
+  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      INFO("Lifecycle node %s already be active", client.name.c_str());
+      continue;
+    } else {
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_CONFIGURE))
+      {
+        WARN("Get error when configuring %s, try to active", client.name.c_str());
+      }
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::
+          TRANSITION_ACTIVATE))
+      {
+        ERROR("Get error when activing %s", client.name.c_str());
+        return false;
+      }
+      INFO("Success to active %s", client.name.c_str());
     }
-    return;
   }
+  return true;
 }
 
+bool ExecutorVisionTracking::DeactivateDepsLifecycleNodes()
+{
+  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
+    if (client.lifecycle_client->get_state() ==
+      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+    {
+      INFO("Lifecycle node %s already be inactive", client.name.c_str());
+      continue;
+    } else {
+      if (!client.lifecycle_client->change_state(
+          lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
+      {
+        ERROR("Get error when deactive %s", client.name.c_str());
+      }
+      INFO("Success to deactive %s", client.name.c_str());
+    }
+  }
+  return true;
+}
 // TODO(PDF):
 void ExecutorVisionTracking::CallVisionTrackAlgo()
 {
@@ -177,15 +188,12 @@ void ExecutorVisionTracking::CallVisionTrackAlgo()
     }
     INFO("service not available, waiting again...");
   }
-
+  INFO("client_vision_algo_ service available! async_send_request");
   auto result = client_vision_algo_->async_send_request(request);
-  // Wait for the result.
-  if (rclcpp::spin_until_future_complete(client_node_, result) ==
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
-    INFO("enable result: %d", result.get()->result_enable);
+  if (result.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+    ERROR("Cannot Get result client_vision_algo_");
   } else {
-    ERROR("Failed to call service");
+    INFO("enable result: %d", result.get()->result_enable);
   }
 }
 
@@ -194,128 +202,45 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
 {
   (void)relative_pos;
   (void)keep_distance;
-  // vision_action_client_feedback_ = 500;
   SetFeedbackCode(500);
-  // feedback_timer_ = this->create_wall_timer(
-  //   2000ms, std::bind(&ExecutorVisionTracking::FeedbackMonitor, this));
-
-  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-      INFO("Lifecycle node %s already be active", client.name.c_str());
-      continue;
-    } else {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_CONFIGURE))
-      {
-        WARN("Get error when configuring %s, try to active", client.name.c_str());
-      }
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_ACTIVATE))
-      {
-        ERROR("Get error when activing %s", client.name.c_str());
-        ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-        task_abort_callback_();
-        return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-      }
-      INFO("Success to active %s", client.name.c_str());
-    }
+  if (!ActivateDepsLifecycleNodes()) {
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
-  // // start realsense lifecycle node
-  // if (client_realsense_manager_->get_state()
-  //     != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-  //   if ((!client_realsense_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
-  //   {
-  //     ERROR("realsense_manager lifecycle TRANSITION_CONFIGURE failed");
-  //   }
-
-  //   if (!client_realsense_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::
-  //       TRANSITION_ACTIVATE))
-  //   {
-  //     ERROR("realsense_manager lifecycle TRANSITION_ACTIVATE failed");
-  //     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  //   }
-  //   INFO("realsense_manager  TRANSITION_ACTIVATE success");
-  // }
-  // // start vision_manager lifecycle node
-  // if (client_vision_manager_->get_state() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-  //   if ((!client_vision_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)))
-  //   {
-  //     ERROR("vision_manager lifecycle TRANSITION_CONFIGURE failed");
-  //   }
-
-  //   if (!client_vision_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
-  //   {
-  //     ERROR("vision_manager lifecycle TRANSITION_ACTIVATE failed");
-  //     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  //   }
-  //   INFO("vision_manager lifecycle TRANSITION_ACTIVATE success");
-  // }
+  INFO("CallVisionTrackAlgo");
   start_vision_tracking_ = true;
   CallVisionTrackAlgo();
   SetFeedbackCode(501);
-  // vision_action_client_feedback_ = 501;
+  INFO("SetFeedbackCode(501)");
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
 // TODO(PDF):
-void ExecutorVisionTracking::TrackingSrv_callback(
+void ExecutorVisionTracking::TrackingSrvCallback(
   const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<BodyRegionT::Request> req,
   std::shared_ptr<BodyRegionT::Response> res)
 {
   // send tracking_object to cyberdog_vision
-  if (TrackingClient_call_service(client_tracking_object_, req->roi)) {
-    INFO("TrackingClient_call_service success");
+  if (TrackingClientCallService(client_tracking_object_, req->roi)) {
+    INFO("TrackingClientCallService success");
     res->success = true;
   } else {
-    ERROR("TrackingClient_call_service failed");
+    ERROR("TrackingClientCallService failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     res->success = false;
     return;
   }
-  // // start tracking_manager lifecycle node
-  // if (client_tracking_manager_->get_state()
-  //     != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-  //   if (!client_tracking_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::
-  //       TRANSITION_CONFIGURE))
-  //   {
-  //     ERROR("tracking_manager_ lifecycle TRANSITION_CONFIGURE failed");
-  //   }
-  //   if (!client_tracking_manager_->change_state(
-  //       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
-  //   {
-  //     ERROR("tracking_manager_ lifecycle TRANSITION_ACTIVATE failed");
-  //     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //     task_abort_callback_();
-  //     res->success = false;
-  //     return;
-  //   }
-  // }
   SetFeedbackCode(502);
-  // vision_action_client_feedback_ = 502;
-  // return;
-  // start navigation stack
-  // if (client_nav_.is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-  //   if (!client_nav_.startup()) {
-  //     ERROR("start navigation stack");
-  //     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //     task_abort_callback_();
-  //     res->success = false;
-  //     return;
-  //   }
-  // }
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ERROR("OperateDepsNav2LifecycleNodes not available.");
     task_abort_callback_();
     return;
   }
+  INFO("OperateDepsNav2LifecycleNodes success");
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
@@ -328,6 +253,7 @@ void ExecutorVisionTracking::TrackingSrv_callback(
     res->success = false;
     return;
   }
+  INFO("is_action_server_ready success");
   // Send the goal pose
   // navigation_goal_.pose = pose;
   target_tracking_goal_.relative_pos = 1;
@@ -340,23 +266,20 @@ void ExecutorVisionTracking::TrackingSrv_callback(
       INFO("Tracking target send_goal callback");
       // SenResult();
       // target_tracking_goal_handle_.reset();
-    };
-
+  };
+  INFO("async_send_goal");
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal_, send_goal_options);
-  if (rclcpp::spin_until_future_complete(
-      client_node_, future_goal_handle,
-      server_timeout_) !=
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
-    ERROR("Send goal call failed");
+  if (future_goal_handle.wait_for(std::chrono::milliseconds(20000)) != std::future_status::ready) {
+    ERROR("Cannot Get result target_tracking_action_client_");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     // client_nav_.pause();
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     return;
+  } else {
+    INFO("enable result: %d", future_goal_handle.get());
   }
-
   // Get the goal handle and save so that we can check on completion in the
   // timer callback
   target_tracking_goal_handle_ = future_goal_handle.get();
@@ -372,7 +295,7 @@ void ExecutorVisionTracking::TrackingSrv_callback(
   SetFeedbackCode(503);
 }
 // TODO(PDF):
-bool ExecutorVisionTracking::TrackingClient_call_service(
+bool ExecutorVisionTracking::TrackingClientCallService(
   rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
   const sensor_msgs::msg::RegionOfInterest & roi)
 {
