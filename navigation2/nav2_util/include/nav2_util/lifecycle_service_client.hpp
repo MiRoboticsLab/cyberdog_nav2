@@ -53,6 +53,13 @@ public:
    */
   uint8_t get_state(const std::chrono::seconds timeout = std::chrono::seconds::max());
 
+
+  bool change_state(
+    const uint8_t transition,  // takes a lifecycle_msgs::msg::Transition id
+    const int timeout);
+  uint8_t get_state(bool & is_timeout, const int timeout);
+  bool service_exist(const std::chrono::seconds timeout = std::chrono::seconds::max());
+
 protected:
   rclcpp::Node::SharedPtr node_;
   ServiceClient<lifecycle_msgs::srv::ChangeState> change_state_;
