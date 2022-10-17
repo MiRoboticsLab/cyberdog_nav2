@@ -87,6 +87,37 @@ public:
     return future_result.get();
   }
 
+  typename ResponseType::SharedPtr invoke(
+    typename RequestType::SharedPtr & request,
+    const int timeout)
+  {
+    // while (!client_->wait_for_service(std::chrono::seconds(1))) {
+    //   if (!rclcpp::ok()) {
+    //     throw std::runtime_error(
+    //             service_name_ + " service client: interrupted while waiting for service");
+    //   }
+    //   RCLCPP_INFO(
+    //     node_->get_logger(), "%s service client: waiting for service to appear...",
+    //     service_name_.c_str());
+    // }
+
+    RCLCPP_DEBUG(
+      node_->get_logger(), "%s service client: send async request",
+      service_name_.c_str());
+    auto future_result = client_->async_send_request(request);
+
+    if (callback_group_executor_.spin_until_future_complete(
+      future_result, std::chrono::milliseconds(timeout))==
+        rclcpp::FutureReturnCode::TIMEOUT)
+    {
+      RCLCPP_ERROR(
+        node_->get_logger(), "Wait %s result timeout", service_name_.c_str());
+      return nullptr;
+    }
+    return future_result.get();
+  }
+
+
   /**
   * @brief Invoke the service and block until completed
   * @param request The request object to call the service using
