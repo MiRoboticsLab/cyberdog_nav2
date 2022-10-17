@@ -134,7 +134,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   INFO("=====================");
   if (request->task_id == 0) {
     if (!CheckStatusValid()) {
-      ERROR("Cannot Reset Nav, status %d is invalid!", manager_status_);
+      ERROR("Cannot Reset Nav, status %d is invalid!", (int)manager_status_);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
       return;
     }

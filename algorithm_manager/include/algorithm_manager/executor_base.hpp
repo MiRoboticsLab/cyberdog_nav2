@@ -276,7 +276,7 @@ bool ActivateDepsLifecycleNodes(const std::string & task_name)
       INFO("Lifecycle node %s already be active", client.name.c_str());
       continue;
     } else {
-      INFO("1st: %d", client.lifecycle_client->get_state());
+      INFO("%s 1st: %d", client.name.c_str(), client.lifecycle_client->get_state());
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
         if (!client.lifecycle_client->change_state(
             lifecycle_msgs::msg::Transition::
@@ -288,7 +288,7 @@ bool ActivateDepsLifecycleNodes(const std::string & task_name)
       if (client.name == std::string("camera/camera")) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
       }
-      INFO("2nd: %d", client.lifecycle_client->get_state());
+      INFO("%s 2nd: %d", client.name.c_str(), client.lifecycle_client->get_state());
       if (!client.lifecycle_client->change_state(
           lifecycle_msgs::msg::Transition::
           TRANSITION_ACTIVATE, 5000))

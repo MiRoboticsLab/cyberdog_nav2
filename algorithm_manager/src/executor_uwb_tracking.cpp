@@ -156,8 +156,8 @@ void ExecutorUwbTracking::Cancel()
     task_abort_callback_();
   }
   StopReportPreparationThread();
-  // DeactivateDepsLifecycleNodes(this->get_name());
-  // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+  DeactivateDepsLifecycleNodes(this->get_name());
+  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");
 }

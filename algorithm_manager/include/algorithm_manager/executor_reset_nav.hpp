@@ -46,7 +46,7 @@ public:
     StopTaskSrv::Response::SharedPtr response) override
   {
     (void)request;
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(this->get_name());
     response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
       StopTaskSrv::Response::SUCCESS :
       StopTaskSrv::Response::FAILED;
@@ -60,29 +60,7 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
-  bool DeactivateDepsLifecycleNodes()
-  {
-    for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-      if(!client.lifecycle_client->service_exist(std::chrono::seconds(2))){
-          WARN("Lifecycle %s not exist, will not deactive it", client.name.c_str());
-          continue;
-      }
-      if (client.lifecycle_client->get_state() ==
-        lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-      {
-        INFO("Lifecycle node %s already be inactive", client.name.c_str());
-        continue;
-      } else {
-        if (!client.lifecycle_client->change_state(
-            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
-        {
-          ERROR("Get error when deactive %s", client.name.c_str());
-        }
-        INFO("Success to deactive %s", client.name.c_str());
-      }
-    }
-    return true;
-  }
+
 };  // class ExecutorLaserMapping
 
 }  // namespace algorithm
