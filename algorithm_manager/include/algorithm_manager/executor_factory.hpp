@@ -56,11 +56,11 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
       result = std::make_shared<ExecutorUwbTracking>(task_name);
       break;
-  
+
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING:
       result = std::make_shared<ExecutorVisionTracking>(task_name);
       break;
-  
+
     case 0:
       result = std::make_shared<ExecutorResetNav>(task_name);
       break;

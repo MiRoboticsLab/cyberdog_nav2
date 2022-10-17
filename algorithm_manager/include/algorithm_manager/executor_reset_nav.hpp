@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef ALGORITHM_MANAGER__RESET_NAV_HPP_
-#define ALGORITHM_MANAGER__RESET_NAV_HPP_
+#ifndef ALGORITHM_MANAGER__EXECUTOR_RESET_NAV_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_RESET_NAV_HPP_
 
 #include <memory>
 #include <string>
@@ -36,7 +36,7 @@ public:
   explicit ExecutorResetNav(std::string node_name)
   : ExecutorBase(node_name)
   {}
-  void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override 
+  void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override
   {
     (void)goal;
     ERROR("Error: Start ExecutorResetNav should never be called");
@@ -60,9 +60,7 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
-
 };  // class ExecutorLaserMapping
-
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__RESET_NAV_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_RESET_NAV_HPP_
