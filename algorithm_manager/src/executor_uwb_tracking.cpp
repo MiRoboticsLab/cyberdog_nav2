@@ -34,65 +34,6 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
-bool ExecutorUwbTracking::ActivateDepsLifecycleNodes()
-{
-  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if(!client.lifecycle_client->service_exist(std::chrono::seconds(2))){
-        ERROR("Lifecycle %s not exist", client.name.c_str());
-        return false;
-    }
-    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-      INFO("Lifecycle node %s already be active", client.name.c_str());
-      continue;
-    } else {
-      if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
-        if (!client.lifecycle_client->change_state(
-            lifecycle_msgs::msg::Transition::
-            TRANSITION_CONFIGURE))
-        {
-          WARN("Get error when configuring %s, try to active", client.name.c_str());
-        }
-      }
-      if (client.name == std::string("camera/camera")) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-      }
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_ACTIVATE))
-      {
-        ERROR("Get error when activing %s", client.name.c_str());
-        return false;
-      }
-      INFO("Success to active %s", client.name.c_str());
-    }
-  }
-  return true;
-}
-
-bool ExecutorUwbTracking::DeactivateDepsLifecycleNodes()
-{
-  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if(!client.lifecycle_client->service_exist(std::chrono::seconds(2))){
-        WARN("Lifecycle %s not exist, will not deactive it", client.name.c_str());
-        continue;
-    }
-    if (client.lifecycle_client->get_state() ==
-      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-    {
-      INFO("Lifecycle node %s already be inactive", client.name.c_str());
-      continue;
-    } else {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
-      {
-        ERROR("Get error when deactive %s", client.name.c_str());
-      }
-      INFO("Success to deactive %s", client.name.c_str());
-    }
-  }
-  return true;
-}
-
 void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
@@ -124,16 +65,16 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
 
-  if (!ActivateDepsLifecycleNodes()) {
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(this->get_name());
     task_abort_callback_();
     return;
   }
 
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(this->get_name());
     task_abort_callback_();
     return;
   }
@@ -199,7 +140,7 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
-  // DeactivateDepsLifecycleNodes();
+  // DeactivateDepsLifecycleNodes(this->get_name());
   // response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
   //   StopTaskSrv::Response::SUCCESS :
   //   StopTaskSrv::Response::FAILED;
@@ -215,7 +156,7 @@ void ExecutorUwbTracking::Cancel()
     task_abort_callback_();
   }
   StopReportPreparationThread();
-  // DeactivateDepsLifecycleNodes();
+  // DeactivateDepsLifecycleNodes(this->get_name());
   // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");
@@ -234,13 +175,13 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("UWB Tracking reported succeeded");
-      DeactivateDepsLifecycleNodes();
+      DeactivateDepsLifecycleNodes(this->get_name());
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("UWB Tracking reported aborted");
-      DeactivateDepsLifecycleNodes();
+      DeactivateDepsLifecycleNodes(this->get_name());
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;
@@ -250,7 +191,7 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     default:
       ERROR("UWB Tracking reported unknown result code");
-      DeactivateDepsLifecycleNodes();
+      DeactivateDepsLifecycleNodes(this->get_name());
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;
