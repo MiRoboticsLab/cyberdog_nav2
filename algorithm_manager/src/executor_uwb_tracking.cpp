@@ -67,14 +67,14 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    DeactivateDepsLifecycleNodes(this->get_name());
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
 
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    DeactivateDepsLifecycleNodes(this->get_name());
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -87,6 +87,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!is_action_server_ready) {
     ERROR("TrackingTarget action server is not available.");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -113,6 +114,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send TrackingTarget goal failed");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -120,6 +122,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!target_tracking_goal_handle_) {
     ERROR("TrackingTarget Goal was rejected by server");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -140,7 +143,7 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
-  DeactivateDepsLifecycleNodes(this->get_name());
+  DeactivateDepsLifecycleNodes();
   response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
@@ -156,7 +159,7 @@ void ExecutorUwbTracking::Cancel()
     task_abort_callback_();
   }
   StopReportPreparationThread();
-  DeactivateDepsLifecycleNodes(this->get_name());
+  DeactivateDepsLifecycleNodes();
   OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");

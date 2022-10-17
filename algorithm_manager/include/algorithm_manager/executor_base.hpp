@@ -261,6 +261,7 @@ protected:
 
   bool ActivateDepsLifecycleNodes(const std::string & task_name)
   {
+    lifecycle_activated_.clear();
     for (auto client : GetDepsLifecycleNodes(task_name)) {
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
         ERROR("Lifecycle %s not exist", client.name.c_str());
@@ -274,6 +275,7 @@ protected:
       }
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
         INFO("Lifecycle node %s already be active", client.name.c_str());
+        lifecycle_activated_.push_back(client);
         continue;
       } else {
         INFO("%s 1st: %d", client.name.c_str(), client.lifecycle_client->get_state());
@@ -293,6 +295,7 @@ protected:
           ERROR("Get error when activing %s", client.name.c_str());
           return false;
         }
+        lifecycle_activated_.push_back(client);
         INFO("Success to active %s", client.name.c_str());
       }
     }
@@ -301,7 +304,13 @@ protected:
 
   bool DeactivateDepsLifecycleNodes(const std::string & task_name)
   {
-    for (auto client : GetDepsLifecycleNodes(task_name)) {
+    lifecycle_activated_ = GetDepsLifecycleNodes(task_name);
+    return DeactivateDepsLifecycleNodes();
+  }
+
+  bool DeactivateDepsLifecycleNodes()
+  {
+    for (auto client : lifecycle_activated_) {
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
         WARN("Lifecycle %s not exist, will not deactive it", client.name.c_str());
         continue;
@@ -420,6 +429,7 @@ private:
   std::mutex preparation_finish_mutex_;
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
+  std::vector<LifecycleNodeRef> lifecycle_activated_{};
   bool preparation_finished_{true};
 
   /* add by North.D.K. 10.09*/
