@@ -140,10 +140,10 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
-  // DeactivateDepsLifecycleNodes(this->get_name());
-  // response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-  //   StopTaskSrv::Response::SUCCESS :
-  //   StopTaskSrv::Response::FAILED;
+  DeactivateDepsLifecycleNodes(this->get_name());
+  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+    StopTaskSrv::Response::SUCCESS :
+    StopTaskSrv::Response::FAILED;
   INFO("UWB Tracking Stoped");
 }
 
