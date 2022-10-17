@@ -82,26 +82,18 @@ void ExecutorVisionTracking::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("Vision Tracking Stopped");
-  if (start_vision_tracking_) {
-    if (target_tracking_goal_handle_) {
-      auto future_cancel =
-        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
-    }
-    StopReportPreparationThread();
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    DeactivateDepsLifecycleNodes();
-    target_tracking_goal_handle_.reset();
-    response->result = StopTaskSrv::Response::SUCCESS :
-    start_vision_tracking_ = false;
-    return;
-  }
-
+  OnCancel();
+  response->result = StopTaskSrv::Response::SUCCESS;
 }
 
 void ExecutorVisionTracking::Cancel()
 {
   INFO("Vision Tracking Cancel");
+  OnCancel();
+}
+
+void ExecutorVisionTracking::OnCancel()
+{
   if (start_vision_tracking_) {
     if (target_tracking_goal_handle_) {
       auto future_cancel =

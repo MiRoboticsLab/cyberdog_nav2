@@ -55,7 +55,7 @@ public:
     const sensor_msgs::msg::RegionOfInterest & roi);
 
   void CallVisionTrackAlgo();
-
+  void OnCancel();
 private:
   bool ActivateDepsLifecycleNodes();
   bool DeactivateDepsLifecycleNodes();
