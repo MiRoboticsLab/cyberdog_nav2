@@ -42,7 +42,7 @@ def generate_launch_description():
     algo_manager_cmd = Node(
         package='algorithm_manager',
         executable='algorithm_manager',
-        name='algorithm_manager',
+        # name='algorithm_manager',
         namespace=namespace,
         )
 
