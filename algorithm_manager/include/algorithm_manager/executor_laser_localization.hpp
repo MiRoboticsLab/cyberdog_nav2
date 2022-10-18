@@ -115,6 +115,7 @@ private:
 
   // Control localization_node lifecycle
   std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};

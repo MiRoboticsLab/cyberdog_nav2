@@ -201,7 +201,7 @@ void AlgorithmTaskManager::TaskSuccessd()
 
 void AlgorithmTaskManager::TaskCancled()
 {
-  INFO("Got Executor cancle");
+  INFO("Got Executor cancel");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   goal_handle_executing_->abort(result);

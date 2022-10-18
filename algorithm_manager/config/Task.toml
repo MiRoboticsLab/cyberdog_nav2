@@ -9,7 +9,7 @@ DepsLifecycleNodes = [""]
 TaskName = "LaserMapping"
 Id = 5
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
+DepsNav2LifecycleNodes = [""]
 DepsLifecycleNodes = [""]
 
 [[task]]
@@ -27,15 +27,8 @@ DepsNav2LifecycleNodes = ["lifecycle_manager_vis_mapping", ]
 DepsLifecycleNodes = [""]
 
 [[task]]
-TaskName = "VisionLocalization"
-Id = 7
-OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_vis_localization"]
-DepsLifecycleNodes = [""]
-
-[[task]]
 TaskName = "NavAB"
 Id = 1
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_navigation"]
+DepsNav2LifecycleNodes = [""]
 DepsLifecycleNodes = [""]

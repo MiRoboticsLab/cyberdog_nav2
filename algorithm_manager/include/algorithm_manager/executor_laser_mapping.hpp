@@ -21,13 +21,14 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
+#include "nav2_util/service_client.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class ExecutorLaserMapping : public ExecutorBase
+class ExecutorLaserMapping : public ExecutorBase 
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
@@ -76,16 +77,30 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
+  /**
+   * @brief Check localization lifecycle node not activate state
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool CheckAvailable();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
   // // Control lidar mapping lifecycle(Nav2 lifecycle)
   // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
 
+  // Lifecycle controller
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
+  
   // service client
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
+  // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
 
   // Control realsense camera lifecycle
   // std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};

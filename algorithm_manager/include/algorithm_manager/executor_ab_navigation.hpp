@@ -122,65 +122,20 @@ private:
   void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
-   * @brief Deactivate Nav2 Lifecycle Nodes
+   * @brief Sources reset and cleanup
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool ReinitializeAndCleanup();
+
+  /**
+   * @brief Reinitialize all lifecycle nodes
    * 
    * @return true Success
    * @return false Failure
    */
-  bool DeactivateLifecycleNodes();
-
-  /**
-   * @brief Initialize all navigation lifecycle nodes
-   */
-  void InitializeNavigationLifecycleNodes();
-
-  /**
-   * @brief Set lifecycle configure state
-   *  controller_server
-   *  planner_server
-   *  recoveries_server
-   *  bt_navigator
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesConfigure();
-
-  /**
-   * @brief Set lifecycle activate state
-   *  controller_server
-   *  planner_server
-   *  recoveries_server
-   *  bt_navigator
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesStartup();
-
-  /**
-   * @brief Set lifecycle deactivate state
-   *  controller_server
-   *  planner_server
-   *  recoveries_server
-   *  bt_navigator
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesPause();
-
-  /**
-   * @brief Set lifecycle Cleanup state
-   *  controller_server
-   *  planner_server
-   *  recoveries_server
-   *  bt_navigator
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesCleanup();
+  bool LifecycleNodesReinitialize();
 
   /**
    * @brief Print target goal pose
@@ -206,6 +161,12 @@ private:
 
   // Lifecycle controller
   std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
+
+  // Control localization_node lifecycle
+  // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+
+  // Control `map server` lifecycle node
+  std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};

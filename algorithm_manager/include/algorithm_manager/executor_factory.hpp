@@ -63,7 +63,11 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
 
     // Laser Localization
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
-      result = std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+      if (out_door) {
+        result = std::make_shared<ExecutorVisionMapping>(std::string("VisionLocalization"));
+      } else {
+        result = std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+      }
       break;
 
     default:

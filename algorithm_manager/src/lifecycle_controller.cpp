@@ -37,17 +37,17 @@ LifecycleController::~LifecycleController()
 
 bool LifecycleController::IsConfigure()
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE;
+  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
 bool LifecycleController::IsActivate()
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
 }
 
 bool LifecycleController::IsDeactivate()
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
+  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
 bool LifecycleController::Configure()
@@ -71,7 +71,12 @@ bool LifecycleController::Configure()
 bool LifecycleController::Startup()
 {
   // Checker node activate state
-  if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
+  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
+  //   WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
+  //   return true;
+  // }
+
+  if (IsActivate()) {
     WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
     return true;
   }
@@ -89,8 +94,12 @@ bool LifecycleController::Startup()
 bool LifecycleController::Pause()
 {
   // Checker node deactivate state
-  if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-    WARN("Current lifecycle node has(%s) deactivate state", node_name().c_str());
+  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
+  //   WARN("Current lifecycle node has(%s) deactivate state", node_name().c_str());
+  //   return true;
+  // }
+  if (IsDeactivate()) {
+    WARN("Current lifecycle node(%s) has deactivate state", node_name().c_str());
     return true;
   }
 
@@ -107,7 +116,7 @@ bool LifecycleController::Pause()
 bool LifecycleController::Cleanup()
 {
   // Checker node cleanup state
-  if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) {
+  if (node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED) {
     WARN("Current lifecycle node (%s) has cleanup state", node_name().c_str());
     return true;
   }

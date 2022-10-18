@@ -29,6 +29,9 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 {
   localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
 
+  // localization_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
+  //   "lifecycle_manager_localization");
+
   // Subscription Lidar relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
     "laser_reloc_result",
@@ -152,7 +155,6 @@ void ExecutorLaserLocalization::Stop(
   StopTaskSrv::Response::SUCCESS :
   StopTaskSrv::Response::FAILED;
 
-
   INFO("Laser localization stoped success");
   feedback_->feedback_code = 0;
   task_success_callback_();
@@ -206,6 +208,15 @@ bool ExecutorLaserLocalization::IsDependsReady()
   if (!localization_lifecycle_->Startup()) {
     return false;
   }
+
+  // if (localization_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //   bool startup = localization_client_->startup();
+  //   if (!startup) {
+  //     ERROR("Laser localization localization client startup failed.");
+  //     return false;
+  //   }
+  // }
+
 
   return true;
 }
