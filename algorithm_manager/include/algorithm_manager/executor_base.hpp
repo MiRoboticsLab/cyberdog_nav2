@@ -228,7 +228,7 @@ protected:
             if (status == nav2_lifecycle_manager::SystemStatus::ACTIVE) {
               continue;
             }
-            if (nav2_lifecycle_clients.find(index)->second->resume()) {
+            if (!nav2_lifecycle_clients.find(index)->second->resume()) {
               ERROR("Failed to Resume %s", index.c_str());
               return false;
             }
