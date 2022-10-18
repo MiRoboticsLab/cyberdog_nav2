@@ -57,9 +57,6 @@ public:
   void CallVisionTrackAlgo();
   void OnCancel();
 private:
-  bool ActivateDepsLifecycleNodes();
-  bool DeactivateDepsLifecycleNodes();
-
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
   rclcpp::Node::SharedPtr client_node_;

@@ -108,51 +108,6 @@ void ExecutorVisionTracking::OnCancel()
   }
 }
 
-bool ExecutorVisionTracking::ActivateDepsLifecycleNodes()
-{
-  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if (client.lifecycle_client->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-      INFO("Lifecycle node %s already be active", client.name.c_str());
-      continue;
-    } else {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_CONFIGURE))
-      {
-        WARN("Get error when configuring %s, try to active", client.name.c_str());
-      }
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::
-          TRANSITION_ACTIVATE))
-      {
-        ERROR("Get error when activing %s", client.name.c_str());
-        return false;
-      }
-      INFO("Success to active %s", client.name.c_str());
-    }
-  }
-  return true;
-}
-
-bool ExecutorVisionTracking::DeactivateDepsLifecycleNodes()
-{
-  for (auto client : GetDepsLifecycleNodes(this->get_name())) {
-    if (client.lifecycle_client->get_state() ==
-      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-    {
-      INFO("Lifecycle node %s already be inactive", client.name.c_str());
-      continue;
-    } else {
-      if (!client.lifecycle_client->change_state(
-          lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
-      {
-        ERROR("Get error when deactive %s", client.name.c_str());
-      }
-      INFO("Success to deactive %s", client.name.c_str());
-    }
-  }
-  return true;
-}
 // TODO(PDF):
 void ExecutorVisionTracking::CallVisionTrackAlgo()
 {
@@ -195,7 +150,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
   (void)relative_pos;
   (void)keep_distance;
   SetFeedbackCode(500);
-  if (!ActivateDepsLifecycleNodes()) {
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
