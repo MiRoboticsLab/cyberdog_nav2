@@ -39,12 +39,12 @@ def generate_launch_description():
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    camera_share_dir = get_package_share_directory('laser_slam')
-    camera_params_file = LaunchConfiguration('camera_params_file')
-    camera_params_declare = DeclareLaunchArgument(
-        name='camera_params_file',
+    laser_mapping_share_dir = get_package_share_directory('laser_slam')
+    laser_mapping_params_file = LaunchConfiguration('laser_mapping_params_file')
+    laser_mapping_params_declare = DeclareLaunchArgument(
+        name='laser_mapping_params_file',
         default_value=os.path.join(
-        camera_share_dir, 'param', 'mapping_node.yaml'),
+        laser_mapping_share_dir, 'param', 'mapping_node.yaml'),
         description='FPath to the ROS2 parameters file to use.')
     laser_mapping_node = LifecycleNode(
                                 package='laser_slam',
@@ -52,13 +52,13 @@ def generate_launch_description():
                                 name='map_builder',
                                 output='screen',
                                 emulate_tty=True,
-                                parameters=[camera_params_file],
+                                parameters=[laser_mapping_params_file],
                                 namespace=namespace,
                                 )
     # lds
     ld = launch.LaunchDescription([
         namespace_declare,
-        camera_params_declare,
+        laser_mapping_params_declare,
         laser_mapping_node,
     ])
     return ld

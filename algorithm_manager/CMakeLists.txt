@@ -28,6 +28,7 @@ find_package(cyberdog_system REQUIRED)
 find_package(motion_action REQUIRED)
 find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
+# find_package(visualization REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.

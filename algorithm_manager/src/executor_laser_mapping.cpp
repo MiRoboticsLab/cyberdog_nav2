@@ -60,7 +60,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Laser Mapping started");
   ReportPreparationStatus();
 
-  // Set Laser Localization in deactivate state 
+  // Set Laser Localization in deactivate state
   bool ready = CheckAvailable();
   if (!ready) {
     ERROR("Laser Localization is running, Laser Mapping is not available.");
@@ -125,7 +125,7 @@ void ExecutorLaserMapping::Stop(
     stop_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
       "stop_mapping", shared_from_this());
   }
-  
+
   // MapServer
   success = StopBuildMapping(request->map_name);
   if (!success) {
@@ -156,7 +156,7 @@ void ExecutorLaserMapping::Stop(
   //   StopTaskSrv::Response::SUCCESS :
   //   StopTaskSrv::Response::FAILED;
 
-  response->result = mapping_client_->pause() ? 
+  response->result = mapping_client_->pause() ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
@@ -259,9 +259,8 @@ bool ExecutorLaserMapping::StartBuildMapping()
   // }
   // return future.get()->success;
 
-  std::chrono::nanoseconds timeout(5 * 1000 * 1000 * 1000);  // 5s
   // Wait service
-  while (!start_->wait_for_service(timeout)) {
+  while (!start_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for the service. but cannot connect the service.");
       return false;
@@ -304,9 +303,8 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 
   // return future.get()->success;
 
-  std::chrono::nanoseconds timeout(10 * 1000 * 1000 * 1000);  // 10s
   // Wait service
-  while (!stop_->wait_for_service(timeout)) {
+  while (!stop_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for the service. but cannot connect the service.");
       return false;
@@ -359,13 +357,12 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
 
 bool ExecutorLaserMapping::CheckAvailable()
 {
-  std::chrono::nanoseconds timeout(5 * 1000 * 1000 * 1000);  // 5s
   INFO("Check ExecutorLaserMapping::CheckAvailable().");
-  if (nav2_lifecycle_manager::SystemStatus::ACTIVE != localization_client_->is_active(timeout)) {
+  if (nav2_lifecycle_manager::SystemStatus::ACTIVE != localization_client_->is_active()) {
     return true;
   }
 
-  if (!localization_client_->pause(timeout)) {
+  if (!localization_client_->pause()) {
     return false;
   }
 

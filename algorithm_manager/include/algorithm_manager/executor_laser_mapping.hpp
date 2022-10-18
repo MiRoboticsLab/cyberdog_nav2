@@ -28,7 +28,7 @@ namespace cyberdog
 namespace algorithm
 {
 
-class ExecutorLaserMapping : public ExecutorBase 
+class ExecutorLaserMapping : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
@@ -94,7 +94,7 @@ private:
   // Lifecycle controller
   std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
   std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
-  
+
   // service client
   // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
   // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};

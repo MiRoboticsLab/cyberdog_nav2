@@ -16,7 +16,12 @@
 #define ALGORITHM_MANAGER__EXECUTOR_VISION_TRACKING_HPP_
 
 #include <string>
+#include <memory>
 #include "algorithm_manager/executor_base.hpp"
+#include "std_msgs/msg/int32.hpp"
+#include "protocol/srv/body_region.hpp"
+#include "protocol/srv/algo_manager.hpp"
+#include "nav2_util/lifecycle_service_client.hpp"
 
 namespace cyberdog
 {
@@ -26,6 +31,11 @@ namespace algorithm
 class ExecutorVisionTracking : public ExecutorBase
 {
 public:
+  using TargetTrackingGoalHandle =
+    rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
+  using BodyRegionT = protocol::srv::BodyRegion;
+  using Navigation = protocol::action::Navigation;
+
   explicit ExecutorVisionTracking(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(
@@ -33,7 +43,43 @@ public:
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
 
+  void TrackingSrvCallback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<BodyRegionT::Request> req,
+    std::shared_ptr<BodyRegionT::Response> res);
+
+  uint8_t StartVisionTracking(uint8_t relative_pos, float keep_distance);
+
+  bool TrackingClientCallService(
+    rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
+    const sensor_msgs::msg::RegionOfInterest & roi);
+
+  void CallVisionTrackAlgo();
+  void OnCancel();
+
 private:
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
+  rclcpp::Node::SharedPtr client_node_;
+  // nav2_lifecycle_manager::LifecycleManagerClient client_nav_;
+  // std::shared_ptr<nav2_util::LifecycleServiceClient> client_vision_manager_;
+  // std::shared_ptr<nav2_util::LifecycleServiceClient> client_tracking_manager_;
+  // std::shared_ptr<nav2_util::LifecycleServiceClient> client_realsense_manager_;
+  rclcpp::Client<protocol::srv::AlgoManager>::SharedPtr client_vision_algo_;
+  rclcpp::Service<BodyRegionT>::SharedPtr service_tracking_object_;
+  rclcpp::Client<BodyRegionT>::SharedPtr client_tracking_object_;
+
+  rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
+    target_tracking_action_client_;
+
+  mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
+
+  TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
+
+  int32_t vision_action_client_feedback_;
+  bool start_vision_tracking_;
+
+  rclcpp::TimerBase::SharedPtr feedback_timer_;
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
 }  // namespace cyberdog

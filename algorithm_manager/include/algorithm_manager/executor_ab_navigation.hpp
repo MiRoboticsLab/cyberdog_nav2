@@ -17,11 +17,13 @@
 
 #include <string>
 #include <memory>
+#include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -131,7 +133,7 @@ private:
 
   /**
    * @brief Reinitialize all lifecycle nodes
-   * 
+   *
    * @return true Success
    * @return false Failure
    */
@@ -148,7 +150,8 @@ private:
   ExecutorData executor_nav_ab_data_;
 
   // Navigation lifecycles
-  std::unordered_map<std::string, std::shared_ptr<LifecycleController>> navigation_lifecycle_;
+  std::unordered_map<std::string, std::shared_ptr<LifecycleController>>
+  navigation_lifecycle_;
 
   // navigation target goal
   nav2_msgs::action::NavigateToPose::Goal target_goal_;

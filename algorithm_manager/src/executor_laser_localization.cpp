@@ -152,8 +152,8 @@ void ExecutorLaserLocalization::Stop(
   //   StopTaskSrv::Response::SUCCESS :
   //   StopTaskSrv::Response::FAILED;
   response->result = localization_lifecycle_->Pause() ?
-  StopTaskSrv::Response::SUCCESS :
-  StopTaskSrv::Response::FAILED;
+    StopTaskSrv::Response::SUCCESS :
+    StopTaskSrv::Response::FAILED;
 
   INFO("Laser localization stoped success");
   feedback_->feedback_code = 0;

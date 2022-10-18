@@ -55,13 +55,13 @@ struct TaskRef
   bool out_door;
 };
 
-class AlgorithmTaskManager : public rclcpp::Node
+class AlgorithmTaskManager
 {
 public:
   AlgorithmTaskManager();
   ~AlgorithmTaskManager();
-
   bool Init();
+  void Run();
 
 private:
   void TaskSuccessd();
@@ -129,11 +129,13 @@ private:
     protocol::srv::StopAlgoTask::Response::SharedPtr response);
 
 private:
+  rclcpp::Node::SharedPtr node_{nullptr};
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr start_algo_task_server_{nullptr};
   rclcpp::Service<protocol::srv::StopAlgoTask>::SharedPtr stop_algo_task_server_{nullptr};
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_{nullptr};
   std::shared_ptr<ExecutorBase> activated_executor_{nullptr};
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr ros_executor_{nullptr};
   ManagerStatus manager_status_{ManagerStatus::kUninitialized};
   std::mutex status_mutex_;
   common::MsgQueue<ExecutorData> executor_data_queue_;

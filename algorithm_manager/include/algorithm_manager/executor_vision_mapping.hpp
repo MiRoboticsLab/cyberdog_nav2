@@ -31,7 +31,7 @@ class ExecutorVisionMapping : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
- 
+
   explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(

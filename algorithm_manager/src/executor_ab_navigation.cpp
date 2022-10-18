@@ -184,10 +184,8 @@ bool ExecutorAbNavigation::IsDependsReady()
   //   return false;
   // }
 
-  std::chrono::nanoseconds timeout(10 * 1000 * 1000 * 1000);  // 10s
-
-  if (nav_client_->is_active(timeout) != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-    if (!nav_client_->startup(timeout)) {
+  if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+    if (!nav_client_->startup()) {
       WARN("[Navigation AB] navigation client lifecycle startup failed.");
       return false;
     }

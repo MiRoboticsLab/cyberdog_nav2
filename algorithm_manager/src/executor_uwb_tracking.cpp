@@ -26,11 +26,11 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 : ExecutorBase(node_name)
 {
   auto options = rclcpp::NodeOptions().arguments(
-    {"--ros-args --remap __node:=tracking_target_action_client"});
+    {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target_fake");
+    action_client_node_, "tracking_target");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -64,11 +64,27 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
-  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
+  static bool first_run = true;
+  bool result = false;
+  if (first_run) {
+    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
+  } else {
+    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
+  }
+  if (!result) {
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return;
+  }
+  first_run = false;
   // TODO(Harvey): 当有Realsense的依赖时
   // TODO(Harvey): 当有其他没有继承Nav2Lifecycle的依赖节点时
   auto is_action_server_ready =
@@ -77,6 +93,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!is_action_server_ready) {
     ERROR("TrackingTarget action server is not available.");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -103,6 +120,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send TrackingTarget goal failed");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -110,6 +128,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!target_tracking_goal_handle_) {
     ERROR("TrackingTarget Goal was rejected by server");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -130,6 +149,7 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
+  DeactivateDepsLifecycleNodes();
   response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
@@ -145,6 +165,7 @@ void ExecutorUwbTracking::Cancel()
     task_abort_callback_();
   }
   StopReportPreparationThread();
+  DeactivateDepsLifecycleNodes();
   OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
   INFO("UWB Tracking Canceled");
@@ -154,7 +175,35 @@ void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
-  feedback_->feedback_code = feedback->exception_code;
+  switch (feedback->exception_code) {
+    case 0:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_NOEXCEPTION;
+      break;
+
+    case 1000:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_DETECOTOREXCEPTION;
+      break;
+
+    case 2000:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_TFEXCEPTION;
+      break;
+
+    case 3000:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_PLANNNEREXCEPTION;
+      break;
+
+    case 4000:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_CONTROLLEREXCEPTION;
+      break;
+
+    default:
+      break;
+  }
   task_feedback_callback_(feedback_);
 }
 
@@ -163,10 +212,14 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("UWB Tracking reported succeeded");
+      DeactivateDepsLifecycleNodes(this->get_name());
+      OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("UWB Tracking reported aborted");
+      DeactivateDepsLifecycleNodes(this->get_name());
+      OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
@@ -175,6 +228,8 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     default:
       ERROR("UWB Tracking reported unknown result code");
+      DeactivateDepsLifecycleNodes(this->get_name());
+      OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;
   }

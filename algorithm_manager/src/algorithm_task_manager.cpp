@@ -25,7 +25,6 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
-: rclcpp::Node("AlgorithmTaskManager")
 {
 }
 
@@ -35,13 +34,16 @@ AlgorithmTaskManager::~AlgorithmTaskManager()
 
 bool AlgorithmTaskManager::Init()
 {
+  node_ = std::make_shared<rclcpp::Node>("algorithm_manager");
   if (!BuildExecutorMap()) {
     ERROR("Init failed, cannot build executor map!");
     return false;
   }
-  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  ros_executor_->add_node(node_);
+  callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_algo_task_server_ = rclcpp_action::create_server<AlgorithmMGR>(
-    this, "start_algo_task",
+    node_, "start_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerGoal,
       this, std::placeholders::_1, std::placeholders::_2),
@@ -51,7 +53,7 @@ bool AlgorithmTaskManager::Init()
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
       this, std::placeholders::_1), rcl_action_server_get_default_options(), callback_group_);
-  stop_algo_task_server_ = this->create_service<protocol::srv::StopAlgoTask>(
+  stop_algo_task_server_ = node_->create_service<protocol::srv::StopAlgoTask>(
     "stop_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleStopTaskCallback, this,
@@ -60,6 +62,12 @@ bool AlgorithmTaskManager::Init()
     callback_group_);
   SetStatus(ManagerStatus::kIdle);
   return true;
+}
+
+void AlgorithmTaskManager::Run()
+{
+  ros_executor_->spin();
+  rclcpp::shutdown();
 }
 
 bool AlgorithmTaskManager::BuildExecutorMap()
@@ -85,7 +93,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     GET_TOML_VALUE(value, "TaskName", task_name);
     GET_TOML_VALUE(value, "Id", task_ref.id);
     GET_TOML_VALUE(value, "OutDoor", task_ref.out_door);
-    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door);
+    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door, task_name);
     if (executor_ptr == nullptr) {
       ERROR("BuildExecutorMap failed, cannot create executor: %s!", task_name.c_str());
       result = false;
@@ -123,9 +131,33 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   const protocol::srv::StopAlgoTask::Request::SharedPtr request,
   protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
-  if (static_cast<uint8_t>(manager_status_) != request->task_id) {
-    ERROR("No task to stop");
-    return;
+  INFO("=====================");
+  if (request->task_id == 0) {
+    if (!CheckStatusValid()) {
+      ERROR("Cannot Reset Nav, status %d is invalid!", (int)manager_status_);
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    }
+    std::string task_name;
+    for (auto task : task_map_) {
+      if (task.second.id == request->task_id) {
+        task_name = task.first;
+      }
+    }
+    auto iter = task_map_.find(task_name);
+    if (iter == task_map_.end()) {
+      ERROR("Error when get ResetNav executor");
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    } else {
+      SetTaskExecutor(iter->second.executor);
+    }
+    INFO("Will Reset Nav");
+  } else {
+    if (static_cast<uint8_t>(manager_status_) != request->task_id) {
+      ERROR("No task to stop");
+      return;
+    }
   }
   SetStatus(ManagerStatus::kStoppingTask);
   if (activated_executor_ != nullptr) {

@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
 
 #include <string>
+#include <memory>
 
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
@@ -115,6 +116,7 @@ private:
 
   // Control localization_node lifecycle
   std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
 
   // service client

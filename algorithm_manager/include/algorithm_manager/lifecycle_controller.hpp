@@ -37,7 +37,7 @@ public:
 
   /**
    * @brief Check lifecycle is configure state
-   * 
+   *
    * @return true Success
    * @return false Failure
    */
@@ -45,7 +45,7 @@ public:
 
   /**
    * @brief Check lifecycle is activate state
-   * 
+   *
    * @return true Success
    * @return false Failure
    */
@@ -53,7 +53,7 @@ public:
 
   /**
    * @brief Check lifecycle is deactivate state
-   * 
+   *
    * @return true Success
    * @return false Failure
    */

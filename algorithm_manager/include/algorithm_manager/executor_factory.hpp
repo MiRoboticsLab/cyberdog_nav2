@@ -25,6 +25,7 @@
 #include "algorithm_manager/executor_vision_mapping.hpp"
 #include "algorithm_manager/executor_uwb_tracking.hpp"
 #include "algorithm_manager/executor_vision_tracking.hpp"
+#include "algorithm_manager/executor_reset_nav.hpp"
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -40,7 +41,8 @@ namespace algorithm
  */
 std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
   uint8_t algorithm_type,
-  bool out_door)
+  bool out_door,
+  const std::string & task_name)
 {
   std::shared_ptr<cyberdog::algorithm::ExecutorBase> result = nullptr;
   switch (algorithm_type) {
@@ -48,12 +50,20 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
       if (out_door) {
         result = std::make_shared<ExecutorVisionMapping>(std::string("VisionMapping"));
       } else {
-        result = std::make_shared<ExecutorLaserMapping>(std::string("LaserMapping"));
+        result = std::make_shared<ExecutorLaserMapping>(task_name);
       }
       break;
 
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING:
-      result = std::make_shared<ExecutorUwbTracking>(std::string("UwbTracking"));
+      result = std::make_shared<ExecutorUwbTracking>(task_name);
+      break;
+
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING:
+      result = std::make_shared<ExecutorVisionTracking>(task_name);
+      break;
+
+    case 0:
+      result = std::make_shared<ExecutorResetNav>(task_name);
       break;
 
     // NavAB
