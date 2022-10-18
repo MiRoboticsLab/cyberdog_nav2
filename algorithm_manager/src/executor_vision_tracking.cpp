@@ -30,7 +30,8 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   executor_->add_node(action_client_node_);
-  callback_group_ = action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  callback_group_ =
+    action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   rclcpp::SubscriptionOptions option;
   option.callback_group = callback_group_;
 
@@ -48,8 +49,8 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
     "tracking_object_srv", std::bind(
       &ExecutorVisionTracking::TrackingSrvCallback, this,
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-      rmw_qos_profile_services_default,
-      callback_group_
+    rmw_qos_profile_services_default,
+    callback_group_
   );
   client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
     "tracking_object",
@@ -58,11 +59,11 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   );
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target",callback_group_);
+    action_client_node_, "tracking_target", callback_group_);
 
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
-  std::thread{[this]{this->executor_->spin();}}.detach();
+  std::thread{[this] {this->executor_->spin();}}.detach();
 }
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -213,7 +214,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
       INFO("Tracking target send_goal callback");
       // SenResult();
       // target_tracking_goal_handle_.reset();
-  };
+    };
   INFO("async_send_goal");
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal_, send_goal_options);
