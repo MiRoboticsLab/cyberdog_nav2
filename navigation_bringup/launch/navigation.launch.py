@@ -56,12 +56,12 @@ def generate_launch_description():
         'lifecycle_mgr_laser_mapping',
         'lifecycle_mgr_mcr_uwb',
         # 'navigation_interfaces',
-        'mivins_localization',
-        'mivins_mapping',
-        'mivins_vo',
-        'miloc',
-        'stereo_camera',
-        'occmap',
+        # 'mivins_localization',
+        # 'mivins_mapping',
+        # 'mivins_vo',
+        # 'miloc',
+        # 'stereo_camera',
+        # 'occmap',
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
