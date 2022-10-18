@@ -367,7 +367,7 @@ protected:
         preparation_count_cv_.notify_one();
         count = 0;
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
   /**
@@ -414,7 +414,7 @@ protected:
   static std::unordered_map<std::string,
     std::shared_ptr<nav2_util::LifecycleServiceClient>> lifecycle_clients;
   static std::unordered_map<std::string, LifecycleNodeIndexs> task_map_;
-  static constexpr uint8_t preparation_finished_report_time_ = 5;  // count
+  static constexpr uint8_t preparation_finished_report_time_ = 0;  // count
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
   AlgorithmMGR::Feedback::SharedPtr feedback_;
