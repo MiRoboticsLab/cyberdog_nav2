@@ -207,6 +207,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     task_abort_callback_();
     return;
   }
+  first_run = false;
   INFO("OperateDepsNav2LifecycleNodes success");
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
