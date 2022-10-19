@@ -58,6 +58,15 @@ public:
   void OnCancel();
 
 private:
+  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
+  {
+    (void)goal_handle;
+    INFO("Goal accepted");
+  }
+  void HandleFeedbackCallback(
+    TargetTrackingGoalHandle::SharedPtr,
+    const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
+  void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
   rclcpp::Node::SharedPtr client_node_;
