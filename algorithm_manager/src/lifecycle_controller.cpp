@@ -31,8 +31,6 @@ LifecycleController::LifecycleController(const std::string & node_name)
 
 LifecycleController::~LifecycleController()
 {
-  Pause();
-  Cleanup();
 }
 
 bool LifecycleController::IsConfigure()

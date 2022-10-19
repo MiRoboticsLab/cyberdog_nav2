@@ -44,12 +44,12 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
-  INFO("Vision Mapping started");
+  INFO("[Vision Mapping] Vision Mapping started");
   ReportPreparationStatus();
 
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("Vision Mapping lifecycle depend start up failed.");
+    ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -58,7 +58,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
-    ERROR("Start Vision Mapping failed.");
+    ERROR("[Vision Mapping] Start Vision Mapping failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -67,7 +67,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
-    ERROR("Enable report realtime robot pose failed.");
+    ERROR("[Vision Mapping] Enable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -75,20 +75,20 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-  INFO("Vision Mapping success.");
+  INFO("[Vision Mapping] Vision Mapping success.");
 }
 
 void ExecutorVisionMapping::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
-  INFO("Vision Mapping will stop");
+  INFO("[Vision Mapping] Vision Mapping will stop");
   StopReportPreparationThread();
 
   // Disenable report realtime robot pose
   bool success = EnableReportRealtimePose(false);
   if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
+    ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -99,7 +99,7 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    ERROR("Vision Mapping stop failed.");
+    ERROR("[Vision Mapping] Vision Mapping stop failed.");
     task_abort_callback_();
     return;
   }
@@ -108,7 +108,7 @@ void ExecutorVisionMapping::Stop(
   success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ERROR("Vision Mapping stop failed.");
+    ERROR("[Vision Mapping] Vision Mapping stop failed.");
     task_abort_callback_();
     return;
   }
@@ -118,13 +118,13 @@ void ExecutorVisionMapping::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
-  INFO("Vision Mapping stoped success");
+  INFO("[Vision Mapping] Vision Mapping stoped success");
   task_success_callback_();
 }
 
 void ExecutorVisionMapping::Cancel()
 {
-  INFO("Vision Mapping will cancel");
+  INFO("[Vision Mapping] Vision Mapping will cancel");
   StopReportPreparationThread();
 
   // Nav2 lifecycle
@@ -149,7 +149,7 @@ void ExecutorVisionMapping::Cancel()
     return;
   }
 
-  INFO("Vision Mapping Canceled");
+  INFO("[Vision Mapping] Vision Mapping Canceled");
 }
 
 bool ExecutorVisionMapping::IsDependsReady()
@@ -158,6 +158,7 @@ bool ExecutorVisionMapping::IsDependsReady()
   bool success = LifecycleNodeManager::GetSingleton()->Configure(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
+    ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
     return false;
   }
 
@@ -165,6 +166,7 @@ bool ExecutorVisionMapping::IsDependsReady()
   success = LifecycleNodeManager::GetSingleton()->Startup(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
+    ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
     return false;
   }
 
@@ -172,6 +174,7 @@ bool ExecutorVisionMapping::IsDependsReady()
   success = LifecycleNodeManager::GetSingleton()->Configure(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
+    ERROR("[Vision Mapping] RealSense camera set configure state failed.");
     return false;
   }
 
@@ -179,11 +182,13 @@ bool ExecutorVisionMapping::IsDependsReady()
   success = LifecycleNodeManager::GetSingleton()->Startup(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
+    ERROR("[Vision Mapping] RealSense camera set activate state failed.");
     return false;
   }
 
   // Nav lifecycle
   if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+    ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
     return false;
   }
   return true;
@@ -194,7 +199,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
+      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -206,7 +211,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
   // Send request
   auto future = start_client_->async_send_request(request);
   if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect Vision Mapping start service timeout");
+    ERROR("[Vision Mapping] Connect Vision Mapping start service timeout");
     return false;
   }
   return future.get()->success;
@@ -217,7 +222,7 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   // Wait service
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
+      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -229,7 +234,7 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   // Send request
   auto future = stop_client_->async_send_request(request);
   if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect Vision mapping stop service timeout");
+    ERROR("[Vision Mapping] Connect Vision mapping stop service timeout");
     return false;
   }
 
@@ -241,7 +246,7 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   // Wait service
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
+      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -252,15 +257,15 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
 
   // Print enable and disenable message
   if (enable) {
-    INFO("Start report robot's realtime pose");
+    INFO("[Vision Mapping] Start report robot's realtime pose");
   } else {
-    INFO("Stop report robot's realtime pose.");
+    INFO("[Vision Mapping] Stop report robot's realtime pose.");
   }
 
   // Send request
   auto future = realtime_pose_client_->async_send_request(request);
   if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect position checker service timeout");
+    ERROR("[Vision Mapping] Connect position checker service timeout");
     return false;
   }
   return future.get()->success;

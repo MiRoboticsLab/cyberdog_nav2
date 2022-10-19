@@ -34,6 +34,8 @@ public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
 
   explicit ExecutorLaserMapping(std::string node_name);
+  ~ExecutorLaserMapping();
+
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(
     const StopTaskSrv::Request::SharedPtr request,
@@ -85,6 +87,14 @@ private:
    */
   bool CheckAvailable();
 
+  /**
+   * @brief Enable Lidar Localization turn off
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool DisenableLocalization();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -92,8 +102,8 @@ private:
   // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
+  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
+  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
 
   // service client
   // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
@@ -103,7 +113,9 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
 
   // Control realsense camera lifecycle
-  // std::shared_ptr<LifecycleNodeManager> realsense_lifecycle_ {nullptr};
+  std::shared_ptr<LifecycleController> localization_client_ {nullptr};
+  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
 
   // realtime robot pose
   bool start_report_realtime_pose_ {false};
