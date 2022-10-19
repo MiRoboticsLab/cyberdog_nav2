@@ -34,10 +34,10 @@ using TaskId = uint8_t;
 
 enum class ManagerStatus : uint8_t
 {
-  kUninitialized,
-  kIdle,
-  kLaunchingLifecycleNode = 100,
-  kStoppingTask = 101,
+  kUninitialized = 100,
+  kIdle = 101,
+  kLaunchingLifecycleNode = 102,
+  kStoppingTask = 103,
   kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
   kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
   kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
@@ -72,6 +72,7 @@ private:
   bool CheckStatusValid()
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
+    INFO("Current status: %d", (int)manager_status_);
     return manager_status_ == ManagerStatus::kIdle;
   }
 
@@ -95,6 +96,7 @@ private:
   {
     return executor_data_queue_.DeQueue(executor_data);
   }
+
   bool BuildExecutorMap();
 
   void SetTaskHandle(std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr)

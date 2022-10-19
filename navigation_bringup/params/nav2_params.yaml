@@ -287,7 +287,7 @@ global_costmap:
 map_server:
   ros__parameters:
     use_sim_time: True
-    yaml_filename: "turtlebot3_world.yaml"
+    yaml_filename: "map.yaml"
 
 map_saver:
   ros__parameters:
