@@ -102,7 +102,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     if (!executor_ptr->Init(
         std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
         std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
-        std::bind(&AlgorithmTaskManager::TaskCancled, this),
+        std::bind(&AlgorithmTaskManager::TaskCanceled, this),
         std::bind(&AlgorithmTaskManager::TaskAborted, this)))
     {
       ERROR("BuildExecutorMap failed, cannot init executor: %s!", task_name.c_str());
@@ -231,9 +231,9 @@ void AlgorithmTaskManager::TaskSuccessd()
   ResetManagerStatus();
 }
 
-void AlgorithmTaskManager::TaskCancled()
+void AlgorithmTaskManager::TaskCanceled()
 {
-  INFO("Got Executor cancle");
+  INFO("Got Executor canceled");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   goal_handle_executing_->abort(result);
