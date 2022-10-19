@@ -19,8 +19,10 @@
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "algorithm_manager/executor_ab_navigation.hpp"
 #include "algorithm_manager/executor_auto_dock.hpp"
+#include "algorithm_manager/executor_vision_localization.hpp"
 #include "algorithm_manager/executor_laser_localization.hpp"
 #include "algorithm_manager/executor_laser_mapping.hpp"
+#include "algorithm_manager/executor_vision_mapping.hpp"
 #include "algorithm_manager/executor_uwb_tracking.hpp"
 #include "algorithm_manager/executor_vision_tracking.hpp"
 #include "algorithm_manager/executor_reset_nav.hpp"
@@ -46,8 +48,7 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
   switch (algorithm_type) {
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING:
       if (out_door) {
-        // 改为ExecutorVisMapping
-        // result = std::make_shared<ExecutorVisionTracking>(std::string("VisMapping"));
+        result = std::make_shared<ExecutorVisionMapping>(std::string("VisionMapping"));
       } else {
         result = std::make_shared<ExecutorLaserMapping>(task_name);
       }
@@ -63,6 +64,20 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
 
     case 0:
       result = std::make_shared<ExecutorResetNav>(task_name);
+      break;
+
+    // NavAB
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
+      result = std::make_shared<ExecutorAbNavigation>(std::string("NavAB"));
+      break;
+
+    // Laser Localization
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:
+      if (out_door) {
+        result = std::make_shared<ExecutorVisionMapping>(std::string("VisionLocalization"));
+      } else {
+        result = std::make_shared<ExecutorLaserLocalization>(std::string("LaserLocalization"));
+      }
       break;
 
     default:

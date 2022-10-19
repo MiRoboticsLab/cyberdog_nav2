@@ -9,7 +9,28 @@ DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb"]
 TaskName = "LaserMapping"
 Id = 5
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
+DepsNav2LifecycleNodes = []
+DepsLifecycleNodes = []
+
+[[task]]
+TaskName = "LaserLocalization"
+Id = 7
+OutDoor = false
+DepsNav2LifecycleNodes = []
+DepsLifecycleNodes = []
+
+[[task]]
+TaskName = "VisionMapping"
+Id = 5
+OutDoor = true
+DepsNav2LifecycleNodes = ["lifecycle_manager_vis_mapping", ]
+DepsLifecycleNodes = []
+
+[[task]]
+TaskName = "NavAB"
+Id = 1
+OutDoor = false
+DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = []
 
 [[task]]
@@ -23,13 +44,5 @@ DepsLifecycleNodes = ["camera/camera", "vision_manager", "tracking"]
 TaskName = "ResetNav"
 Id = 0
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_navigation"]
-DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb"]
-
-
-# [[task]]
-# TaskName = "VisMapping"
-# Id = 5
-# OutDoor = true
-# DepsNav2LifecycleNodes = ["lifecycle_manager_laser_mapping"]
-# DepsLifecycleNodes = [""]
+DepsNav2LifecycleNodes = []
+DepsLifecycleNodes = []
