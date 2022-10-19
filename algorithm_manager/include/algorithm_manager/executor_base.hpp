@@ -406,6 +406,9 @@ protected:
   }
   void StopReportPreparationThread()
   {
+    if (preparation_finished_) {
+      return;
+    }
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
