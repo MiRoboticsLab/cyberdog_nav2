@@ -98,7 +98,7 @@ void ExecutorVisionTracking::OnCancel()
       WARN("target_tracking_goal_handle_ is nullptr");
     }
     if (!DeactivateDepsLifecycleNodes()) {
-        ERROR("DeactivateDepsLifecycleNodes failed");
+      ERROR("DeactivateDepsLifecycleNodes failed");
     }
     StopReportPreparationThread();
     task_cancle_callback_();
