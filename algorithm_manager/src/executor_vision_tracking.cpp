@@ -89,7 +89,7 @@ void ExecutorVisionTracking::OnCancel()
 {
   if (start_vision_tracking_) {
     // INFO("1,%ld", (int64_t)target_tracking_goal_handle_.get());
-    if (target_tracking_goal_handle_!=nullptr) {
+    if (target_tracking_goal_handle_ != nullptr) {
       // INFO("2,%ld", target_tracking_goal_handle_->get_goal_id());
       INFO("Cancel target_tracking_goal_handle_");
       auto future_cancel =
@@ -282,7 +282,7 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
   switch (feedback->exception_code) {
     case 0:
       feedback_->feedback_code = 503;
-        // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_NOEXCEPTION;
+      // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_NOEXCEPTION;
       break;
 
     case 1000:
@@ -311,7 +311,8 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
   // task_feedback_callback_(feedback_);
 }
 
-void ExecutorVisionTracking::HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult result)
+void ExecutorVisionTracking::HandleResultCallback(
+  const TargetTrackingGoalHandle::WrappedResult result)
 {
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
