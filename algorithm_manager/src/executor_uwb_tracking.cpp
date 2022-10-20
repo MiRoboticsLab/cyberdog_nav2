@@ -141,6 +141,19 @@ void ExecutorUwbTracking::Stop(
 {
   (void)request;
   INFO("UWB Tracking will stop");
+  OnCancel(response);
+  INFO("UWB Tracking Stoped");
+}
+
+void ExecutorUwbTracking::Cancel()
+{
+  INFO("UWB Tracking will cancel");
+  OnCancel();
+  INFO("UWB Tracking Canceled");
+}
+
+void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
+{
   if (target_tracking_goal_handle_ != nullptr) {
     // 只有在向底层执行器发送目标后才需要发送取消指令
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
@@ -153,23 +166,6 @@ void ExecutorUwbTracking::Stop(
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
-
-  INFO("UWB Tracking Stoped");
-}
-
-void ExecutorUwbTracking::Cancel()
-{
-  INFO("UWB Tracking will cancel");
-  if (target_tracking_goal_handle_ != nullptr) {
-    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
-  } else {
-    task_abort_callback_();
-  }
-  StopReportPreparationThread();
-  DeactivateDepsLifecycleNodes();
-  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-  target_tracking_goal_handle_.reset();
-  INFO("UWB Tracking Canceled");
 }
 
 void ExecutorUwbTracking::HandleFeedbackCallback(

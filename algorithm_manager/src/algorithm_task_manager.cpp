@@ -200,6 +200,10 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   INFO("---------------------");
+  if (CheckStatusValid()) {
+    INFO("No task to cancel");
+    return rclcpp_action::CancelResponse::REJECT;
+  }
   INFO("Received request to cancel task");
   (void)goal_handle;
   activated_executor_->Cancel();
