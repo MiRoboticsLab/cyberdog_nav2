@@ -282,7 +282,7 @@ protected:
         if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
           if (!client.lifecycle_client->change_state(
               lifecycle_msgs::msg::Transition::
-              TRANSITION_CONFIGURE, 5000))
+              TRANSITION_CONFIGURE, 20000))
           {
             WARN("Get error when configuring %s, try to active", client.name.c_str());
           }
@@ -329,7 +329,7 @@ protected:
         continue;
       } else {
         if (!client.lifecycle_client->change_state(
-            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 5000))
+            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 20000))
         {
           ERROR("Get error when deactive %s", client.name.c_str());
         }
