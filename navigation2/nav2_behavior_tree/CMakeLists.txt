@@ -10,6 +10,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
+find_package(nav2_core REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(behaviortree_cpp_v3 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -33,6 +34,7 @@ set(dependencies
   geometry_msgs
   sensor_msgs
   nav2_msgs
+  nav2_core
   nav_msgs
   behaviortree_cpp_v3
   tf2
