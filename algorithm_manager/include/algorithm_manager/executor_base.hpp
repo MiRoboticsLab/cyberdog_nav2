@@ -357,7 +357,7 @@ protected:
         INFO("UpdatePreparationStatus exit");
         return;
       }
-      INFO("Peparation Report: %d", feedback_->feedback_code);
+      // INFO("Peparation Report: %d", feedback_->feedback_code);
       task_feedback_callback_(feedback_);
       static uint8_t count = 0;
       if (feedback_->feedback_code != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {
