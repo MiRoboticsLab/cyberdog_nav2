@@ -44,6 +44,7 @@ def generate_launch_description():
         'camera_server',
         'tracking',
         'realsense',
+        'realsense_align',
         'mcr_uwb',
         'velocity_adaptor',
         'nav2_base',
