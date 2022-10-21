@@ -33,34 +33,23 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    #camera for mapping
     namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    laser_mapping_share_dir = get_package_share_directory('laser_slam')
-    laser_mapping_params_file = LaunchConfiguration('laser_mapping_params_file')
-    laser_mapping_params_declare = DeclareLaunchArgument(
-        name='laser_mapping_params_file',
-        default_value=os.path.join(
-        laser_mapping_share_dir, 'param', 'mapping_node.yaml'),
-        description='FPath to the ROS2 parameters file to use.')
-    laser_mapping_node = LifecycleNode(
-                                package='laser_slam',
-                                executable='mapping',
-                                name='map_builder',
-                                output='screen',
-                                emulate_tty=True,
-                                parameters=[laser_mapping_params_file],
-                                namespace=namespace,
-                                )
-    # lds
+
+    laser_slam_dir = FindPackageShare(package='laser_slam').find('laser_slam') 
+    laser_mapping_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(laser_slam_dir, 'launch/mapping_launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        laser_mapping_params_declare,
-        laser_mapping_node,
+        laser_mapping_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':
