@@ -222,7 +222,6 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
 {
-  INFO("Feedback: %d", feedback->feedback_code);
   goal_handle_executing_->publish_feedback(feedback);
 }
 
@@ -232,9 +231,7 @@ void AlgorithmTaskManager::TaskSuccessd()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
   goal_handle_executing_->succeed(result);
-  INFO("Manager success");
   ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc success");
   ResetManagerStatus();
 }
 
@@ -244,9 +241,7 @@ void AlgorithmTaskManager::TaskCanceled()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   goal_handle_executing_->abort(result);
-  INFO("Manager canceled");
   ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc canceled");
   ResetManagerStatus();
 }
 void AlgorithmTaskManager::TaskAborted()
@@ -255,9 +250,7 @@ void AlgorithmTaskManager::TaskAborted()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
   goal_handle_executing_->abort(result);
-  INFO("Manager abort");
   ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc aborted");
   ResetManagerStatus();
 }
 }  // namespace algorithm
