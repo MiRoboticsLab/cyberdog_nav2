@@ -180,8 +180,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type) {
+    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
       task_name = task.first;
+      break;
     }
   }
   auto iter = task_map_.find(task_name);
