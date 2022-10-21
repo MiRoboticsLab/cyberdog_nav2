@@ -44,6 +44,7 @@ private:
     TargetTrackingGoalHandle::SharedPtr,
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
   void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
+  void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
   // bool ActivateDepsLifecycleNodes();
   // bool DeactivateDepsLifecycleNodes();
   ExecutorData executor_uwb_tracking_data_;

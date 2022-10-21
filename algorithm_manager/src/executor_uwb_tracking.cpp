@@ -141,34 +141,31 @@ void ExecutorUwbTracking::Stop(
 {
   (void)request;
   INFO("UWB Tracking will stop");
-  if (target_tracking_goal_handle_ != nullptr) {
-    // 只有在向底层执行器发送目标后才需要发送取消指令
-    target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
-  } else {
-    task_abort_callback_();
-  }
-  StopReportPreparationThread();
-  target_tracking_goal_handle_.reset();
-  DeactivateDepsLifecycleNodes();
-  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  OnCancel(response);
   INFO("UWB Tracking Stoped");
 }
 
 void ExecutorUwbTracking::Cancel()
 {
   INFO("UWB Tracking will cancel");
+  OnCancel();
+  INFO("UWB Tracking Canceled");
+}
+
+void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
+{
   if (target_tracking_goal_handle_ != nullptr) {
+    // 只有在向底层执行器发送目标后才需要发送取消指令
     target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
   } else {
+    DeactivateDepsLifecycleNodes();
+    response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
+      StopTaskSrv::Response::SUCCESS :
+      StopTaskSrv::Response::FAILED;
     task_abort_callback_();
   }
   StopReportPreparationThread();
-  DeactivateDepsLifecycleNodes();
-  OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
   target_tracking_goal_handle_.reset();
-  INFO("UWB Tracking Canceled");
 }
 
 void ExecutorUwbTracking::HandleFeedbackCallback(
@@ -212,23 +209,25 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("UWB Tracking reported succeeded");
-      DeactivateDepsLifecycleNodes(this->get_name());
+      DeactivateDepsLifecycleNodes();
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("UWB Tracking reported aborted");
-      DeactivateDepsLifecycleNodes(this->get_name());
+      DeactivateDepsLifecycleNodes();
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("UWB Tracking reported canceled");
+      DeactivateDepsLifecycleNodes();
+      OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_cancle_callback_();
       break;
     default:
       ERROR("UWB Tracking reported unknown result code");
-      DeactivateDepsLifecycleNodes(this->get_name());
+      DeactivateDepsLifecycleNodes();
       OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       task_abort_callback_();
       break;

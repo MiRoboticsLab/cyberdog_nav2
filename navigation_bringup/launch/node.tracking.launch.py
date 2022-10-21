@@ -15,41 +15,42 @@
 # limitations under the License.
 
 import os
+import sys
 
+import launch
+import subprocess
+import launch_ros.actions
+from ament_index_python.packages import get_package_prefix
 from ament_index_python.packages import get_package_share_directory
-from launch import LaunchDescription
-from launch.substitutions import LaunchConfiguration
+import subprocess
+from launch.conditions import IfCondition, UnlessCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
-
 
 def generate_launch_description():
 
-    param_path = os.path.join(get_package_share_directory('cyberdog_tracking'), 'config')
     namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    tracking_cmd = Node(
-            package='cyberdog_tracking',
-            executable='cyberdog_tracking',
-            namespace=namespace,
-            name='tracking',
-            parameters=[{'logger_level': 0,
-                         'stereo_mode': False,
-                         'remap_rows_scale': 0.5,
-                         'remap_cols_scale': 1.0,
-                         'camera_ai_param': param_path}],
-            remappings=None,
-            arguments=None,
-            output='screen',
-        )
-    ld = LaunchDescription([
+
+    tracking_dir = FindPackageShare(package='cyberdog_tracking').find('cyberdog_tracking') 
+    tracking_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(tracking_dir, 'launch/launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
+
+    ld = launch.LaunchDescription([
         namespace_declare,
-        tracking_cmd
-    ])    
+        tracking_cmd,
+    ])
+
     return ld
-    
+
 if __name__ == '__main__':
     generate_launch_description()
