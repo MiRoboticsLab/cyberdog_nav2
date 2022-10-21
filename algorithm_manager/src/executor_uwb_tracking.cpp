@@ -160,8 +160,8 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
   } else {
     DeactivateDepsLifecycleNodes();
     response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+      StopTaskSrv::Response::SUCCESS :
+      StopTaskSrv::Response::FAILED;
     task_abort_callback_();
   }
   StopReportPreparationThread();

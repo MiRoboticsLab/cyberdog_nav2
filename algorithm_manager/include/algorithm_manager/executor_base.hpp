@@ -332,8 +332,9 @@ protected:
             lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 20000))
         {
           ERROR("Get error when deactive %s", client.name.c_str());
+        } else {
+          INFO("Success to deactive %s", client.name.c_str());
         }
-        INFO("Success to deactive %s", client.name.c_str());
       }
     }
     return true;
