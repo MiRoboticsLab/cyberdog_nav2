@@ -23,7 +23,14 @@ DepsLifecycleNodes = []
 TaskName = "VisionMapping"
 Id = 5
 OutDoor = true
-DepsNav2LifecycleNodes = ["lifecycle_manager_vis_mapping", ]
+DepsNav2LifecycleNodes = []
+DepsLifecycleNodes = []
+
+[[task]]
+TaskName = "VisionLocalization"
+Id = 7
+OutDoor = true
+DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = []
 
 [[task]]
