@@ -28,33 +28,45 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
-  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-  executor_->add_node(action_client_node_);
-  callback_group_ =
-    action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  // executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  // executor_->add_node(action_client_node_);
+  // callback_group_ =
+  //   action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
   client_vision_algo_ =
     action_client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
   // Create service server
+  // service_tracking_object_ = action_client_node_->create_service<BodyRegionT>(
+  //   "tracking_object_srv", std::bind(
+  //     &ExecutorVisionTracking::TrackingSrvCallback, this,
+  //     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+  //   rmw_qos_profile_services_default,
+  //   callback_group_
+  // );
+  // client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
+  //   "tracking_object",
+  //   rmw_qos_profile_services_default,
+  //   callback_group_
+  // );
+  // target_tracking_action_client_ =
+  //   rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
+  //   action_client_node_, "tracking_target", callback_group_);
+
   service_tracking_object_ = action_client_node_->create_service<BodyRegionT>(
     "tracking_object_srv", std::bind(
       &ExecutorVisionTracking::TrackingSrvCallback, this,
-      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-    rmw_qos_profile_services_default,
-    callback_group_
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
   );
   client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
-    "tracking_object",
-    rmw_qos_profile_services_default,
-    callback_group_
+    "tracking_object"
   );
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-    action_client_node_, "tracking_target", callback_group_);
-
+    action_client_node_, "tracking_target");
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
-  std::thread{[this] {this->executor_->spin();}}.detach();
+  // std::thread{[this] {this->executor_->spin();}}.detach();
+  std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -400,13 +412,14 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     };
 
   auto result = client->async_send_request(req, client_cb);
-  if (result.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-    ERROR("Cannot Get result TrackingClientCallService");
-    return false;
-  } else {
-    INFO("result.get()->success: %d", result.get()->success);
-    return true;
-  }
+  // if (result.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+  //   ERROR("Cannot Get result TrackingClientCallService");
+  //   return false;
+  // } else {
+  //   INFO("result.get()->success: %d", result.get()->success);
+  //   return true;
+  // }
+  return true;
 }
 }  // namespace algorithm
 }  // namespace cyberdog
