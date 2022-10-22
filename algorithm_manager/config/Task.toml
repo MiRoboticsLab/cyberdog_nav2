@@ -38,8 +38,8 @@ DepsLifecycleNodes = []
 TaskName = "VisionTracking"
 Id = 13
 OutDoor = false
-DepsNav2LifecycleNodes = ["lifecycle_manager_navigation"]
-DepsLifecycleNodes = ["camera/camera_align", "vision_manager", "mivinsfollowing", "tracking"]
+DepsNav2LifecycleNodes = [""]
+DepsLifecycleNodes = ["camera/camera", "vision_manager", "mivinsfollowing", "tracking", "controller_server", "planner_server", "recoveries_server", "bt_navigator"]
 
 [[task]]
 TaskName = "ResetNav"

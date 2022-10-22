@@ -54,14 +54,24 @@ public:
     rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
     const sensor_msgs::msg::RegionOfInterest & roi);
 
-  void CallVisionTrackAlgo();
+  bool CallVisionTrackAlgo();
   void OnCancel();
 
 private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
   {
-    (void)goal_handle;
-    INFO("Goal accepted");
+    // (void)goal_handle;
+    if (!goal_handle) {
+      ERROR("Goal was rejected by server");
+      // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+      // if (!DeactivateDepsLifecycleNodes()) {
+      //   ERROR("DeactivateDepsLifecycleNodes failed");
+      // }
+      // task_abort_callback_();
+    } else {
+      // target_tracking_goal_handle_ = goal_handle;
+      INFO("Goal accepted");
+    }
   }
   void HandleFeedbackCallback(
     TargetTrackingGoalHandle::SharedPtr,
