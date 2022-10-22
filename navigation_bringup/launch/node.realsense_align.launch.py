@@ -47,7 +47,7 @@ def generate_launch_description():
     start_realsense_cmd = GroupAction([
         PushRosNamespace(namespace=namespace),
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'realsense_align_node.py'))
+            PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'realsense_align_node.launch.py'))
         )   
     ])
 

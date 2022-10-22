@@ -96,9 +96,9 @@ void ExecutorVisionTracking::OnCancel()
         target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
     } else {
       WARN("target_tracking_goal_handle_ is nullptr");
-    }
-    if (!DeactivateDepsLifecycleNodes()) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
+      if (!DeactivateDepsLifecycleNodes()) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
     }
     StopReportPreparationThread();
     task_cancle_callback_();
@@ -185,24 +185,24 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     return;
   }
   SetFeedbackCode(502);
-  static bool first_run = true;
-  bool result = false;
-  if (first_run) {
-    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
-  } else {
-    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
-  }
-  if (!result) {
-    ERROR("OperateDepsNav2LifecycleNodes failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes()) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
-    }
-    task_abort_callback_();
-    return;
-  }
-  first_run = false;
-  INFO("OperateDepsNav2LifecycleNodes success");
+  // static bool first_run = true;
+  // bool result = false;
+  // if (first_run) {
+  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
+  // } else {
+  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
+  // }
+  // if (!result) {
+  //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   if (!DeactivateDepsLifecycleNodes()) {
+  //     ERROR("DeactivateDepsLifecycleNodes failed");
+  //   }
+  //   task_abort_callback_();
+  //   return;
+  // }
+  // first_run = false;
+  // INFO("OperateDepsNav2LifecycleNodes success");
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
@@ -210,9 +210,9 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     // client_nav_.pause();
     ERROR("Tracking target action server is not available.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      ERROR("OperateDepsNav2LifecycleNodes failed.");
-    }
+    // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+    //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+    // }
     if (!DeactivateDepsLifecycleNodes()) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -241,37 +241,40 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     this, std::placeholders::_1);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal_, send_goal_options);
-  if (future_goal_handle.wait_for(std::chrono::milliseconds(2000)) != std::future_status::ready) {
-    ERROR("Cannot Get result target_tracking_action_client_");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      ERROR("OperateDepsNav2LifecycleNodes failed.");
-    }
-    if (!DeactivateDepsLifecycleNodes()) {
-      ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
-    }
-    task_abort_callback_();
-    return;
-  } else {
-    INFO("target_tracking_action_client_  success");
-  }
-  // Get the goal handle and save so that we can check on completion in the
-  // timer callback
-  target_tracking_goal_handle_ = future_goal_handle.get();
-  if (!target_tracking_goal_handle_) {
-    ERROR("Goal was rejected by server");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      ERROR("OperateDepsNav2LifecycleNodes failed.");
-    }
-    if (!DeactivateDepsLifecycleNodes()) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
-    }
-    task_abort_callback_();
-    return;
-  }
+  // auto future_goal_handle = target_tracking_action_client_->async_send_goal(
+  //   target_tracking_goal_);
+  INFO("11111111111111111111111111111111");
+  // if (future_goal_handle.wait_for(std::chrono::milliseconds(2000)) != std::future_status::ready) {
+  //   ERROR("Cannot Get result target_tracking_action_client_");
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+  //   //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+  //   // }
+  //   if (!DeactivateDepsLifecycleNodes()) {
+  //     ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
+  //   }
+  //   task_abort_callback_();
+  //   return;
+  // } else {
+  //   INFO("target_tracking_action_client_  success");
+  // }
+  // // Get the goal handle and save so that we can check on completion in the
+  // // timer callback
+  // target_tracking_goal_handle_ = future_goal_handle.get();
+  // if (!target_tracking_goal_handle_) {
+  //   ERROR("Goal was rejected by server");
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+  //   //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+  //   // }
+  //   if (!DeactivateDepsLifecycleNodes()) {
+  //     ERROR("DeactivateDepsLifecycleNodes failed");
+  //   }
+  //   task_abort_callback_();
+  //   return;
+  // }
   // vision_action_client_feedback_ = 503;
-  INFO("0, %ld", target_tracking_goal_handle_->get_goal_id());
+  // INFO("0, %ld", target_tracking_goal_handle_->get_goal_id());
   // SetFeedbackCode(503);
 }
 void ExecutorVisionTracking::HandleFeedbackCallback(
@@ -341,12 +344,12 @@ void ExecutorVisionTracking::HandleResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
-      if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-        ERROR("OperateDepsNav2LifecycleNodes failed.");
-      }
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
+      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
       // }
+      if (!DeactivateDepsLifecycleNodes()) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
       // StopReportPreparationThread();
       // target_tracking_goal_handle_.reset();
       // task_cancle_callback_();
