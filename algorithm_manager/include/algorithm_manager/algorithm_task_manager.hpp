@@ -65,7 +65,7 @@ public:
 
 private:
   void TaskSuccessd();
-  void TaskCancled();
+  void TaskCanceled();
   void TaskAborted();
   void TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback);
 

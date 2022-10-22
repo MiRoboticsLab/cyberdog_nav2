@@ -332,9 +332,9 @@ protected:
             lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 50000))
         {
           ERROR("Get error when deactive %s", client.name.c_str());
-          continue;
+        } else {
+          INFO("Success to deactive %s", client.name.c_str());
         }
-        INFO("Success to deactive %s", client.name.c_str());
       }
     }
     return true;
@@ -407,6 +407,9 @@ protected:
   }
   void StopReportPreparationThread()
   {
+    if (preparation_finished_) {
+      return;
+    }
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
