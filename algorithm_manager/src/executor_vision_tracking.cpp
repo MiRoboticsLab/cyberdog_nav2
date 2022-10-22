@@ -28,45 +28,32 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
-  // executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-  // executor_->add_node(action_client_node_);
-  // callback_group_ =
-  //   action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(action_client_node_);
+  callback_group_ =
+    action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
   client_vision_algo_ =
     action_client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
-  // Create service server
-  // service_tracking_object_ = action_client_node_->create_service<BodyRegionT>(
-  //   "tracking_object_srv", std::bind(
-  //     &ExecutorVisionTracking::TrackingSrvCallback, this,
-  //     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-  //   rmw_qos_profile_services_default,
-  //   callback_group_
-  // );
-  // client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
-  //   "tracking_object",
-  //   rmw_qos_profile_services_default,
-  //   callback_group_
-  // );
-  // target_tracking_action_client_ =
-  //   rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
-  //   action_client_node_, "tracking_target", callback_group_);
 
   service_tracking_object_ = action_client_node_->create_service<BodyRegionT>(
     "tracking_object_srv", std::bind(
       &ExecutorVisionTracking::TrackingSrvCallback, this,
-      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_services_default,
+    callback_group_
   );
   client_tracking_object_ = action_client_node_->create_client<BodyRegionT>(
-    "tracking_object"
+    "tracking_object",
+    rmw_qos_profile_services_default,
+    callback_group_
   );
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
 
-  // std::thread{[this] {this->executor_->spin();}}.detach();
-  std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
+  std::thread{[this] {this->executor_->spin();}}.detach();
 }
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -121,7 +108,7 @@ void ExecutorVisionTracking::OnCancel()
 }
 
 // TODO(PDF):
-void ExecutorVisionTracking::CallVisionTrackAlgo()
+bool ExecutorVisionTracking::CallVisionTrackAlgo()
 {
   auto request = std::make_shared<protocol::srv::AlgoManager::Request>();
   protocol::msg::AlgoList algo;
@@ -143,16 +130,18 @@ void ExecutorVisionTracking::CallVisionTrackAlgo()
   while (!client_vision_algo_->wait_for_service(1s)) {
     if (!rclcpp::ok()) {
       ERROR("Interrupted while waiting for the service. Exiting.");
-      return;
+      return false;
     }
     INFO("service not available, waiting again...");
   }
   INFO("client_vision_algo_ service available! async_send_request");
   auto result = client_vision_algo_->async_send_request(request);
-  if (result.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
+  if (result.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result client_vision_algo_");
+    return false;
   } else {
-    INFO("enable result: %d", result.get()->result_enable);
+    INFO("Get result, enable result: %d", result.get()->result_enable);
+    return true;
   }
 }
 // TODO(PDF):
@@ -170,9 +159,16 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
     task_abort_callback_();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
-  INFO("CallVisionTrackAlgo");
+  if (!CallVisionTrackAlgo()) {
+    ERROR("CallVisionTrackAlgo failed");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    if (!DeactivateDepsLifecycleNodes()) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  }
   start_vision_tracking_ = true;
-  CallVisionTrackAlgo();
   SetFeedbackCode(501);
   return Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT;
 }
@@ -253,41 +249,36 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     this, std::placeholders::_1);
   auto future_goal_handle = target_tracking_action_client_->async_send_goal(
     target_tracking_goal_, send_goal_options);
-  // auto future_goal_handle = target_tracking_action_client_->async_send_goal(
-  //   target_tracking_goal_);
-  INFO("11111111111111111111111111111111");
-  // if (future_goal_handle.wait_for(std::chrono::milliseconds(2000)) != std::future_status::ready) {
-  //   ERROR("Cannot Get result target_tracking_action_client_");
-  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //   // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-  //   //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-  //   // }
-  //   if (!DeactivateDepsLifecycleNodes()) {
-  //     ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
-  //   }
-  //   task_abort_callback_();
-  //   return;
-  // } else {
-  //   INFO("target_tracking_action_client_  success");
-  // }
-  // // Get the goal handle and save so that we can check on completion in the
-  // // timer callback
-  // target_tracking_goal_handle_ = future_goal_handle.get();
-  // if (!target_tracking_goal_handle_) {
-  //   ERROR("Goal was rejected by server");
-  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //   // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-  //   //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-  //   // }
-  //   if (!DeactivateDepsLifecycleNodes()) {
-  //     ERROR("DeactivateDepsLifecycleNodes failed");
-  //   }
-  //   task_abort_callback_();
-  //   return;
-  // }
-  // vision_action_client_feedback_ = 503;
-  // INFO("0, %ld", target_tracking_goal_handle_->get_goal_id());
-  // SetFeedbackCode(503);
+  INFO("target_tracking_action_client_ async_send_goal");
+  if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
+    ERROR("Cannot Get result target_tracking_action_client_");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+    //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+    // }
+    if (!DeactivateDepsLifecycleNodes()) {
+      ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
+    }
+    task_abort_callback_();
+    return;
+  } else {
+    INFO("target_tracking_action_client_  success");
+  }
+  // Get the goal handle and save so that we can check on completion in the
+  // timer callback
+  target_tracking_goal_handle_ = future_goal_handle.get();
+  if (!target_tracking_goal_handle_) {
+    ERROR("Goal was rejected by server");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
+    //   ERROR("OperateDepsNav2LifecycleNodes failed.");
+    // }
+    if (!DeactivateDepsLifecycleNodes()) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return;
+  }
 }
 void ExecutorVisionTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
@@ -397,29 +388,30 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
   }
 
-  auto client_cb = [timeout](rclcpp::Client<protocol::srv::BodyRegion>::SharedFuture future) {
-      std::future_status status = future.wait_for(timeout);
+  // auto client_cb = [timeout](rclcpp::Client<protocol::srv::BodyRegion>::SharedFuture future) {
+  //     std::future_status status = future.wait_for(timeout);
 
-      if (status == std::future_status::ready) {
-        if (0 != future.get()->success) {
-          return false;
-        } else {
-          return true;
-        }
-      } else {
-        return false;
-      }
-    };
+  //     if (status == std::future_status::ready) {
+  //       if (0 != future.get()->success) {
+  //         return false;
+  //       } else {
+  //         return true;
+  //       }
+  //     } else {
+  //       return false;
+  //     }
+  //   };
 
-  auto result = client->async_send_request(req, client_cb);
-  // if (result.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-  //   ERROR("Cannot Get result TrackingClientCallService");
-  //   return false;
-  // } else {
-  //   INFO("result.get()->success: %d", result.get()->success);
-  //   return true;
-  // }
-  return true;
+  // auto result = client->async_send_request(req, client_cb);
+  auto result = client->async_send_request(req);
+  if (result.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
+    ERROR("Cannot Get result TrackingClientCallService");
+    return false;
+  } else {
+    INFO("result.get()->success: %d", result.get()->success);
+    return true;
+  }
+  // return true;
 }
 }  // namespace algorithm
 }  // namespace cyberdog
