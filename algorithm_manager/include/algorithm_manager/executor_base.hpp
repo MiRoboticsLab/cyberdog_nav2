@@ -319,7 +319,7 @@ protected:
       auto state = client.lifecycle_client->get_state(is_timeout, 50000);
       if (is_timeout) {
         ERROR("Cannot get state of %s", client.name.c_str());
-        return false;
+        continue;
       }
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
         INFO("Lifecycle node %s is unconfigured, no need to deactivate", client.name.c_str());
