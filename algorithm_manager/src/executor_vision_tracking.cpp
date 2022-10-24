@@ -92,7 +92,7 @@ void ExecutorVisionTracking::OnCancel()
         target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
     } else {
       WARN("target_tracking_goal_handle_ is nullptr");
-      if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+      if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
     }
@@ -149,10 +149,10 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
   (void)keep_distance;
   SetFeedbackCode(500);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
-  if (!ActivateDepsLifecycleNodes(this->get_name(),timeout=50000)) {
+  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
     ERROR("ActivateDepsLifecycleNodes failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -161,7 +161,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
   if (!CallVisionTrackAlgo()) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -185,7 +185,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   } else {
     ERROR("TrackingClientCallService failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -200,7 +200,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (!is_action_server_ready) {
     ERROR("Tracking target action server is not available.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     res->success = false;
@@ -232,7 +232,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result target_tracking_action_client_");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
     }
     task_abort_callback_();
@@ -246,7 +246,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+    if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -266,7 +266,7 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
 
     case 1000:
       feedback_->feedback_code = 504;
-        // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_DETECOTOREXCEPTION;
+      // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_DETECOTOREXCEPTION;
       break;
 
     case 2000:
@@ -324,7 +324,7 @@ void ExecutorVisionTracking::HandleResultCallback(
       // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
       //   ERROR("OperateDepsNav2LifecycleNodes failed.");
       // }
-      if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
+      if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
       // StopReportPreparationThread();
