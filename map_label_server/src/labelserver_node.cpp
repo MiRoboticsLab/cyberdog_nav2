@@ -112,6 +112,10 @@ void LabelServer::handle_get_label(
   response->label.map.info.origin = map.info.origin;
   response->label.map.data = map.data;
 
+  if (request->map_name == "map") {
+    response->label.is_outdoor = true;
+  }
+
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
 }

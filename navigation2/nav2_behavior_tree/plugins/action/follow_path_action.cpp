@@ -40,12 +40,17 @@ void FollowPathAction::on_wait_for_result()
 {
   // Grab the new path
   nav_msgs::msg::Path new_path;
+  int exception_code = 0;
   getInput("path", new_path);
+  config().blackboard->get<int>("exception_code", exception_code);
 
   // Check if it is not same with the current one
   if (goal_.path != new_path) {
     // the action server on the next loop iteration
     goal_.path = new_path;
+    if(exception_code == nav2_core::CONTROLLEREXECPTION){
+      config().blackboard->set<int>("exception_code", nav2_core::NOEXCEPTION);
+    }
     goal_updated_ = true;
   }
 
