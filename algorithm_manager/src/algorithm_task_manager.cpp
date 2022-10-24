@@ -102,7 +102,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     if (!executor_ptr->Init(
         std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
         std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
-        std::bind(&AlgorithmTaskManager::TaskCancled, this),
+        std::bind(&AlgorithmTaskManager::TaskCanceled, this),
         std::bind(&AlgorithmTaskManager::TaskAborted, this)))
     {
       ERROR("BuildExecutorMap failed, cannot init executor: %s!", task_name.c_str());
@@ -180,8 +180,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type) {
+    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
       task_name = task.first;
+      break;
     }
   }
   auto iter = task_map_.find(task_name);
@@ -200,6 +201,10 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   INFO("---------------------");
+  if (CheckStatusValid()) {
+    INFO("No task to cancel");
+    return rclcpp_action::CancelResponse::REJECT;
+  }
   INFO("Received request to cancel task");
   (void)goal_handle;
   activated_executor_->Cancel();
@@ -231,9 +236,9 @@ void AlgorithmTaskManager::TaskSuccessd()
   ResetManagerStatus();
 }
 
-void AlgorithmTaskManager::TaskCancled()
+void AlgorithmTaskManager::TaskCanceled()
 {
-  INFO("Got Executor cancel");
+  INFO("Got Executor canceled");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   goal_handle_executing_->abort(result);

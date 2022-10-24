@@ -50,6 +50,7 @@ public:
    * waiting for a result that hasn't been received yet
    */
   void on_wait_for_result() override;
+  BT::NodeStatus on_aborted() override;
 
   /**
    * @brief Creates list of BT ports

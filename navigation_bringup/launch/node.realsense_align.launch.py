@@ -30,24 +30,30 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
+from launch.actions import GroupAction 
+from launch_ros.actions import PushRosNamespace
 
 def generate_launch_description():
-
-    namespace = LaunchConfiguration('namespace', default='')
+    
+    namespace = LaunchConfiguration('namespace')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
         description='Top-level namespace')
 
-    laser_slam_dir = FindPackageShare(package='laser_slam').find('laser_slam') 
-    laser_mapping_cmd = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(laser_slam_dir, 'launch/mapping_launch.py')),
-            launch_arguments={'namespace': namespace}.items()
+    realsense_dir = FindPackageShare(package='realsense2_camera').find('realsense2_camera') 
+    nav2_realsense_dir = os.path.join(realsense_dir, 'launch')
+   
+    start_realsense_cmd = GroupAction([
+        PushRosNamespace(namespace=namespace),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_realsense_dir, 'realsense_align_node.launch.py'))
         )   
+    ])
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        laser_mapping_cmd,
+        start_realsense_cmd,
     ])
 
     return ld

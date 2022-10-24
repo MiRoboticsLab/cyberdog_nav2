@@ -38,30 +38,18 @@ def generate_launch_description():
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    camera_share_dir = get_package_share_directory('laser_slam')
-    camera_localization_params_file = LaunchConfiguration('camera_localization_params_file')
-    camera_localization_params_file_declare = DeclareLaunchArgument(
-            name='camera_localization_params_file',
-            default_value=os.path.join(
-            camera_share_dir, 'param', 'localization.yaml'),
-            description='FPath to the ROS2 parameters file to use.')
 
-    camera_node_relocation_cmd = LifecycleNode(
-                                package='laser_slam',
-                                executable='localization',
-                                name='localization_node',
-                                output='screen',
-                                emulate_tty=True,
-                                #prefix=['xterm -e gdb  --args'],
-                                parameters=[camera_localization_params_file],
-                                namespace=namespace,
-                                )
-    # lds
+    laser_slam_dir = FindPackageShare(package='laser_slam').find('laser_slam') 
+    laser_loc_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(laser_slam_dir, 'launch/localization_node.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        camera_localization_params_file_declare,
-        camera_node_relocation_cmd,
+        laser_loc_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':
