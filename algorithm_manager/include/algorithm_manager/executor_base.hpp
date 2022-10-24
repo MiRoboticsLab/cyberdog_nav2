@@ -268,7 +268,7 @@ protected:
         return false;
       }
       bool is_timeout = false;
-      auto state = client.lifecycle_client->get_state(is_timeout, 5000);
+      auto state = client.lifecycle_client->get_state(is_timeout, 50000);
       if (is_timeout) {
         ERROR("Cannot get state of %s", client.name.c_str());
         return false;
@@ -282,7 +282,7 @@ protected:
         if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
           if (!client.lifecycle_client->change_state(
               lifecycle_msgs::msg::Transition::
-              TRANSITION_CONFIGURE, 20000))
+              TRANSITION_CONFIGURE, 50000))
           {
             WARN("Get error when configuring %s, try to active", client.name.c_str());
           }
@@ -290,7 +290,7 @@ protected:
         INFO("%s 2nd: %d", client.name.c_str(), client.lifecycle_client->get_state());
         if (!client.lifecycle_client->change_state(
             lifecycle_msgs::msg::Transition::
-            TRANSITION_ACTIVATE, 5000))
+            TRANSITION_ACTIVATE, 50000))
         {
           ERROR("Get error when activing %s", client.name.c_str());
           return false;
@@ -316,10 +316,10 @@ protected:
         continue;
       }
       bool is_timeout = false;
-      auto state = client.lifecycle_client->get_state(is_timeout, 5000);
+      auto state = client.lifecycle_client->get_state(is_timeout, 50000);
       if (is_timeout) {
         ERROR("Cannot get state of %s", client.name.c_str());
-        return false;
+        continue;
       }
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
         INFO("Lifecycle node %s is unconfigured, no need to deactivate", client.name.c_str());
@@ -329,7 +329,7 @@ protected:
         continue;
       } else {
         if (!client.lifecycle_client->change_state(
-            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 20000))
+            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 50000))
         {
           ERROR("Get error when deactive %s", client.name.c_str());
         } else {
