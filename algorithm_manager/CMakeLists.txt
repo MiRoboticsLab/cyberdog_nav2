@@ -28,7 +28,7 @@ find_package(cyberdog_system REQUIRED)
 find_package(motion_action REQUIRED)
 find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
-# find_package(visualization REQUIRED)
+find_package(cyberdog_visions_interfaces REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -55,6 +55,7 @@ set(dependencies
   cyberdog_debug
   cyberdog_system
   visualization
+  cyberdog_visions_interfaces
 )
 
 set(sources
@@ -66,6 +67,7 @@ set(sources
   src/executor_laser_mapping.cpp
   src/executor_laser_localization.cpp
   src/executor_vision_mapping.cpp
+  src/executor_vision_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
   src/lifecycle_node_manager.cpp

@@ -160,6 +160,7 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
@@ -337,7 +338,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   auto response = std::make_shared<visualization::srv::Stop::Response>();
   request->finish = true;
   // request->map_name = map_filename;
-  request->map_name = "map";
+  request->map_name = "lmap";
   INFO("Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request
