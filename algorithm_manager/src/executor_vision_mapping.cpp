@@ -25,6 +25,9 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
+  // Control `mivinsmapping` lifecycle turn on and turn off
+  mapping_client_ = std::make_shared<LifecycleController>("mivinsmapping");
+
   // Control lidar mapping turn on
   start_client_ = create_client<std_srvs::srv::SetBool>(
     "start_vins_mapping", rmw_qos_profile_services_default);
@@ -105,73 +108,39 @@ void ExecutorVisionMapping::Stop(
   }
 
   // RGB-G camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RGBCameraSensor);
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
 
-  // Nav lifecycle
-  response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  // mivins lifecycle
+  success = mapping_client_->Pause();
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    ERROR("[Vision Mapping] Vision Mapping stop failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
+    return;
+  }
 
-  INFO("[Vision Mapping] Vision Mapping stoped success");
   task_success_callback_();
+  INFO("[Vision Mapping] Vision Mapping stoped success");
 }
 
 void ExecutorVisionMapping::Cancel()
 {
   INFO("[Vision Mapping] Vision Mapping will cancel");
-  StopReportPreparationThread();
-
-  // Nav2 lifecycle
-  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-    task_abort_callback_();
-    return;
-  }
-
-  // RGB-G camera lifecycle
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    task_abort_callback_();
-    return;
-  }
-
-  // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    task_abort_callback_();
-    return;
-  }
-
-  INFO("[Vision Mapping] Vision Mapping Canceled");
 }
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
-  // RGB-G camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
-    return false;
-  }
-
-  // RGB-G camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
-    return false;
-  }
-
   // RealSense camera lifecycle(configure state)
-  success = LifecycleNodeManager::GetSingleton()->Configure(
+  bool success = LifecycleNodeManager::GetSingleton()->Configure(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
     ERROR("[Vision Mapping] RealSense camera set configure state failed.");
@@ -186,11 +155,37 @@ bool ExecutorVisionMapping::IsDependsReady()
     return false;
   }
 
-  // Nav lifecycle
-  if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-    ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
+  // RGB-G camera lifecycle(configure state)
+  success = LifecycleNodeManager::GetSingleton()->Configure(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
     return false;
   }
+
+  // RGB-G camera lifecycle(activate state)
+  success = LifecycleNodeManager::GetSingleton()->Startup(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
+    return false;
+  }
+
+  // // Nav lifecycle
+  // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+  //   ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
+  //   return false;
+  // }
+
+  if (!mapping_client_->IsActivate()) {
+    success = mapping_client_->Configure() && mapping_client_->Startup();
+    if (!success) {
+      ERROR("[Vision Mapping] lifecycle manager mivinsmapping set activate state failed.");
+      return false;
+    }
+  }
+
+  INFO("[Vision Mapping] Start all depends lifecycle nodes success.");
   return true;
 }
 

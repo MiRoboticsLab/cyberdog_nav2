@@ -1,5 +1,5 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -77,6 +77,9 @@ private:
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
+
+  // Control mivinsmapping lifecycle
+  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
