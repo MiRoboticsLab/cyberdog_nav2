@@ -338,7 +338,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   auto response = std::make_shared<visualization::srv::Stop::Response>();
   request->finish = true;
   // request->map_name = map_filename;
-  request->map_name = "map";
+  request->map_name = "lmap";
   INFO("Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request

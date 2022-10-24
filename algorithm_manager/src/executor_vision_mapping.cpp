@@ -25,7 +25,6 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
-
   // Control `mivinsmapping` lifecycle turn on and turn off
   mapping_client_ = std::make_shared<LifecycleController>("mivinsmapping");
 
@@ -120,7 +119,7 @@ void ExecutorVisionMapping::Stop(
   }
 
   // mivins lifecycle
-  success = mapping_client_ ->Pause();
+  success = mapping_client_->Pause();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
