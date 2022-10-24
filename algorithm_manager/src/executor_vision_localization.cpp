@@ -72,6 +72,20 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
 
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  // Check current map available
+  bool available = CheckMapAvailable();
+  if (!available) {
+    ERROR("Vision build map file not available.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
+    return;
+  }
+
   // Enable Relocalization
   bool success = EnableRelocalization();
   if (!success) {
@@ -318,6 +332,29 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   }
 
   return future.get()->success;
+}
+
+bool ExecutorVisionLocalization::CheckMapAvailable()
+{
+  while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  auto response = std::make_shared<MapAvailableResult::Response>();
+  // request->map_id = 0;
+
+  // Send request
+  bool success = map_result_client_->invoke(request, response);
+  if (!success) {
+    ERROR("Send miloc map handler request failed.");
+    return false;
+  }
+  return response->code == 0;
 }
 
 }  // namespace algorithm

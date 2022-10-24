@@ -28,7 +28,7 @@ find_package(cyberdog_system REQUIRED)
 find_package(motion_action REQUIRED)
 find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
-# find_package(visualization REQUIRED)
+find_package(cyberdog_visions_interfaces REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -55,6 +55,7 @@ set(dependencies
   cyberdog_debug
   cyberdog_system
   visualization
+  cyberdog_visions_interfaces
 )
 
 set(sources
