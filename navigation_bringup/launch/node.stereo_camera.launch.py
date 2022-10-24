@@ -38,26 +38,16 @@ def generate_launch_description():
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    camera_share_dir = get_package_share_directory('camera_test')
-    camera_params_file = LaunchConfiguration('camera_params_file')
-    camera_params_declare = DeclareLaunchArgument(
-        name='camera_params_file',
-        default_value=os.path.join(
-        camera_share_dir, 'config', 'stereo_camera.yaml'),
-        description='FPath to the ROS2 parameters file to use.')
 
-    vision_cmd = Node(
-        package='camera_test',
-        executable='stereo_camera',
-        name='stereo_camera',
-        namespace=namespace,
-        parameters=[camera_params_file]
-        )
+    camera_test_dir = FindPackageShare(package='camera_test').find('camera_test') 
+    stereo_camera_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(camera_test_dir, 'launch/stereo_camera.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        camera_params_declare,
-        vision_cmd,
+        stereo_camera_cmd,
     ])
 
     return ld
