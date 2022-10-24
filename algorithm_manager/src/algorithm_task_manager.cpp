@@ -252,7 +252,6 @@ void AlgorithmTaskManager::TaskCanceled()
   } else {
     ERROR("GoalHandle is null when server executing cancel, this should never happen");
   }
-
 }
 void AlgorithmTaskManager::TaskAborted()
 {
