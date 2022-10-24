@@ -181,6 +181,7 @@ void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
+  INFO_MILLSECONDS(1000, "Get TargetTracking Feedback: %d", feedback->exception_code);
   switch (feedback->exception_code) {
     case 0:
       feedback_->feedback_code =
