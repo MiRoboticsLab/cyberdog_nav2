@@ -243,11 +243,16 @@ void AlgorithmTaskManager::TaskCanceled()
   INFO("Got Executor canceled");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-  goal_handle_executing_->abort(result);
-  INFO("Manager canceled");
-  ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc canceled");
-  ResetManagerStatus();
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->abort(result);
+    INFO("Manager canceled");
+    ResetTaskHandle();
+    INFO("Manager TaskHandle reset bc canceled");
+    ResetManagerStatus();
+  } else {
+    ERROR("GoalHandle is null when server executing cancel, this should never happen");
+  }
+
 }
 void AlgorithmTaskManager::TaskAborted()
 {
