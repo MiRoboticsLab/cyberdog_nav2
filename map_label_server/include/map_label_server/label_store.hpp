@@ -178,6 +178,8 @@ public:
     const std::string & map_filename,
     rapidjson::Document & doc);
 
+  void SetOutdoor(bool value, rapidjson::Document & doc);
+
   /**
    * @brief Load map's label from given directory
    *
@@ -212,6 +214,16 @@ public:
    * @param labels
    */
   void Read(const std::string & label_filename, std::vector<protocol::msg::Label> & labels);
+
+  /**
+   * @brief Read label from json filename
+   *
+   * @param label_filename
+   * @param labels
+   */
+  void Read(
+    const std::string & label_filename, std::vector<protocol::msg::Label> & labels,
+    bool & is_outdoor);
 
   /**
    * @brief Debug for logic test

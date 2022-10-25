@@ -28,12 +28,12 @@ set(DEPENDENCIES
 )
 
 set(SRCS
-  src/main.cpp
   src/maps_protocol.cpp
   src/maps_manager.cpp
 )
 
-add_executable(${PROJECT_NAME} ${SRCS})
+# project
+add_executable(${PROJECT_NAME} src/main.cpp ${SRCS})
 ament_target_dependencies(${PROJECT_NAME} ${DEPENDENCIES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -41,10 +41,23 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+# test
+add_executable(map_manager_test  test/map_manager_test.cpp ${SRCS})
+ament_target_dependencies(map_manager_test ${DEPENDENCIES})
+
+target_include_directories(map_manager_test PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(map_manager_test PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(TARGETS ${PROJECT_NAME} map_manager_test
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
