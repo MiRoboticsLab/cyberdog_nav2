@@ -259,81 +259,82 @@ protected:
     return clients;
   }
 
-  bool ActivateDepsLifecycleNodes(const std::string & task_name)
+  bool ActivateDepsLifecycleNodes(const std::string & task_name, int timeout = 20000)
   {
     lifecycle_activated_.clear();
     for (auto client : GetDepsLifecycleNodes(task_name)) {
+      INFO("Trying to launch [%s]", client.name.c_str());
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
-        ERROR("Lifecycle %s not exist", client.name.c_str());
+        ERROR("Lifecycle [%s] not exist", client.name.c_str());
         return false;
       }
       bool is_timeout = false;
-      auto state = client.lifecycle_client->get_state(is_timeout, 50000);
+      auto state = client.lifecycle_client->get_state(is_timeout, timeout);
       if (is_timeout) {
-        ERROR("Cannot get state of %s", client.name.c_str());
+        ERROR("Cannot get state of [%s]", client.name.c_str());
         return false;
       }
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-        INFO("Lifecycle node %s already be active", client.name.c_str());
+        INFO("Lifecycle [%s] already be active", client.name.c_str());
         lifecycle_activated_.push_back(client);
         continue;
       } else {
-        INFO("%s 1st: %d", client.name.c_str(), client.lifecycle_client->get_state());
+        // INFO("%s 1st: %d", client.name.c_str(), client.lifecycle_client->get_state());
         if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
           if (!client.lifecycle_client->change_state(
               lifecycle_msgs::msg::Transition::
-              TRANSITION_CONFIGURE, 50000))
+              TRANSITION_CONFIGURE, timeout))
           {
-            WARN("Get error when configuring %s, try to active", client.name.c_str());
+            WARN("Get error when configuring [%s], try to active", client.name.c_str());
           }
         }
-        INFO("%s 2nd: %d", client.name.c_str(), client.lifecycle_client->get_state());
+        // INFO("%s 2nd: %d", client.name.c_str(), client.lifecycle_client->get_state());
         if (!client.lifecycle_client->change_state(
             lifecycle_msgs::msg::Transition::
-            TRANSITION_ACTIVATE, 50000))
+            TRANSITION_ACTIVATE, timeout))
         {
-          ERROR("Get error when activing %s", client.name.c_str());
+          ERROR("Get error when activing [%s]", client.name.c_str());
           return false;
         }
         lifecycle_activated_.push_back(client);
-        INFO("Success to active %s", client.name.c_str());
+        INFO("Success to active [%s]", client.name.c_str());
       }
     }
     return true;
   }
 
-  bool DeactivateDepsLifecycleNodes(const std::string & task_name)
+  bool DeactivateDepsLifecycleNodes(const std::string & task_name, int timeout = 20000)
   {
     lifecycle_activated_ = GetDepsLifecycleNodes(task_name);
-    return DeactivateDepsLifecycleNodes();
+    return DeactivateDepsLifecycleNodes(timeout);
   }
 
-  bool DeactivateDepsLifecycleNodes()
+  bool DeactivateDepsLifecycleNodes(int timeout = 20000)
   {
     for (auto client : lifecycle_activated_) {
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
-        WARN("Lifecycle %s not exist, will not deactive it", client.name.c_str());
+        WARN("Lifecycle [%s] not exist, will not deactive it", client.name.c_str());
         continue;
       }
       bool is_timeout = false;
-      auto state = client.lifecycle_client->get_state(is_timeout, 50000);
+      auto state = client.lifecycle_client->get_state(is_timeout, timeout);
       if (is_timeout) {
-        ERROR("Cannot get state of %s", client.name.c_str());
+        ERROR("Cannot get state of [%s]", client.name.c_str());
         continue;
       }
       if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
-        INFO("Lifecycle node %s is unconfigured, no need to deactivate", client.name.c_str());
+        INFO("Lifecycle [%s] is unconfigured, no need to deactivate", client.name.c_str());
         continue;
       } else if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
-        INFO("Lifecycle node %s already be inactive", client.name.c_str());
+        INFO("Lifecycle [%s] already be inactive", client.name.c_str());
         continue;
       } else {
         if (!client.lifecycle_client->change_state(
-            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, 50000))
+            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, timeout))
         {
           ERROR("Get error when deactive %s", client.name.c_str());
         } else {
-          INFO("Success to deactive %s", client.name.c_str());
+          INFO("Success to deactive [%s]", client.name.c_str());
         }
       }
     }
@@ -358,7 +359,7 @@ protected:
         INFO("UpdatePreparationStatus exit");
         return;
       }
-      INFO("Peparation Report: %d", feedback_->feedback_code);
+      // INFO("Peparation Report: %d", feedback_->feedback_code);
       task_feedback_callback_(feedback_);
       static uint8_t count = 0;
       if (feedback_->feedback_code != AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING) {

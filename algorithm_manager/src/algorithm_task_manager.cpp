@@ -232,7 +232,9 @@ void AlgorithmTaskManager::TaskSuccessd()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
   goal_handle_executing_->succeed(result);
+  INFO("Manager success");
   ResetTaskHandle();
+  INFO("Manager TaskHandle reset bc success");
   ResetManagerStatus();
 }
 
@@ -241,9 +243,15 @@ void AlgorithmTaskManager::TaskCanceled()
   INFO("Got Executor canceled");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-  goal_handle_executing_->abort(result);
-  ResetTaskHandle();
-  ResetManagerStatus();
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->abort(result);
+    INFO("Manager canceled");
+    ResetTaskHandle();
+    INFO("Manager TaskHandle reset bc canceled");
+    ResetManagerStatus();
+  } else {
+    ERROR("GoalHandle is null when server executing cancel, this should never happen");
+  }
 }
 void AlgorithmTaskManager::TaskAborted()
 {
@@ -251,7 +259,9 @@ void AlgorithmTaskManager::TaskAborted()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
   goal_handle_executing_->abort(result);
+  INFO("Manager abort");
   ResetTaskHandle();
+  INFO("Manager TaskHandle reset bc aborted");
   ResetManagerStatus();
 }
 }  // namespace algorithm

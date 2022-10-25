@@ -39,15 +39,15 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
-    camera_test_dir = FindPackageShare(package='camera_test').find('camera_test') 
-    stereo_camera_cmd = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(camera_test_dir, 'launch/stereo_camera.py')),
+    elevation_mapping_dir = FindPackageShare(package='elevation_mapping').find('elevation_mapping') 
+    elevation_mapping_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(elevation_mapping_dir, 'launch/mi_elevation_mapping_l91_odom.launch.py')),
             launch_arguments={'namespace': namespace}.items()
         )   
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        stereo_camera_cmd,
+        elevation_mapping_cmd,
     ])
 
     return ld

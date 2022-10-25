@@ -130,7 +130,6 @@ TargetTrackingNavigator::onLoop()
   unsigned int exception_code = 0;
   blackboard->get<unsigned int>("exception_code", exception_code);
   feedback_msg->exception_code = exception_code;
-  blackboard->set<int>("exception_code", nav2_core::NOEXCEPTION);
   bt_action_server_->publishFeedback(feedback_msg);
 }
 

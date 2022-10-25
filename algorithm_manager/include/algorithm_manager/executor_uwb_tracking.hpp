@@ -52,6 +52,9 @@ private:
     target_tracking_action_client_;
   mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
+  std::mutex target_tracking_server_mutex_;
+  std::condition_variable target_tracking_server_cv_;
+  bool cancel_tracking_result_{true};
 };  // class ExecutorUwbTracking
 }  // namespace algorithm
 }  // namespace cyberdog
