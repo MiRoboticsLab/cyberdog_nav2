@@ -75,11 +75,12 @@ def generate_launch_description():
             executable='device_manager',
             name='device_manager',
             namespace=namespace,
-            output='log',
-            # parameters=[
-            # {
-            #     'simulator': LaunchConfiguration('simulator', default='[touch]'),
-            # },],
+            output={'stdout': 'log',
+                    'stderr': 'log'},
+        #     parameters=[
+        #     {
+        #         'simulator': LaunchConfiguration('simulator', default='[uwb, touch]'),
+        #     },],
             )
 
     head_tof_pc_cmd = Node(
