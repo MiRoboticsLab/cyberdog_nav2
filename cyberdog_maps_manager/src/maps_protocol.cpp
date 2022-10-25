@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
+#include <memory>
+
 #include "cyberdog_maps_manager/maps_protocol.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+
+using namespace std::chrono_literals;
 
 namespace cyberdog
 {
@@ -21,30 +27,73 @@ namespace maps_manager
 
 MapsProtocol::MapsProtocol()
 {
+  node_ = std::make_shared<rclcpp::Node>("maps_manager_service_client");
+  map_client_ = std::make_shared<nav2_util::ServiceClient<protocol::srv::Map>>(
+    "maps_manager", node_);
 }
 
 MapsProtocol::~MapsProtocol()
 {
 }
 
-bool MapsProtocol::Save(const Request & request)
+bool MapsProtocol::Save(Request::SharedPtr & request)
 {
-  return true;
+  auto response = std::make_shared<Response>();
+  return CallService(request, response);
 }
 
-bool MapsProtocol::Delete(const Request & request)
+bool MapsProtocol::Delete(Request::SharedPtr & request)
 {
-  return true;
+  auto response = std::make_shared<Response>();
+  return CallService(request, response);
 }
 
-bool MapsProtocol::Update(const Request & request)
+bool MapsProtocol::Update(Request::SharedPtr & request)
 {
-  return true;
+  auto response = std::make_shared<Response>();
+  return CallService(request, response);
 }
 
-bool MapsProtocol::Query(const Request & request)
+bool MapsProtocol::Query(Request::SharedPtr & request)
 {
-  return true;
+  auto response = std::make_shared<Response>();
+  return CallService(request, response);
+}
+
+bool MapsProtocol::Save(Request::SharedPtr & request, Response::SharedPtr & response)
+{
+  return CallService(request, response);
+}
+
+bool MapsProtocol::Delete(Request::SharedPtr & request, Response::SharedPtr & response)
+{
+  return CallService(request, response);
+}
+
+bool MapsProtocol::Update(Request::SharedPtr & request, Response::SharedPtr & response)
+{
+  return CallService(request, response);
+}
+
+bool MapsProtocol::Query(Request::SharedPtr & request, Response::SharedPtr & response)
+{
+  return CallService(request, response);
+}
+
+bool MapsProtocol::MapsProtocol::CallService(
+  Request::SharedPtr & request,
+  Response::SharedPtr & response)
+{
+  // Wait service
+  while (!map_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Send request
+  return map_client_->invoke(request, response);
 }
 
 }  // namespace maps_manager
