@@ -20,9 +20,5 @@
 int main(int argc, char ** argv)
 {
   LOGGER_MAIN_INSTANCE("MapsManager");
-  rclcpp::init(argc, argv);
-  auto manager = std::make_shared<cyberdog::maps_manager::MapsManager>("maps_manager");
-  rclcpp::spin(manager->get_node_base_interface());
-  rclcpp::shutdown();
   return 0;
 }

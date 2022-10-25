@@ -98,7 +98,12 @@ void LabelServer::handle_get_label(
   // Load map's labels
   std::string label_filename = request->map_name + ".json";
   std::vector<protocol::msg::Label> labels;
-  map_label_store_ptr_->Read(map_label_store_ptr_->map_label_directory() + label_filename, labels);
+  bool is_outdoor = false;
+  // map_label_store_ptr_->Read(map_label_store_ptr_->map_label_directory()
+  // + label_filename, labels);
+  map_label_store_ptr_->Read(
+    map_label_store_ptr_->map_label_directory() + label_filename, labels, is_outdoor);
+
   if (!labels.empty()) {
     for (auto label : labels) {
       response->label.labels.push_back(label);
@@ -112,10 +117,8 @@ void LabelServer::handle_get_label(
   response->label.map.info.origin = map.info.origin;
   response->label.map.data = map.data;
 
-  if (request->map_name == "map") {
-    response->label.is_outdoor = true;
-  }
-
+  // is_outdoor
+  response->label.is_outdoor = is_outdoor;
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
 }
@@ -169,6 +172,8 @@ void LabelServer::handle_set_label(
 
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
+  map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
+
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
     INFO(

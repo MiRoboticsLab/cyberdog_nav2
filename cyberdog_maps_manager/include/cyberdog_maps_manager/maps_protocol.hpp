@@ -27,8 +27,6 @@ namespace cyberdog
 namespace maps_manager
 {
 
-class MapsManager;
-
 class MapsProtocol
 {
 public:
@@ -41,13 +39,21 @@ public:
   using Request = protocol::srv::Map::Request;
   using Response = protocol::srv::Map::Response;
 
-  bool Save(const Request & request);
-  bool Delete(const Request & request);
-  bool Update(const Request & request);
-  bool Query(const Request & request);
+  bool Save(Request::SharedPtr & request);
+  bool Delete(Request::SharedPtr & request);
+  bool Update(Request::SharedPtr & request);
+  bool Query(Request::SharedPtr & request);
+
+  bool Save(Request::SharedPtr & request, Response::SharedPtr & response);
+  bool Delete(Request::SharedPtr & request, Response::SharedPtr & response);
+  bool Update(Request::SharedPtr & request, Response::SharedPtr & response);
+  bool Query(Request::SharedPtr & request, Response::SharedPtr & response);
 
 private:
-  bool CallService(const Request & request, Response & response);
+  bool CallService(Request::SharedPtr & request, Response::SharedPtr & response);
+
+  rclcpp::Node::SharedPtr node_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<protocol::srv::Map>> map_client_ {nullptr};
 };
 
 }  // namespace maps_manager
