@@ -75,10 +75,18 @@ def generate_launch_description():
             executable='device_manager',
             name='device_manager',
             namespace=namespace,
+            output='log',
             # parameters=[
             # {
             #     'simulator': LaunchConfiguration('simulator', default='[touch]'),
             # },],
+            )
+
+    head_tof_pc_cmd = Node(
+            package='motion_utils',
+            executable='head_tof_pcl_publisher.py',
+            name='head_tof_pcl_publisher',
+            namespace=namespace,
             )
 
     ld = launch.LaunchDescription([
@@ -86,7 +94,8 @@ def generate_launch_description():
         odom_out_cmd,
         motion_manager_cmd,
         sensor_manager_cmd,
-        device_manager_cmd
+        device_manager_cmd,
+        head_tof_pc_cmd
     ])
 
     return ld
