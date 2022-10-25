@@ -16,6 +16,8 @@
 #define BEHAVIOR_MANAGER__EXECUTOR_AUTO_TRACKING_HPP_
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int8.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -35,28 +37,28 @@ public:
   explicit ExecutorAutoTracking(const std::string & node_name)
   {
     node_ = std::make_shared<rclcpp::Node>(node_name);
-    std::thread{[this]{rclcpp::spin(node_);}}.detach();
+    std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
-  ~ExecutorAutoTracking(){}
+  ~ExecutorAutoTracking() {}
   /**
-   * @brief 
+   * @brief
    * trigger=true时启动自主遛狗，trigger=false时停止自主遛狗
-   * 
-   * @param trigger 
+   *
+   * @param trigger
    */
   void Execute(bool trigger)
   {
     std::unique_lock<std::mutex> lk(auto_tracking_start_mutex_);
     auto_tracking_start_ = trigger;
-    if(auto_tracking_start_) {
+    if (auto_tracking_start_) {
       auto_tracking_start_cv_.notify_one();
     }
   }
+
 private:
   void DoAutoTracking()
   {
-    while (rclcpp::ok())
-    {
+    while (rclcpp::ok()) {
       if (!auto_tracking_start_) {
         std::unique_lock<std::mutex> lk(auto_tracking_start_mutex_);
         auto_tracking_start_cv_.wait(lk);

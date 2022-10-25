@@ -60,7 +60,7 @@ ament_target_dependencies(${PROJECT_NAME}
   ${dependencies}
 )
 
-add_executable(fake_nodes 
+add_executable(fake_nodes
   test/main.cpp
 )
 ament_target_dependencies(fake_nodes

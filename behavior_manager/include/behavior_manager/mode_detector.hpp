@@ -16,6 +16,8 @@
 #define BEHAVIOR_MANAGER__MODE_DETECTOR_HPP_
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int8.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -50,16 +52,18 @@ public:
     stair_detected_sub_ = node_->create_subscription<std_msgs::msg::Int8>(
       "elevation_mapping/stair_detected",
       rclcpp::SystemDefaultsQoS(),
-      std::bind(&ModeDetector::HandleStairDetectionCallback,
-        this, std::placeholders::_1)); 
+      std::bind(
+        &ModeDetector::HandleStairDetectionCallback,
+        this, std::placeholders::_1));
     target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       "tracking_pose",
       rclcpp::SystemDefaultsQoS(),
-      std::bind(&ModeDetector::HandleTargetPoseCallback,
+      std::bind(
+        &ModeDetector::HandleTargetPoseCallback,
         this, std::placeholders::_1));
-    std::thread{[this]{rclcpp::spin(node_);}}.detach();
+    std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
-  ~ModeDetector(){}
+  ~ModeDetector() {}
   bool Init(
     std::function<void(bool)> do_stair_jump_func,
     std::function<void()> do_auto_tracking_func,
@@ -71,6 +75,7 @@ public:
     do_normal_tracking_func_ = do_normal_tracking_func;
     return true;
   }
+
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
   {
@@ -91,12 +96,12 @@ private:
     }
   }
   /**
-   * @brief 
+   * @brief
    * 检测目标是否处于静止状态，判断依据：在设定时长内目标的位姿没有设定范围外的变化
-   * 
-   * @param msg 
-   * @return true 
-   * @return false 
+   *
+   * @param msg
+   * @return true
+   * @return false
    */
   bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
@@ -112,7 +117,6 @@ private:
   std::function<void()> do_auto_tracking_func_;
   std::function<void(bool)> do_normal_tracking_func_;
   int8_t stair_detection_{0};
-
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog

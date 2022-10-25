@@ -16,6 +16,8 @@
 #define BEHAVIOR_MANAGER__BEHAVIOR_MANAGER_HPP_
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int8.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -61,14 +63,15 @@ public:
     status_map_.emplace(Status::kNormTracking, "NormTracking");
     status_map_.emplace(Status::kStairJumping, "StairJumping");
     status_map_.emplace(Status::kAbnorm, "Abnorm");
-    std::thread{[this](){rclcpp::spin(node_);}}.detach();
+    std::thread{[this]() {rclcpp::spin(node_);}}.detach();
     // ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     // ros_executor_->add_node(mode_detector_);
     // ros_executor_->add_node(executor_auto_tracking_);
     // ros_executor_->add_node(executor_stair_jumping_);
     // std::thread{[this](){ros_executor_->spin();}}.detach();
   }
-  ~BehaviorManager(){}
+  ~BehaviorManager() {}
+
 private:
   bool CheckStatusValid()
   {
@@ -76,7 +79,7 @@ private:
   }
   void DoAutoTracking()
   {
-    if(!CheckStatusValid()) {
+    if (!CheckStatusValid()) {
       return;
     }
     DoNormallyTracking(false);
@@ -84,8 +87,10 @@ private:
   }
   void DoStairJump(bool trigger)
   {
-    if(!CheckStatusValid()) {
-      ERROR("Cannot do %s jump when %s", trigger ? "upstair" : "downstair", status_map_.at(status_).c_str());
+    if (!CheckStatusValid()) {
+      ERROR(
+        "Cannot do %s jump when %s", trigger ? "upstair" : "downstair", status_map_.at(
+          status_).c_str());
       return;
     }
     if (!DoNormallyTracking(false)) {
@@ -132,7 +137,6 @@ private:
   std::unordered_map<Status, std::string> status_map_;
   bool stair_detected_{false}, stair_aligned_{false}, stair_align_timeout_{false};
   bool stair_possible_jump_{false};
-
 };  // class BehaviorManager
 }  // namespace algorithm
 }  // namespace cyberdog
