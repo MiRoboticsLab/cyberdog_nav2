@@ -66,7 +66,8 @@ def generate_launch_description():
             namespace=namespace,
             parameters=[
             {
-                'simulator': LaunchConfiguration('simulator', default='[tof, gps, ultrasonic]'),
+                # 'simulator': LaunchConfiguration('simulator', default='[lidar, tof, gps, ultrasonic]'),
+                'simulator': LaunchConfiguration('simulator', default='[lidar, gps, ultrasonic]'),
             },],
             )
 
