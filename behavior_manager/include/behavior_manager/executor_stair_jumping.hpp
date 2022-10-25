@@ -111,7 +111,7 @@ public:
     INFO("Will launch %s align", trigger ? "upstair" : "downstair");
     auto future = start_stair_align_client_->async_send_request(request, callback);
     if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-      ERROR("Cannot Get result when launching %s align", trigger ? "upstair" : "downstair");
+      ERROR("Cannot Get response when launching %s align", trigger ? "upstair" : "downstair");
       handle_abnorm_func_();
     }
   }
@@ -195,10 +195,9 @@ private:
       jumping_status_ = JumpingStatus::kJumping;
       auto request = std::make_shared<protocol::srv::MotionResultCmd::Request>();
       if (jump_mode_ == StairDetection::kUpStair) {
-        request->motion_id = protocol::msg::MotionID::JUMP_STAIR;
+        request->motion_id = protocol::msg::MotionID::JUMP_UPSTAIR;
       } else if (jump_mode_ == StairDetection::kDownStair) {
-        // TODO(Harvey): 下台阶的动作
-        // request->motion_id = protocol::msg::MotionID::JUMP_STAIR;
+        request->motion_id = protocol::msg::MotionID::JUMP_DOWNSTAIR;
       }
       auto future = motion_jump_client_->async_send_request(
         request,
