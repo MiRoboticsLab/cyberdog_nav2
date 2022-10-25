@@ -17,38 +17,37 @@
 #include <string>
 #include <functional>
 
-#include "algorithm_manager/executor_laser_localization.hpp"
+#include "algorithm_manager/executor_vision_localization.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
+ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {
-  localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
-
+  localization_lifecycle_ = std::make_shared<LifecycleController>("mivinslocalization");
   // localization_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
   //   "lifecycle_manager_localization");
 
-  // Subscription Lidar relocalization result
+  // Subscription Vision relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
-    "laser_reloc_result",
+    "reloc_result",
     rclcpp::SystemDefaultsQoS(),
     std::bind(
-      &ExecutorLaserLocalization::HandleRelocalizationCallback, this,
+      &ExecutorVisionLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
-  // ontrol lidar relocalization turn on
+  // Control vision relocalization turn on
   start_client_ = create_client<std_srvs::srv::SetBool>(
-    "start_location", rmw_qos_profile_services_default);
+    "start_vins_location", rmw_qos_profile_services_default);
 
-  // Control lidar relocalization turn off
+  // Control vision relocalization turn off
   stop_client_ = create_client<std_srvs::srv::SetBool>(
-    "stop_location", rmw_qos_profile_services_default);
+    "stop_vins_location", rmw_qos_profile_services_default);
 
-  // Control lidar mapping report realtime pose turn on and turn off
+  // Control vision mapping report realtime pose turn on and turn off
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
     "PoseEnable", rmw_qos_profile_services_default);
 
@@ -59,15 +58,29 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
   }.detach();
 }
 
-void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
-  INFO("Laser Localization started");
+  INFO("Vision Localization started");
   ReportPreparationStatus();
 
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("Laser localization lifecycle depend start up failed.");
+    ERROR("Vision localization lifecycle depend start up failed.");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    task_abort_callback_();
+    return;
+  }
+
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  // Check current map available
+  bool available = CheckMapAvailable();
+  if (!available) {
+    ERROR("Vision build map file not available.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -85,7 +98,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(60s));
   if (!success) {
-    ERROR("Laser localization failed.");
+    ERROR("Vision localization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -93,7 +106,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   // Check relocalization success
   if (!relocalization_success_) {
-    ERROR("Lidar relocalization failed.");
+    ERROR("Vision relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
     return;
@@ -110,21 +123,21 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
-  INFO("Laser localization success.");
+  INFO("Vision localization success.");
   task_success_callback_();
 }
 
-void ExecutorLaserLocalization::Stop(
+void ExecutorVisionLocalization::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
-  INFO("Laser localization will stop");
+  INFO("Vision localization will stop");
   StopReportPreparationThread();
 
   // Disenable Relocalization
   bool success = DisenableRelocalization();
   if (!success) {
-    ERROR("Turn off Laser relocalization failed.");
+    ERROR("Turn off Vision relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
@@ -147,25 +160,21 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
-  // // Nav lifecycle
-  // response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-  //   StopTaskSrv::Response::SUCCESS :
-  //   StopTaskSrv::Response::FAILED;
   response->result = localization_lifecycle_->Pause() ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
-  INFO("Laser localization stoped success");
+  INFO("Vision Localization stoped success");
   feedback_->feedback_code = 0;
   task_success_callback_();
 }
 
-void ExecutorLaserLocalization::Cancel()
+void ExecutorVisionLocalization::Cancel()
 {
-  INFO("Laser Localization canceled");
+  INFO("Vision Localization canceled");
 }
 
-void ExecutorLaserLocalization::HandleRelocalizationCallback(
+void ExecutorVisionLocalization::HandleRelocalizationCallback(
   const std_msgs::msg::Int32::SharedPtr msg)
 {
   INFO("Relocalization result: %d", msg->data);
@@ -183,7 +192,7 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
   }
 }
 
-bool ExecutorLaserLocalization::IsDependsReady()
+bool ExecutorVisionLocalization::IsDependsReady()
 {
   // RealSense camera lifecycle(configure state)
   bool success = LifecycleNodeManager::GetSingleton()->Configure(
@@ -199,6 +208,20 @@ bool ExecutorLaserLocalization::IsDependsReady()
     return false;
   }
 
+  // RGB-D camera lifecycle(configure state)
+  success = LifecycleNodeManager::GetSingleton()->Configure(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    return false;
+  }
+
+  // RGB-D camera lifecycle(activate state)
+  success = LifecycleNodeManager::GetSingleton()->Startup(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    return false;
+  }
+
   // localization_node lifecycle(configure state)
   if (!localization_lifecycle_->Configure()) {
     return false;
@@ -209,19 +232,10 @@ bool ExecutorLaserLocalization::IsDependsReady()
     return false;
   }
 
-  // if (localization_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-  //   bool startup = localization_client_->startup();
-  //   if (!startup) {
-  //     ERROR("Laser localization localization client startup failed.");
-  //     return false;
-  //   }
-  // }
-
-
   return true;
 }
 
-bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
+bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout)
 {
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
@@ -241,7 +255,7 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
   return true;
 }
 
-bool ExecutorLaserLocalization::EnableRelocalization()
+bool ExecutorVisionLocalization::EnableRelocalization()
 {
   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
@@ -262,11 +276,11 @@ bool ExecutorLaserLocalization::EnableRelocalization()
     return false;
   }
 
-  INFO("Send start relocalization service request.");
+  INFO("Send start relocalization service request success.");
   return future.get()->success;
 }
 
-bool ExecutorLaserLocalization::DisenableRelocalization()
+bool ExecutorVisionLocalization::DisenableRelocalization()
 {
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -289,7 +303,7 @@ bool ExecutorLaserLocalization::DisenableRelocalization()
   return future.get()->success;
 }
 
-bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
+bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
   // Wait service
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
@@ -318,6 +332,29 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
   }
 
   return future.get()->success;
+}
+
+bool ExecutorVisionLocalization::CheckMapAvailable()
+{
+  while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  auto response = std::make_shared<MapAvailableResult::Response>();
+  // request->map_id = 0;
+
+  // Send request
+  bool success = map_result_client_->invoke(request, response);
+  if (!success) {
+    ERROR("Send miloc map handler request failed.");
+    return false;
+  }
+  return response->code == 0;
 }
 
 }  // namespace algorithm

@@ -17,6 +17,7 @@
 #include <set>
 #include <memory>
 #include <limits>
+#include "nav2_core/exceptions.hpp"
 #include <nav2_util/geometry_utils.hpp>
 #include "nav2_bt_navigator/navigators/target_tracking.hpp"
 
@@ -129,7 +130,6 @@ TargetTrackingNavigator::onLoop()
   unsigned int exception_code = 0;
   blackboard->get<unsigned int>("exception_code", exception_code);
   feedback_msg->exception_code = exception_code;
-
   bt_action_server_->publishFeedback(feedback_msg);
 }
 

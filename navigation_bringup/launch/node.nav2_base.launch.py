@@ -41,8 +41,7 @@ def generate_launch_description():
         description='Top-level namespace'
         )
     package_dir = get_package_share_directory('mcr_bringup')
-    remappings = [('/tf', 'tf'),
-                  ('/tf_static', 'tf_static')]
+    remappings = []
     map_file = LaunchConfiguration(
         'map_file',
         default=os.path.join('/home/mi/mapping/', 'map.yaml')

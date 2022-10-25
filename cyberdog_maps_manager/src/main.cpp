@@ -13,20 +13,16 @@
 // limitations under the License.
 
 #include <memory>
-#include <vector>
-#include <unordered_map>
-#include <string>
-#include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/algorithm_task_manager.hpp"
-namespace cyberdog
-{
-namespace algorithm
-{
-std::unordered_map<std::string,
-  std::shared_ptr<Nav2LifecyleMgrClient>> ExecutorBase::nav2_lifecycle_clients;
-std::unordered_map<std::string,
-  std::shared_ptr<nav2_util::LifecycleServiceClient>> ExecutorBase::lifecycle_clients;
-std::unordered_map<std::string, ExecutorBase::LifecycleNodeIndexs> ExecutorBase::task_map_;
+#include "rclcpp/rclcpp.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_maps_manager/maps_manager.hpp"
 
-}  // namespace algorithm
-}  // namespace cyberdog
+int main(int argc, char ** argv)
+{
+  LOGGER_MAIN_INSTANCE("MapsManager");
+  rclcpp::init(argc, argv);
+  auto manager = std::make_shared<cyberdog::maps_manager::MapsManager>("maps_manager");
+  rclcpp::spin(manager->get_node_base_interface());
+  rclcpp::shutdown();
+  return 0;
+}

@@ -25,7 +25,6 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
-: rclcpp::Node("AlgorithmTaskManager")
 {
 }
 
@@ -35,13 +34,16 @@ AlgorithmTaskManager::~AlgorithmTaskManager()
 
 bool AlgorithmTaskManager::Init()
 {
+  node_ = std::make_shared<rclcpp::Node>("algorithm_manager");
   if (!BuildExecutorMap()) {
     ERROR("Init failed, cannot build executor map!");
     return false;
   }
-  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  ros_executor_->add_node(node_);
+  callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   start_algo_task_server_ = rclcpp_action::create_server<AlgorithmMGR>(
-    this, "start_algo_task",
+    node_, "start_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerGoal,
       this, std::placeholders::_1, std::placeholders::_2),
@@ -51,7 +53,7 @@ bool AlgorithmTaskManager::Init()
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
       this, std::placeholders::_1), rcl_action_server_get_default_options(), callback_group_);
-  stop_algo_task_server_ = this->create_service<protocol::srv::StopAlgoTask>(
+  stop_algo_task_server_ = node_->create_service<protocol::srv::StopAlgoTask>(
     "stop_algo_task",
     std::bind(
       &AlgorithmTaskManager::HandleStopTaskCallback, this,
@@ -60,6 +62,12 @@ bool AlgorithmTaskManager::Init()
     callback_group_);
   SetStatus(ManagerStatus::kIdle);
   return true;
+}
+
+void AlgorithmTaskManager::Run()
+{
+  ros_executor_->spin();
+  rclcpp::shutdown();
 }
 
 bool AlgorithmTaskManager::BuildExecutorMap()
@@ -85,7 +93,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     GET_TOML_VALUE(value, "TaskName", task_name);
     GET_TOML_VALUE(value, "Id", task_ref.id);
     GET_TOML_VALUE(value, "OutDoor", task_ref.out_door);
-    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door);
+    auto executor_ptr = CreateExecutor(task_ref.id, task_ref.out_door, task_name);
     if (executor_ptr == nullptr) {
       ERROR("BuildExecutorMap failed, cannot create executor: %s!", task_name.c_str());
       result = false;
@@ -94,7 +102,7 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     if (!executor_ptr->Init(
         std::bind(&AlgorithmTaskManager::TaskFeedBack, this, std::placeholders::_1),
         std::bind(&AlgorithmTaskManager::TaskSuccessd, this),
-        std::bind(&AlgorithmTaskManager::TaskCancled, this),
+        std::bind(&AlgorithmTaskManager::TaskCanceled, this),
         std::bind(&AlgorithmTaskManager::TaskAborted, this)))
     {
       ERROR("BuildExecutorMap failed, cannot init executor: %s!", task_name.c_str());
@@ -123,9 +131,33 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   const protocol::srv::StopAlgoTask::Request::SharedPtr request,
   protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
-  if (static_cast<uint8_t>(manager_status_) != request->task_id) {
-    ERROR("No task to stop");
-    return;
+  INFO("=====================");
+  if (request->task_id == 0) {
+    if (!CheckStatusValid()) {
+      ERROR("Cannot Reset Nav, status %d is invalid!", (int)manager_status_);
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    }
+    std::string task_name;
+    for (auto task : task_map_) {
+      if (task.second.id == request->task_id) {
+        task_name = task.first;
+      }
+    }
+    auto iter = task_map_.find(task_name);
+    if (iter == task_map_.end()) {
+      ERROR("Error when get ResetNav executor");
+      response->result = protocol::srv::StopAlgoTask::Response::FAILED;
+      return;
+    } else {
+      SetTaskExecutor(iter->second.executor);
+    }
+    INFO("Will Reset Nav");
+  } else {
+    if (static_cast<uint8_t>(manager_status_) != request->task_id) {
+      ERROR("No task to stop");
+      return;
+    }
   }
   SetStatus(ManagerStatus::kStoppingTask);
   if (activated_executor_ != nullptr) {
@@ -148,8 +180,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type) {
+    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
       task_name = task.first;
+      break;
     }
   }
   auto iter = task_map_.find(task_name);
@@ -168,6 +201,10 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   INFO("---------------------");
+  if (CheckStatusValid()) {
+    INFO("No task to cancel");
+    return rclcpp_action::CancelResponse::REJECT;
+  }
   INFO("Received request to cancel task");
   (void)goal_handle;
   activated_executor_->Cancel();
@@ -195,18 +232,26 @@ void AlgorithmTaskManager::TaskSuccessd()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
   goal_handle_executing_->succeed(result);
+  INFO("Manager success");
   ResetTaskHandle();
+  INFO("Manager TaskHandle reset bc success");
   ResetManagerStatus();
 }
 
-void AlgorithmTaskManager::TaskCancled()
+void AlgorithmTaskManager::TaskCanceled()
 {
-  INFO("Got Executor cancle");
+  INFO("Got Executor canceled");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
-  goal_handle_executing_->abort(result);
-  ResetTaskHandle();
-  ResetManagerStatus();
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->abort(result);
+    INFO("Manager canceled");
+    ResetTaskHandle();
+    INFO("Manager TaskHandle reset bc canceled");
+    ResetManagerStatus();
+  } else {
+    ERROR("GoalHandle is null when server executing cancel, this should never happen");
+  }
 }
 void AlgorithmTaskManager::TaskAborted()
 {
@@ -214,7 +259,9 @@ void AlgorithmTaskManager::TaskAborted()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
   goal_handle_executing_->abort(result);
+  INFO("Manager abort");
   ResetTaskHandle();
+  INFO("Manager TaskHandle reset bc aborted");
   ResetManagerStatus();
 }
 }  // namespace algorithm

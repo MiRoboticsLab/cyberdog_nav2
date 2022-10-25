@@ -39,15 +39,16 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
-    laser_slam_dir = FindPackageShare(package='laser_slam').find('laser_slam') 
-    laser_mapping_cmd = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(laser_slam_dir, 'launch/mapping_launch.py')),
-            launch_arguments={'namespace': namespace}.items()
-        )   
+    algo_manager_cmd = Node(
+        package='algorithm_manager',
+        executable='algorithm_manager',
+        # name='algorithm_manager',
+        namespace=namespace,
+        )
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        laser_mapping_cmd,
+        algo_manager_cmd,
     ])
 
     return ld

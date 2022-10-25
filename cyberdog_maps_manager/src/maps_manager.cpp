@@ -1,5 +1,5 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
+// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,21 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <vector>
-#include <unordered_map>
 #include <string>
-#include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/algorithm_task_manager.hpp"
+
+#include "cyberdog_maps_manager/maps_manager.hpp"
+
 namespace cyberdog
 {
-namespace algorithm
+namespace maps_manager
 {
-std::unordered_map<std::string,
-  std::shared_ptr<Nav2LifecyleMgrClient>> ExecutorBase::nav2_lifecycle_clients;
-std::unordered_map<std::string,
-  std::shared_ptr<nav2_util::LifecycleServiceClient>> ExecutorBase::lifecycle_clients;
-std::unordered_map<std::string, ExecutorBase::LifecycleNodeIndexs> ExecutorBase::task_map_;
 
-}  // namespace algorithm
+MapsManager::MapsManager(const std::string & name)
+: rclcpp::Node(name)
+{
+}
+
+MapsManager::~MapsManager()
+{
+}
+
+}  // namespace maps_manager
 }  // namespace cyberdog

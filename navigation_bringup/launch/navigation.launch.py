@@ -44,17 +44,19 @@ def generate_launch_description():
         'camera_server',
         'tracking',
         'realsense',
+        'realsense_align',
         'mcr_uwb',
         'velocity_adaptor',
         'nav2_base',
         'map_label_server',
-        # 'report_dog_pose',
+        'report_dog_pose',
         'laser_mapping',
         'laser_localization',
         'lifecycle_mgr_laser_loc',
         'lifecycle_mgr_nav',
         'lifecycle_mgr_laser_mapping',
         'lifecycle_mgr_mcr_uwb',
+        'lifecycle_mgr_vis_vo',
         # 'navigation_interfaces',
         'mivins_localization',
         'mivins_mapping',
@@ -62,6 +64,7 @@ def generate_launch_description():
         'miloc',
         'stereo_camera',
         'occmap',
+        'algorithm_manager'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),

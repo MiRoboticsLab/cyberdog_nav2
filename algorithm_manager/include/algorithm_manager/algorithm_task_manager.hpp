@@ -34,10 +34,10 @@ using TaskId = uint8_t;
 
 enum class ManagerStatus : uint8_t
 {
-  kUninitialized,
-  kIdle,
-  kLaunchingLifecycleNode = 100,
-  kStoppingTask = 101,
+  kUninitialized = 100,
+  kIdle = 101,
+  kLaunchingLifecycleNode = 102,
+  kStoppingTask = 103,
   kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
   kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
   kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
@@ -55,23 +55,24 @@ struct TaskRef
   bool out_door;
 };
 
-class AlgorithmTaskManager : public rclcpp::Node
+class AlgorithmTaskManager
 {
 public:
   AlgorithmTaskManager();
   ~AlgorithmTaskManager();
-
   bool Init();
+  void Run();
 
 private:
   void TaskSuccessd();
-  void TaskCancled();
+  void TaskCanceled();
   void TaskAborted();
   void TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback);
 
   bool CheckStatusValid()
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
+    INFO("Current status: %d", (int)manager_status_);
     return manager_status_ == ManagerStatus::kIdle;
   }
 
@@ -95,6 +96,7 @@ private:
   {
     return executor_data_queue_.DeQueue(executor_data);
   }
+
   bool BuildExecutorMap();
 
   void SetTaskHandle(std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle = nullptr)
@@ -127,11 +129,13 @@ private:
     protocol::srv::StopAlgoTask::Response::SharedPtr response);
 
 private:
+  rclcpp::Node::SharedPtr node_{nullptr};
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr start_algo_task_server_{nullptr};
   rclcpp::Service<protocol::srv::StopAlgoTask>::SharedPtr stop_algo_task_server_{nullptr};
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_{nullptr};
   std::shared_ptr<ExecutorBase> activated_executor_{nullptr};
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr ros_executor_{nullptr};
   ManagerStatus manager_status_{ManagerStatus::kUninitialized};
   std::mutex status_mutex_;
   common::MsgQueue<ExecutorData> executor_data_queue_;

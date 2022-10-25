@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+
+#ifndef ALGORITHM_MANAGER__EXECUTOR_VISION_LOCALIZATION_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_VISION_LOCALIZATION_HPP_
 
 #include <string>
 #include <memory>
@@ -21,23 +22,25 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-class ExecutorLaserLocalization : public ExecutorBase
+class ExecutorVisionLocalization : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   /**
    * @brief Construct a new Executor Laser Localization object
    *
    * @param node_name Executor node name
    */
-  explicit ExecutorLaserLocalization(std::string node_name);
+  explicit ExecutorVisionLocalization(std::string node_name);
 
   /**
   * @brief Start lidar localization
@@ -111,6 +114,14 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
+  /**
+   * @brief Check curent map building available
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool CheckMapAvailable();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -127,10 +138,13 @@ private:
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
 
+  // Get vision build map available result
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
+
   // Record relocalization result
   bool relocalization_success_ {false};
   bool relocalization_failure_ {false};
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_LASER_LOCALIZATION_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_VISION_LOCALIZATION_HPP_
