@@ -183,6 +183,11 @@ void LabelStore::SetMapName(
   common::CyberdogJson::Add(doc, "map_name", map_filename);
 }
 
+void LabelStore::SetOutdoor(bool value, rapidjson::Document & doc)
+{
+  common::CyberdogJson::Add(doc, "is_outdoor", value);
+}
+
 bool LabelStore::LoadLabels(const std::string & directory)
 {
   if (!filesystem::exists(directory)) {
@@ -257,6 +262,41 @@ void LabelStore::Read(
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     if (it->name.GetString() == "map_name" || it->value.IsString()) {
       continue;
+    }
+
+    INFO("----------------------------------------");
+    INFO(
+      "key = %s, x = %f, y = %f", it->name.GetString(),
+      it->value["x"].GetFloat(), it->value["y"].GetFloat());
+
+    auto label = std::make_shared<protocol::msg::Label>();
+    label->set__physic_x(it->value["x"].GetFloat());
+    label->set__physic_y(it->value["y"].GetFloat());
+    label->set__label_name(it->name.GetString());
+    labels.emplace_back(*label.get());
+  }
+}
+
+void LabelStore::Read(
+  const std::string & label_filename,
+  std::vector<protocol::msg::Label> & labels,
+  bool & is_outdoor)
+{
+  if (!filesystem::exists(label_filename)) {
+    ERROR("label_filename is not exist.");
+    return;
+  }
+
+  rapidjson::Document document(rapidjson::kObjectType);
+  common::CyberdogJson::ReadJsonFromFile(label_filename, document);
+
+  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
+    if (it->name.GetString() == "map_name" || it->value.IsString()) {
+      continue;
+    }
+
+    if (it->name.GetString() == "is_outdoor" || it->value.IsBool()) {
+      is_outdoor = it->value.GetBool();
     }
 
     INFO("----------------------------------------");
