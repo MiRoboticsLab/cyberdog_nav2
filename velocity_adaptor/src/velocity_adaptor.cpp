@@ -66,10 +66,11 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
 
 void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg)
 {
-  if(fabs(msg->linear.x) < 5e-3 && 
-     fabs(msg->linear.y) < 5e-3 && 
-     fabs(msg->angular.z) < 5e-3) {
-      return;
+  if (fabs(msg->linear.x) < 5e-3 &&
+    fabs(msg->linear.y) < 5e-3 &&
+    fabs(msg->angular.z) < 5e-3)
+  {
+    return;
   }
 
   // INFO("SetCommandVelocity");
