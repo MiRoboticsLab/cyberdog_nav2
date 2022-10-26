@@ -75,6 +75,7 @@ private:
 
   int32_t gait_motion_id;
   int32_t gait_shape_value;
+  int32_t cmd_source;
   std::vector<float> gait_step_height;
 };
 

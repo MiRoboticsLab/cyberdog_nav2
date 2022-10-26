@@ -58,6 +58,7 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
   gait_motion_id = request->motion_id;
   gait_shape_value = request->value;
   gait_step_height = request->step_height;
+  cmd_source = request->cmd_source;
 
   response->result = true;
   response->motion_id = request->motion_id;
@@ -65,6 +66,12 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
 
 void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg)
 {
+  if(fabs(msg->linear.x) < 5e-3 && 
+     fabs(msg->linear.y) < 5e-3 && 
+     fabs(msg->angular.z) < 5e-3) {
+      return;
+  }
+
   // INFO("SetCommandVelocity");
   std::vector<float> vel_des {
     static_cast<float>(msg->linear.x),
