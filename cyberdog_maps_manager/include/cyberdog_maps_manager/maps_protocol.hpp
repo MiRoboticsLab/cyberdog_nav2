@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/int32.hpp"
 #include "nav2_util/service_client.hpp"
 #include "protocol/srv/map.hpp"
 
@@ -48,6 +49,7 @@ public:
   bool Delete(Request::SharedPtr & request, Response::SharedPtr & response);
   bool Update(Request::SharedPtr & request, Response::SharedPtr & response);
   bool Query(Request::SharedPtr & request, Response::SharedPtr & response);
+  bool Load(Request::SharedPtr & request, Response::SharedPtr & response);
 
 private:
   bool CallService(Request::SharedPtr & request, Response::SharedPtr & response);

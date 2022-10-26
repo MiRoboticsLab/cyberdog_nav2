@@ -334,8 +334,8 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   // Set request data
-  auto request = std::make_shared<visualization::srv::Stop::Request>();
   auto response = std::make_shared<visualization::srv::Stop::Response>();
+  auto request = std::make_shared<visualization::srv::Stop::Request>();
   request->finish = true;
   // request->map_name = map_filename;
   request->map_name = "map";

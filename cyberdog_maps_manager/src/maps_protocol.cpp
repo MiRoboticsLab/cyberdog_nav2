@@ -30,6 +30,9 @@ MapsProtocol::MapsProtocol()
   node_ = std::make_shared<rclcpp::Node>("maps_manager_service_client");
   map_client_ = std::make_shared<nav2_util::ServiceClient<protocol::srv::Map>>(
     "maps_manager", node_);
+
+  // spin
+  std::thread{[this]() {rclcpp::spin(node_->get_node_base_interface());}}.detach();
 }
 
 MapsProtocol::~MapsProtocol()
@@ -76,6 +79,11 @@ bool MapsProtocol::Update(Request::SharedPtr & request, Response::SharedPtr & re
 }
 
 bool MapsProtocol::Query(Request::SharedPtr & request, Response::SharedPtr & response)
+{
+  return CallService(request, response);
+}
+
+bool MapsProtocol::Load(Request::SharedPtr & request, Response::SharedPtr & response)
 {
   return CallService(request, response);
 }
