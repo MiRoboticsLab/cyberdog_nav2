@@ -59,6 +59,12 @@ def generate_launch_description():
             name='motion_manager',
             namespace=namespace,
             )
+    audio_cmd = Node(
+            package='cyberdog_audio',
+            executable='cyberdog_audio',
+            name='cyberdog_audio',
+            namespace=namespace,
+            )
     sensor_manager_cmd = Node(
             package='sensor_manager',
             executable='sensor_manager',
@@ -66,7 +72,8 @@ def generate_launch_description():
             namespace=namespace,
             parameters=[
             {
-                'simulator': LaunchConfiguration('simulator', default='[tof, gps, ultrasonic]'),
+                # 'simulator': LaunchConfiguration('simulator', default='[lidar, tof, gps, ultrasonic]'),
+                'simulator': LaunchConfiguration('simulator', default='[lidar, gps, ultrasonic]'),
             },],
             )
 
@@ -75,11 +82,12 @@ def generate_launch_description():
             executable='device_manager',
             name='device_manager',
             namespace=namespace,
-            output='log',
-            # parameters=[
-            # {
-            #     'simulator': LaunchConfiguration('simulator', default='[touch]'),
-            # },],
+            output={'stdout': 'log',
+                    'stderr': 'log'},
+        #     parameters=[
+        #     {
+        #         'simulator': LaunchConfiguration('simulator', default='[uwb, touch]'),
+        #     },],
             )
 
     head_tof_pc_cmd = Node(
@@ -95,7 +103,8 @@ def generate_launch_description():
         motion_manager_cmd,
         sensor_manager_cmd,
         device_manager_cmd,
-        head_tof_pc_cmd
+        head_tof_pc_cmd,
+        audio_cmd
     ])
 
     return ld

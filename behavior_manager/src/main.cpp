@@ -24,5 +24,6 @@ int main(int argc, char ** argv)
   cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
   auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>("behavior_manager");
+  atm->Launch(true, true);
   rclcpp::spin(std::make_shared<rclcpp::Node>("main"));
 }
