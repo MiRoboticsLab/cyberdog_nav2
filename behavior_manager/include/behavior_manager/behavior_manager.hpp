@@ -25,6 +25,8 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
+#include "protocol/srv/audio_text_play.hpp"
+#include "protocol/msg/audio_play.hpp"
 #include "cyberdog_debug/backtrace.hpp"
 #include "behavior_manager/mode_detector.hpp"
 #include "behavior_manager/executor_auto_tracking.hpp"
@@ -59,6 +61,7 @@ public:
       std::bind(&BehaviorManager::HandleJumped, this),
       std::bind(&BehaviorManager::HandleJumpFailed, this));
     tracking_switch_client_ = node_->create_client<std_srvs::srv::SetBool>("tracking_command");
+    audio_play_client_ = node_->create_client<protocol::srv::AudioTextPlay>("speech_text_play");
     status_map_.emplace(Status::kAutoTracking, "AutoTracking");
     status_map_.emplace(Status::kNormTracking, "NormTracking");
     status_map_.emplace(Status::kStairJumping, "StairJumping");
@@ -129,9 +132,20 @@ private:
   void HandleAbnormStatus()
   {
     INFO("Abnorm");
+    auto request = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+    request->module_name = node_->get_name();
+    request->speech.play_id = protocol::msg::AudioPlay::PID_FACE_ENTRY_FIX_STABLE;
+    auto callback = [](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
+        INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
+      };
+    auto future = audio_play_client_->async_send_request(request, callback);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response of AudioPlay");
+    }
   }
   rclcpp::Node::SharedPtr node_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
+  rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_;
   ModeDetector::Stage stage_working_, stage_detected_;
   std::shared_ptr<ModeDetector> mode_detector_;
   std::shared_ptr<ExecutorAutoTracking> executor_auto_tracking_;
