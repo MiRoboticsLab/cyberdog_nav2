@@ -50,7 +50,7 @@ def generate_launch_description():
             name='lifecycle_manager_navigation',
             namespace=namespace,
             output='screen',
-            parameters=[{'node_names': lifecycle_nodes}])
+            parameters=[{'node_names': lifecycle_nodes}, {'bond_timeout': 20.0}])
     ld = launch.LaunchDescription([
         namespace_declare,
         lifecycle_nav_cmd,
