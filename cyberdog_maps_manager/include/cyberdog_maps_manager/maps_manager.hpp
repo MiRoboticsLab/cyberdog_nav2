@@ -107,7 +107,6 @@ public:
 
   struct Response
   {
-
   };
 
   bool Run(const Request & request, Response & response);

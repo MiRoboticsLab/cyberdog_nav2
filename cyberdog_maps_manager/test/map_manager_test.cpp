@@ -116,17 +116,17 @@ private:
     } else if (msg->data == 2) {
       TestSave(2);
     } else if (msg->data == 3) {
-      TestDelete(1);
+      TestDelete(3);
     } else if (msg->data == 4) {
-      TestDelete(2);
+      TestDelete(4);
     } else if (msg->data == 5) {
-      TestUpdate(1);
+      TestUpdate(5);
     } else if (msg->data == 6) {
-      TestUpdate(2);
+      TestUpdate(6);
     } else if (msg->data == 7) {
-      TestQuery(1);
+      TestQuery(7);
     } else if (msg->data == 8) {
-      TestQuery(2);
+      TestQuery(8);
     }
   }
 
@@ -167,11 +167,13 @@ private:
   {
     MapsManager::CommandRequest request;
     std::vector<std::string> maps_name {
-      "map2"
+      "map3",
+      "map4"
     };
 
     std::vector<uint64_t> ids {
-      10001
+      3,
+      4
     };
 
     request.maps_name = maps_name;
@@ -198,13 +200,13 @@ private:
   {
     MapsManager::CommandRequest request;
     std::vector<std::string> maps_name {
-      "map3",
-      "map4"
+      "map_5",
+      "map_6"
     };
 
     std::vector<uint64_t> ids {
-      30003,
-      30004
+      1,
+      2
     };
 
     request.maps_name = maps_name;
@@ -215,7 +217,7 @@ private:
     if (type == 5) {
       request.name_code = 1005;
       send_success = manager_->Update(MapsManager::MapType::Lidar, request);
-    } else if (type == 5) {
+    } else if (type == 6) {
       request.name_code = 1006;
       send_success = manager_->Update(MapsManager::MapType::Vision, request);
     }
@@ -229,6 +231,9 @@ private:
   // type == 8 vision
   void TestQuery(int type)
   {
+    INFO("--> TestQuery: ");
+
+    std::vector<MapsManager::MapInfo> maps;
     MapsManager::CommandRequest request;
     request.timestamp = 12345;
 
@@ -238,7 +243,9 @@ private:
       send_success = manager_->Query(MapsManager::MapType::Lidar, request);
     } else if (type == 8) {
       request.name_code = 1008;
-      send_success = manager_->Update(MapsManager::MapType::Vision, request);
+
+      INFO("--> TestQuery: ###########");
+      send_success = manager_->Query(MapsManager::MapType::Vision, request, maps);
     }
 
     if (!send_success) {

@@ -142,7 +142,7 @@ bool MapsManager::Update(const MapType & map_type, const CommandRequest & reques
 {
   // Create command request
   auto param = std::make_shared<protocol::srv::Map::Request>();
-  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_INSERT;
+  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_UPDATE;
 
   // map_type
   if (map_type == MapType::Lidar) {
@@ -175,9 +175,10 @@ bool MapsManager::Update(const MapType & map_type, const CommandRequest & reques
 
 bool MapsManager::Query(const MapType & map_type, const CommandRequest & request)
 {
+  INFO("call MapsManager::Query() function.");
   // Create command request
   auto param = std::make_shared<protocol::srv::Map::Request>();
-  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_INSERT;
+  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_QUERY;
 
   // map_type
   if (map_type == MapType::Lidar) {
@@ -207,12 +208,13 @@ bool MapsManager::Query(const MapType & map_type, const CommandRequest & request
   return true;
 }
 
-bool MapsManager::Query(const MapType & map_type,
+bool MapsManager::Query(
+  const MapType & map_type,
   const CommandRequest & request, std::vector<MapInfo> & maps)
 {
   // Create command request
   auto param = std::make_shared<protocol::srv::Map::Request>();
-  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_INSERT;
+  param->command = protocol::srv::Map::Request::MAP_COMMAND_TYPE_QUERY;
 
   // map_type
   if (map_type == MapType::Lidar) {
@@ -342,6 +344,8 @@ bool MapsManager::CheckUpdateSuccess(const protocol::srv::Map::Response::SharedP
     return false;
   }
 
+  INFO("response: %s", response->response.c_str());
+
   bool success = true;
   const rapidjson::Value & result = json_response["success"];
   if (result.IsArray()) {
@@ -376,12 +380,13 @@ bool MapsManager::CheckQuerySuccess(
   if (result.IsArray()) {
     for (auto it = result.Begin(); it != result.End(); it++) {
       auto map_object = it->GetObject();
-      // maps.push_back({
-      //   map_object["name"],
-      //   map_object["id"],
-      //   map_object["success"],
-      //   map_object["status"]
-      // });
+      std::string name = map_object["name"].GetString();
+      int id = map_object["id"].GetInt();
+      bool success = map_object["success"].GetBool();
+      int status = map_object["status"].GetInt();
+
+      INFO("[name: %s, id: %d, success: %d, status: %d]", name.c_str(), id, success, status);
+      maps.push_back({name, id, success, status});
     }
   }
   return true;
@@ -482,7 +487,9 @@ std::string MapsManager::ToString(const CommandRequest & request)
     rapidjson::Value maps(rapidjson::kArrayType);
     for (int i = 0; i < request.maps_name.size(); i++) {
       rapidjson::Value map(rapidjson::kStringType);
-      map.SetString(request.maps_name[i].c_str(), request.maps_name[i].length(), json_request.GetAllocator());
+      map.SetString(
+        request.maps_name[i].c_str(),
+        request.maps_name[i].length(), json_request.GetAllocator());
       maps.PushBack(map, json_request.GetAllocator());
     }
     json_request.AddMember("map", maps, json_request.GetAllocator());

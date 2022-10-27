@@ -65,26 +65,31 @@ bool MapsProtocol::Query(Request::SharedPtr & request)
 
 bool MapsProtocol::Save(Request::SharedPtr & request, Response::SharedPtr & response)
 {
+  INFO("Call MapsProtocol::Save() function.");
   return CallService(request, response);
 }
 
 bool MapsProtocol::Delete(Request::SharedPtr & request, Response::SharedPtr & response)
 {
+  INFO("Call MapsProtocol::Delete() function.");
   return CallService(request, response);
 }
 
 bool MapsProtocol::Update(Request::SharedPtr & request, Response::SharedPtr & response)
 {
+  INFO("Call MapsProtocol::Update() function.");
   return CallService(request, response);
 }
 
 bool MapsProtocol::Query(Request::SharedPtr & request, Response::SharedPtr & response)
 {
+  INFO("Call MapsProtocol::Query() function.");
   return CallService(request, response);
 }
 
 bool MapsProtocol::Load(Request::SharedPtr & request, Response::SharedPtr & response)
 {
+  INFO("Call MapsProtocol::Load() function.");
   return CallService(request, response);
 }
 
