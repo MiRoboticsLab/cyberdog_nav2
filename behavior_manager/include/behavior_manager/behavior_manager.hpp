@@ -49,33 +49,37 @@ public:
   explicit BehaviorManager(const std::string & node_name)
   {
     node_ = std::make_shared<rclcpp::Node>(node_name);
-    mode_detector_ = std::make_shared<ModeDetector>("mode_detector");
+    callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    mode_detector_ = std::make_shared<ModeDetector>(node_);
     mode_detector_->Init(
       std::bind(&BehaviorManager::DoStairJump, this, std::placeholders::_1),
       std::bind(&BehaviorManager::DoAutoTracking, this),
       std::bind(&BehaviorManager::DoNormallyTracking, this, std::placeholders::_1)
     );
-    executor_auto_tracking_ = std::make_shared<ExecutorAutoTracking>("executor_auto_tracking");
-    executor_stair_jumping_ = std::make_shared<ExecutorStairJumping>("executor_stair_jumping");
+    executor_auto_tracking_ = std::make_shared<ExecutorAutoTracking>(node_);
+    executor_stair_jumping_ = std::make_shared<ExecutorStairJumping>(node_);
     executor_stair_jumping_->Init(
       std::bind(&BehaviorManager::HandleJumped, this),
       std::bind(&BehaviorManager::HandleJumpFailed, this));
-    tracking_switch_client_ = node_->create_client<std_srvs::srv::SetBool>("tracking_command");
-    audio_play_client_ = node_->create_client<protocol::srv::AudioTextPlay>("speech_text_play");
+    tracking_switch_client_ = node_->create_client<std_srvs::srv::SetBool>(
+      "tracking_command",
+      rmw_qos_profile_services_default,
+      callback_group_);
+    audio_play_client_ = node_->create_client<protocol::srv::AudioTextPlay>(
+      "speech_text_play",
+      rmw_qos_profile_services_default,
+      callback_group_);
     status_map_.emplace(Status::kAutoTracking, "AutoTracking");
     status_map_.emplace(Status::kNormTracking, "NormTracking");
     status_map_.emplace(Status::kStairJumping, "StairJumping");
     status_map_.emplace(Status::kAbnorm, "Abnorm");
-    std::thread{[this]() {rclcpp::spin(node_);}}.detach();
-    // ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-    // ros_executor_->add_node(mode_detector_);
-    // ros_executor_->add_node(executor_auto_tracking_);
-    // ros_executor_->add_node(executor_stair_jumping_);
-    // std::thread{[this](){ros_executor_->spin();}}.detach();
+    ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    ros_executor_->add_node(node_);
+    std::thread{[this](){ros_executor_->spin();}}.detach();
   }
   void Launch(bool stair_detect, bool static_detect)
   {
-    mode_detector_->Launch(static_detect, static_detect);
+    mode_detector_->Launch(stair_detect, static_detect);
   }
   ~BehaviorManager() {}
 
@@ -144,6 +148,7 @@ private:
     }
   }
   rclcpp::Node::SharedPtr node_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr tracking_switch_client_;
   rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_;
   ModeDetector::Stage stage_working_, stage_detected_;

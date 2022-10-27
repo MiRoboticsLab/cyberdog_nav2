@@ -46,9 +46,9 @@ public:
     kNothing = 0,
     kDownStair = -1,
   };
-  explicit ModeDetector(const std::string & node_name)
+  explicit ModeDetector(const rclcpp::Node::SharedPtr node)
+  : node_(node)
   {
-    node_ = std::make_shared<rclcpp::Node>(node_name);
     stair_detected_sub_ = node_->create_subscription<std_msgs::msg::Int8>(
       "elevation_mapping/stair_detected",
       rclcpp::SystemDefaultsQoS(),
@@ -61,7 +61,7 @@ public:
       std::bind(
         &ModeDetector::HandleTargetPoseCallback,
         this, std::placeholders::_1));
-    std::thread{[this] {rclcpp::spin(node_);}}.detach();
+    // std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
   ~ModeDetector() {}
   bool Init(

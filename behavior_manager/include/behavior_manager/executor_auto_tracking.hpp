@@ -34,10 +34,11 @@ namespace algorithm
 class ExecutorAutoTracking
 {
 public:
-  explicit ExecutorAutoTracking(const std::string & node_name)
+  explicit ExecutorAutoTracking(const rclcpp::Node::SharedPtr node)
+  : node_(node)
   {
-    node_ = std::make_shared<rclcpp::Node>(node_name);
-    std::thread{[this] {rclcpp::spin(node_);}}.detach();
+    // node_ = std::make_shared<rclcpp::Node>(node_name);
+    // std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
   ~ExecutorAutoTracking() {}
   /**
