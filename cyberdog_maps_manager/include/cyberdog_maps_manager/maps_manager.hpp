@@ -44,6 +44,7 @@ public:
     DELETE,
     UPDATE,
     QUERY,
+    LOAD,
     UNKNOWN
   };
 
@@ -97,23 +98,24 @@ public:
     std::vector<u_int8_t> data;
   };
 
-  bool Save(const CommandType & cmd_type, const MapType & map_type, const CommandRequest & request);
-  bool Delete(
-    const CommandType & cmd_type, const MapType & map_type,
-    const CommandRequest & request);
-  bool Update(
-    const CommandType & cmd_type, const MapType & map_type,
-    const CommandRequest & request);
-  bool Query(
-    const CommandType & cmd_type, const MapType & map_type,
-    const CommandRequest & request);
-  bool Query(
-    const CommandType & cmd_type, const MapType & map_type,
-    const CommandRequest & request, std::vector<MapInfo> & maps);
+  struct Request
+  {
+    CommandRequest command;
+    CommandType cmd_type;
+    MapType map_type;
+  };
 
-  bool Load(
-    const CommandType & cmd_type, const MapType & map_type,
-    const CommandRequest & request, MapData & map);
+  struct Response
+  {
+  };
+
+  bool Run(const Request & request, Response & response);
+  bool Save(const MapType & map_type, const CommandRequest & request);
+  bool Delete(const MapType & map_type, const CommandRequest & request);
+  bool Update(const MapType & map_type, const CommandRequest & request);
+  bool Query(const MapType & map_type, const CommandRequest & request);
+  bool Query(const MapType & map_type, const CommandRequest & request, std::vector<MapInfo> & maps);
+  bool Load(const MapType & map_type, const CommandRequest & request, MapData & map);
 
 // private:
   bool CheckSaveSuccess(const protocol::srv::Map::Response::SharedPtr & response);
@@ -129,6 +131,7 @@ public:
 
   std::string CommandRequestToString(const CommandRequest & request);
   std::string ToString(const CommandRequest & request);
+
 
   std::shared_ptr<MapsProtocol> protocol_ {nullptr};
 };
