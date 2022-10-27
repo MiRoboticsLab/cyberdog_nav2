@@ -31,6 +31,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
+  behavior_manager_ = std::make_shared<BehaviorManager>("behavior_manager");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -170,6 +171,7 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
+  behavior_manager_->Launch(false, false);
   if (response == nullptr) {
     return;
   }

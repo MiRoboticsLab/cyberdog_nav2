@@ -75,10 +75,18 @@ public:
     do_normal_tracking_func_ = do_normal_tracking_func;
     return true;
   }
+  void Launch(bool stair_detect = true, bool static_detect = false)
+  {
+    stair_detect_ = stair_detect;
+    static_detect_ = static_detect;
+  }
 
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
   {
+    if (!stair_detect_) {
+      return;
+    }
     INFO_EXPRESSION(msg->data != stair_detection_, "Detect stair: %d", msg->data);
     stair_detection_ = msg->data;
     if (stair_detection_ == static_cast<int8_t>(StairDetection::kUpStair)) {
@@ -89,6 +97,9 @@ private:
   }
   void HandleTargetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
+    if (!static_detect_) {
+      return;
+    }
     if (!CheckTargetStatic(msg)) {
       do_auto_tracking_func_();
     } else {
@@ -117,6 +128,7 @@ private:
   std::function<void()> do_auto_tracking_func_;
   std::function<void(bool)> do_normal_tracking_func_;
   int8_t stair_detection_{0};
+  bool stair_detect_{false}, static_detect_{false};
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog

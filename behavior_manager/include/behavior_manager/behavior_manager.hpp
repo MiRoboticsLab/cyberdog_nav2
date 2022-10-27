@@ -70,6 +70,10 @@ public:
     // ros_executor_->add_node(executor_stair_jumping_);
     // std::thread{[this](){ros_executor_->spin();}}.detach();
   }
+  void Launch(bool stair_detect, bool static_detect)
+  {
+    mode_detector_->Launch(static_detect, static_detect);
+  }
   ~BehaviorManager() {}
 
 private:
