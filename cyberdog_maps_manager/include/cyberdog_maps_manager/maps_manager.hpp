@@ -95,7 +95,7 @@ public:
     float quaternion_w;
 
     // data
-    std::vector<u_int8_t> data;
+    std::vector<int8_t> data;
   };
 
   struct Request
@@ -131,7 +131,7 @@ public:
 
   std::string CommandRequestToString(const CommandRequest & request);
   std::string ToString(const CommandRequest & request);
-
+  void DebugString(const MapData & map);
 
   std::shared_ptr<MapsProtocol> protocol_ {nullptr};
 };

@@ -127,6 +127,10 @@ private:
       TestQuery(7);
     } else if (msg->data == 8) {
       TestQuery(8);
+    } else if (msg->data == 9) {
+      TestLoad(9);
+    } else if (msg->data == 10) {
+      TestLoad(10);
     }
   }
 
@@ -136,7 +140,7 @@ private:
   {
     MapsManager::CommandRequest request;
     std::vector<std::string> maps_name {
-      "map1"
+      "map_10"
     };
 
     // std::vector<uint64_t> ids {
@@ -246,6 +250,42 @@ private:
 
       INFO("--> TestQuery: ###########");
       send_success = manager_->Query(MapsManager::MapType::Vision, request, maps);
+    }
+
+    if (!send_success) {
+      ERROR("Send command error");
+    }
+  }
+
+
+  // type == 9 lidar
+  // type == 10 vision
+  void TestLoad(int type)
+  {
+    INFO("--> TestLoad: ");
+
+    MapsManager::MapData map;
+    MapsManager::CommandRequest request;
+
+    std::vector<std::string> maps_name {
+      "map_5"
+    };
+
+    std::vector<uint64_t> ids {
+      1
+    };
+
+    request.maps_name = maps_name;
+    request.ids = ids;
+    request.timestamp = 12345;
+
+    bool send_success = false;
+    if (type == 9) {
+      request.name_code = 1009;
+      send_success = manager_->Load(MapsManager::MapType::Lidar, request, map);
+    } else if (type == 10) {
+      request.name_code = 1010;
+      send_success = manager_->Load(MapsManager::MapType::Vision, request, map);
     }
 
     if (!send_success) {

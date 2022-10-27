@@ -154,6 +154,9 @@ bool MapsManager::Update(const MapType & map_type, const CommandRequest & reques
   // Convert request to json
   param->request = ToString(request);
 
+
+  INFO("request : %s", param->request.c_str());
+
   // Run update command
   auto response = std::make_shared<protocol::srv::Map::Response>();
   bool success = protocol_->Update(param, response);
@@ -403,7 +406,7 @@ bool MapsManager::CheckLoadSuccess(
   }
 
   bool success = true;
-  const rapidjson::Value & map_object = json_response["maps"];
+  const rapidjson::Value & map_object = json_response["map"];
 
   // int id;
   // std::string name;
@@ -429,22 +432,34 @@ bool MapsManager::CheckLoadSuccess(
   // // data
   // std::vector<u_int8_t> data;
 
-  // map_data.id = map_object["id"];
-  // map_data.name = map_object["name"];
-  // map_data.map_load_time = map_object["map_load_time"];
-  // map_data.width = map_object["width"];
-  // map_data.name = map_object["height"];
+  // meta data
+  map_data.id = map_object["id"].GetInt();
+  map_data.name = map_object["name"].GetString();
+  map_data.resolution = map_object["resolution"].GetFloat();
+  map_data.width = map_object["width"].GetInt();
+  map_data.height = map_object["height"].GetInt();
 
-  // map_data.position_x = map_object["position_x"];
-  // map_data.position_y = map_object["position_y"];
-  // map_data.position_z = map_object["position_z"];
-  // map_data.position_w = map_object["position_w"];
+  // position
+  map_data.position_x = map_object["position_x"].GetFloat();
+  map_data.position_y = map_object["position_y"].GetFloat();
+  map_data.position_z = map_object["position_z"].GetFloat();
 
-  // map_data.quaternion_x = map_object["quaternion_x"];
-  // map_data.quaternion_y = map_object["quaternion_y"];
-  // map_data.quaternion_z = map_object["quaternion_z"];
-  // map_data.quaternion_w = map_object["quaternion_w"];
+  // quaternion
+  map_data.quaternion_x = map_object["quaternion_x"].GetFloat();
+  map_data.quaternion_y = map_object["quaternion_y"].GetFloat();
+  map_data.quaternion_z = map_object["quaternion_z"].GetFloat();
+  map_data.quaternion_w = map_object["quaternion_w"].GetFloat();
 
+  // data
+  const rapidjson::Value & data = map_object["data"];
+  std::vector<int8_t> mdata;
+  for (auto it = data.Begin(); it != data.End(); ++it) {
+    mdata.push_back(it->GetInt());
+  }
+  map_data.data = mdata;
+
+  // Print
+  DebugString(map_data);
   return true;
 }
 
@@ -492,7 +507,7 @@ std::string MapsManager::ToString(const CommandRequest & request)
         request.maps_name[i].length(), json_request.GetAllocator());
       maps.PushBack(map, json_request.GetAllocator());
     }
-    json_request.AddMember("map", maps, json_request.GetAllocator());
+    json_request.AddMember("map_name", maps, json_request.GetAllocator());
   }
 
   // ids
@@ -515,6 +530,32 @@ std::string MapsManager::ToString(const CommandRequest & request)
     return result;
   }
   return result;
+}
+
+
+void MapsManager::DebugString(const MapData & map)
+{
+  INFO("[Map Data Description]");
+  INFO("    id: %d", map.id);
+  INFO("    name: %s", map.name.c_str());
+  INFO("    resolution: %f", map.resolution);
+  INFO("    height: %d", map.height);
+  INFO("    width: %d", map.width);
+
+  INFO("    position x: %f", map.position_x);
+  INFO("    position y: %f", map.position_y);
+  INFO("    position z: %f", map.position_z);
+
+  INFO("    quaternion x: %f", map.quaternion_x);
+  INFO("    quaternion y: %f", map.quaternion_y);
+  INFO("    quaternion z: %f", map.quaternion_z);
+  INFO("    quaternion w: %f", map.quaternion_w);
+
+  // INFO("[");
+  // for (const auto & data : map.data) {
+  //   INFO("%d", data);
+  // }
+  // INFO("]");
 }
 
 }  // namespace maps_manager
