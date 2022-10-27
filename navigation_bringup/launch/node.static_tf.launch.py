@@ -47,7 +47,7 @@ def generate_launch_description():
                                 executable='static_transform_publisher',
                                 name='static_tf_pub_depth_optical',
                                 namespace=namespace,
-                                arguments=['0.275309', '0.025', '0.114282','-0.545621', '0.545621', '-0.4497752', '0.4497752','base_link','camera_link'],
+                                arguments=['0.288824', '0.000', '0.144322','0', '-0.258819,', '0', '0.9659258','base_link','camera_link'],
                                 )
     tf2_node_base_to_tof_left_head = Node(package='tf2_ros',
                                 executable='static_transform_publisher',

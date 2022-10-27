@@ -120,7 +120,9 @@ protected:
 
   std::string goal_blackboard_relative_pos_;
   std::string goal_blackboard_keep_dist_;
-
+  std::string target_topic_;
+  double maxwait_;
+  geometry_msgs::msg::PoseStamped latest_goal_;
   // Odometry smoother object
   std::unique_ptr<nav2_util::OdomSmoother> odom_smoother_;
 

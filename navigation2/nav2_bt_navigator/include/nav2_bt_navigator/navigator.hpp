@@ -249,7 +249,11 @@ protected:
 
     plugin_muxer_->startNavigating(getName());
 
-    return goalReceived(goal);
+    auto status = goalReceived(goal);
+    if(!status){
+      plugin_muxer_->stopNavigating(getName());
+    }
+    return status;
   }
 
   /**
