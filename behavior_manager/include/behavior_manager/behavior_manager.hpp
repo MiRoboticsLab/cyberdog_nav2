@@ -75,7 +75,7 @@ public:
     status_map_.emplace(Status::kAbnorm, "Abnorm");
     ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     ros_executor_->add_node(node_);
-    std::thread{[this](){ros_executor_->spin();}}.detach();
+    std::thread{[this]() {ros_executor_->spin();}}.detach();
   }
   void Launch(bool stair_detect, bool static_detect)
   {

@@ -87,11 +87,12 @@ public:
     jump_status_map_.emplace(JumpingStatus::kJumping, "Jumping");
     jump_status_map_.emplace(JumpingStatus::kJumped, "Jumped");
     jump_status_map_.emplace(JumpingStatus::kAbnorm, "Abnorm");
-    std::thread{std::bind(&ExecutorStairJumping::CheckAlignTimeout, this)}.detach();
+    align_timeout_thread_ = std::thread{std::bind(&ExecutorStairJumping::CheckAlignTimeout, this)};
   }
   ~ExecutorStairJumping()
   {
     check_align_timeout_cv_.notify_one();
+    align_timeout_thread_.join();
   }
   void Execute(bool trigger)
   {
@@ -227,7 +228,7 @@ private:
       jumping_status_ = JumpingStatus::kJumped;
       handle_jumped_func_();
     } else {
-      INFO("Failed to Jump %d",(int)jump_mode_);
+      INFO("Failed to Jump %d", (int)jump_mode_);
       jumping_status_ = JumpingStatus::kAbnorm;
       handle_abnorm_func_();
     }
@@ -248,6 +249,7 @@ private:
   std::mutex check_align_timeout_mutex_;
   std::condition_variable check_align_timeout_cv_;
   StairDetection jump_mode_{StairDetection::kNothing};
+  std::thread align_timeout_thread_;
   int8_t stair_detection_{0};
   bool stair_aligned_{false};
   bool check_align_timeout_start_{false};
