@@ -79,7 +79,7 @@ public:
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
   {
-    INFO_EXPRESSION(msg->data != 0, "Detect stair: %d", msg->data);
+    INFO_EXPRESSION(msg->data != stair_detection_, "Detect stair: %d", msg->data);
     stair_detection_ = msg->data;
     if (stair_detection_ == static_cast<int8_t>(StairDetection::kUpStair)) {
       do_stair_jump_func_(true);

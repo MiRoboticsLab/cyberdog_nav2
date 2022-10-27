@@ -88,9 +88,9 @@ private:
   void DoStairJump(bool trigger)
   {
     if (!CheckStatusValid()) {
-      ERROR(
-        "Cannot do %s jump when %s", trigger ? "upstair" : "downstair", status_map_.at(
-          status_).c_str());
+      // ERROR(
+      //   "Cannot do %s jump when %s", trigger ? "upstair" : "downstair", status_map_.at(
+      //     status_).c_str());
       return;
     }
     if (!DoNormallyTracking(false)) {

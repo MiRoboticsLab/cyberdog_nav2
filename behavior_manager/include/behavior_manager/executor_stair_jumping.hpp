@@ -172,6 +172,7 @@ private:
     if (jumping_status_ != JumpingStatus::kAligning) {
       return;
     }
+    INFO("Stair Aligned: %d", jump_mode_);
     jumping_status_ = JumpingStatus::kJumping;
     static auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     if (jump_mode_ == StairDetection::kUpStair) {
@@ -192,6 +193,7 @@ private:
   bool CheckStairJumpCondition(rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future)
   {
     if (future.get()->success) {
+      INFO("Allow to Jump: %d", jump_mode_);
       jumping_status_ = JumpingStatus::kJumping;
       auto request = std::make_shared<protocol::srv::MotionResultCmd::Request>();
       if (jump_mode_ == StairDetection::kUpStair) {
@@ -199,16 +201,18 @@ private:
       } else if (jump_mode_ == StairDetection::kDownStair) {
         request->motion_id = protocol::msg::MotionID::JUMP_DOWNSTAIR;
       }
+      INFO("Trying to Jump: %d", jump_mode_);
       auto future = motion_jump_client_->async_send_request(
         request,
         std::bind(
           &ExecutorStairJumping::CheckStairJumpResult,
           this, std::placeholders::_1));
-      if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      if (future.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
         ERROR("Cannot Get stair jump result");
         handle_abnorm_func_();
       }
     } else {
+      WARN("Cannot Jump: %d", jump_mode_);
       jumping_status_ = JumpingStatus::kAbnorm;
       handle_abnorm_func_();
     }
@@ -217,9 +221,11 @@ private:
   bool CheckStairJumpResult(rclcpp::Client<protocol::srv::MotionResultCmd>::SharedFuture future)
   {
     if (future.get()->code == 0) {
+      INFO("Succeed to Jump %d", jump_mode_);
       jumping_status_ = JumpingStatus::kJumped;
       handle_jumped_func_();
     } else {
+      INFO("Failed to Jump %d", jump_mode_);
       jumping_status_ = JumpingStatus::kAbnorm;
       handle_abnorm_func_();
     }
