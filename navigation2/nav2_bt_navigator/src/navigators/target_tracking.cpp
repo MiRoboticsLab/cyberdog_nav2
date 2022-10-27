@@ -96,7 +96,7 @@ TargetTrackingNavigator::goalReceived(ActionT::Goal::ConstSharedPtr goal)
     while(rclcpp::ok()){
       RCLCPP_INFO(logger_, "Waiting for the destiny...");
       if(clock_->now().seconds() - latest_goal_.header.stamp.sec < 2.0){
-        RCLCPP_INFO(logger_, "The tracking target has appeared in the last 2s and can be tracked。")
+        RCLCPP_INFO(logger_, "The tracking target has appeared in the last 2s and can be tracked.");
         break;
       }
       r.sleep();
