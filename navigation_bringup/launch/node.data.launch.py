@@ -59,6 +59,12 @@ def generate_launch_description():
             name='motion_manager',
             namespace=namespace,
             )
+    audio_cmd = Node(
+            package='cyberdog_audio',
+            executable='cyberdog_audio',
+            name='cyberdog_audio',
+            namespace=namespace,
+            )
     sensor_manager_cmd = Node(
             package='sensor_manager',
             executable='sensor_manager',
@@ -97,7 +103,8 @@ def generate_launch_description():
         motion_manager_cmd,
         sensor_manager_cmd,
         device_manager_cmd,
-        head_tof_pc_cmd
+        head_tof_pc_cmd,
+        audio_cmd
     ])
 
     return ld
