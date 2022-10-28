@@ -48,13 +48,13 @@ public:
     const std::shared_ptr<BodyRegionT::Request> req,
     std::shared_ptr<BodyRegionT::Response> res);
 
-  uint8_t StartVisionTracking(uint8_t relative_pos, float keep_distance);
+  uint8_t StartVisionTracking(uint8_t relative_pos, float keep_distance, bool object_tracking);
 
   bool TrackingClientCallService(
     rclcpp::Client<protocol::srv::BodyRegion>::SharedPtr & client,
     const sensor_msgs::msg::RegionOfInterest & roi);
 
-  bool CallVisionTrackAlgo();
+  bool CallVisionTrackAlgo(bool object_tracking);
   void OnCancel();
 
 private:
