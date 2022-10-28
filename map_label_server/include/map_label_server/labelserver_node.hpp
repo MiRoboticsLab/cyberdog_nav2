@@ -26,6 +26,7 @@
 #include "nav2_map_server/map_server.hpp"
 #include "nav2_map_server/map_io.hpp"
 #include "map_label_server/label_store.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace CYBERDOG_NAV
 {
@@ -110,6 +111,9 @@ private:
 
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
+
+  // map
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_pub_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV
 #endif  // MAP_LABEL_SERVER__LABELSERVER_NODE_HPP_

@@ -264,16 +264,18 @@ void LabelStore::Read(
       continue;
     }
 
-    INFO("----------------------------------------");
-    INFO(
-      "key = %s, x = %f, y = %f", it->name.GetString(),
-      it->value["x"].GetFloat(), it->value["y"].GetFloat());
+    if (it->value.IsObject()) {
+      INFO("----------------------------------------");
+      INFO(
+        "key = %s, x = %f, y = %f", it->name.GetString(),
+        it->value["x"].GetFloat(), it->value["y"].GetFloat());
 
-    auto label = std::make_shared<protocol::msg::Label>();
-    label->set__physic_x(it->value["x"].GetFloat());
-    label->set__physic_y(it->value["y"].GetFloat());
-    label->set__label_name(it->name.GetString());
-    labels.emplace_back(*label.get());
+      auto label = std::make_shared<protocol::msg::Label>();
+      label->set__physic_x(it->value["x"].GetFloat());
+      label->set__physic_y(it->value["y"].GetFloat());
+      label->set__label_name(it->name.GetString());
+      labels.emplace_back(*label.get());
+    }
   }
 }
 
@@ -295,20 +297,18 @@ void LabelStore::Read(
       continue;
     }
 
-    if (it->name.GetString() == "is_outdoor" || it->value.IsBool()) {
+    if (it->name.GetString() == "is_outdoor" && it->value.IsBool()) {
       is_outdoor = it->value.GetBool();
+      continue;
     }
 
-    INFO("----------------------------------------");
-    INFO(
-      "key = %s, x = %f, y = %f", it->name.GetString(),
-      it->value["x"].GetFloat(), it->value["y"].GetFloat());
-
-    auto label = std::make_shared<protocol::msg::Label>();
-    label->set__physic_x(it->value["x"].GetFloat());
-    label->set__physic_y(it->value["y"].GetFloat());
-    label->set__label_name(it->name.GetString());
-    labels.emplace_back(*label.get());
+    if (it->value.IsObject()) {
+      auto label = std::make_shared<protocol::msg::Label>();
+      label->set__physic_x(it->value["x"].GetFloat());
+      label->set__physic_y(it->value["y"].GetFloat());
+      label->set__label_name(it->name.GetString());
+      labels.emplace_back(*label.get());
+    }
   }
 }
 

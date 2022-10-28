@@ -16,9 +16,11 @@
 #include <memory>
 
 #include "positionchecker/position_checker_node.hpp"
+#include "cyberdog_common/cyberdog_log.hpp"
 
 int main(int argc, char ** argv)
 {
+  LOGGER_MAIN_INSTANCE("PoseServer");
   rclcpp::init(argc, argv);
   auto node = std::make_shared<CYBERDOG_NAV::PositionChecker>();
   rclcpp::executors::MultiThreadedExecutor exec_;
