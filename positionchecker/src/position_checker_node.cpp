@@ -36,7 +36,7 @@ PositionChecker::PositionChecker()
     get_node_base_interface(), get_node_timers_interface());
   tf_buffer_->setCreateTimerInterface(timer_interface);
   tf_buffer_->setUsingDedicatedThread(true);
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  // tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
   enable_service = create_service<SetBool>(
     "PoseEnable",
     std::bind(

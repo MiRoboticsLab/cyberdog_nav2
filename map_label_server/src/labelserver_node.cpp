@@ -37,7 +37,6 @@ namespace CYBERDOG_NAV
 LabelServer::LabelServer()
 : rclcpp::Node("LabelServer")
 {
-  PrintMapData();
   map_label_store_ptr_ = std::make_shared<cyberdog::navigation::LabelStore>();
 
   callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
@@ -65,6 +64,11 @@ LabelServer::LabelServer()
       &LabelServer::handle_get_label, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
+
+  // Create a publisher using the QoS settings to emulate a ROS1 latched topic
+  occ_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
+    "map",
+    rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 }
 
 LabelServer::~LabelServer() {}
@@ -121,6 +125,10 @@ void LabelServer::handle_get_label(
   response->label.is_outdoor = is_outdoor;
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+  INFO("Current building  map is outdoor : %d", is_outdoor);
+
+  // publish map
+  occ_pub_->publish(map);
 }
 
 void LabelServer::handle_set_label(
