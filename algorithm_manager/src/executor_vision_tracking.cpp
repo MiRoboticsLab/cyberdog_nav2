@@ -59,7 +59,9 @@ void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal
 {
   INFO("Vision Tracking starting");
   ReportPreparationStatus();
-  uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
+  uint8_t goal_result = StartVisionTracking(
+    goal->relative_pos, goal->keep_distance,
+    goal->object_tracking);
   if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
     ERROR("ExecutorVisionTracking::Start Error");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
@@ -106,16 +108,21 @@ void ExecutorVisionTracking::OnCancel()
 }
 
 // TODO(PDF):
-bool ExecutorVisionTracking::CallVisionTrackAlgo()
+bool ExecutorVisionTracking::CallVisionTrackAlgo(bool object_tracking)
 {
   auto request = std::make_shared<protocol::srv::AlgoManager::Request>();
   protocol::msg::AlgoList algo;
   // algo.algo_module = protocol::msg::AlgoList::ALGO_FACE;
   // request->algo_enable.push_back(algo);
-  algo.algo_module = protocol::msg::AlgoList::ALGO_BODY;
-  request->algo_enable.push_back(algo);
-  algo.algo_module = protocol::msg::AlgoList::ALGO_REID;
-  request->algo_enable.push_back(algo);
+  if (!object_tracking) {
+    algo.algo_module = protocol::msg::AlgoList::ALGO_BODY;
+    request->algo_enable.push_back(algo);
+    algo.algo_module = protocol::msg::AlgoList::ALGO_REID;
+    request->algo_enable.push_back(algo);
+  } else {
+    algo.algo_module = protocol::msg::AlgoList::ALGO_FOCUS;
+    request->algo_enable.push_back(algo);
+  }
   // algo.algo_module = protocol::msg::AlgoList::ALGO_GESTURE;
   // request->algo_enable.push_back(algo);
   // algo.algo_module = protocol::msg::AlgoList::ALGO_KEYPOINTS;
@@ -143,7 +150,9 @@ bool ExecutorVisionTracking::CallVisionTrackAlgo()
   }
 }
 // TODO(PDF):
-uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float keep_distance)
+uint8_t ExecutorVisionTracking::StartVisionTracking(
+  uint8_t relative_pos, float keep_distance,
+  bool object_tracking)
 {
   (void)relative_pos;
   (void)keep_distance;
@@ -158,7 +167,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
     task_abort_callback_();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
-  if (!CallVisionTrackAlgo()) {
+  if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     if (!DeactivateDepsLifecycleNodes(50000)) {
