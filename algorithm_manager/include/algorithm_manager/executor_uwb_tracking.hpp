@@ -18,7 +18,6 @@
 #include <memory>
 #include <string>
 #include "algorithm_manager/executor_base.hpp"
-#include "behavior_manager/behavior_manager.hpp"
 namespace cyberdog
 {
 namespace algorithm
@@ -38,7 +37,7 @@ private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
   {
     (void)goal_handle;
-    behavior_manager_->Launch(true, false);
+    GetBehaviorManager()->Launch(true, false);
     INFO("Goal accepted");
   }
   void HandleFeedbackCallback(

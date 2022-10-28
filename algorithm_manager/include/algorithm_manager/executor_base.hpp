@@ -40,6 +40,7 @@
 #include "motion_action/motion_macros.hpp"
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
+#include "behavior_manager/behavior_manager.hpp"
 
 namespace cyberdog
 {
@@ -414,6 +415,14 @@ protected:
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
+  std::shared_ptr<BehaviorManager>
+  GetBehaviorManager()
+  {
+    if (behavior_manager_ == nullptr) {
+      behavior_manager_ = std::make_shared<BehaviorManager>("behavior_manager");
+    }
+    return behavior_manager_;
+  }
   static std::unordered_map<std::string,
     std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
   static std::unordered_map<std::string,
@@ -435,6 +444,7 @@ private:
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
+  static std::shared_ptr<BehaviorManager> behavior_manager_;
   bool preparation_finished_{true};
 
   /* add by North.D.K. 10.09*/
