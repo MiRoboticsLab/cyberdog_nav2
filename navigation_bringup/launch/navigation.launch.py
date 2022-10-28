@@ -64,7 +64,8 @@ def generate_launch_description():
         'miloc',
         'stereo_camera',
         'occmap',
-        'algorithm_manager'
+        'algorithm_manager',
+        'elevation_mapping_odom'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
