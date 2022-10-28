@@ -65,7 +65,9 @@ def generate_launch_description():
         'stereo_camera',
         'occmap',
         'algorithm_manager',
-        'elevation_mapping_odom'
+        'elevation_mapping_odom',
+        'head_tof_pc_publisher',
+        'stair_align',
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),

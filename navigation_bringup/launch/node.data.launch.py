@@ -90,20 +90,12 @@ def generate_launch_description():
         #     },],
             )
 
-    head_tof_pc_cmd = Node(
-            package='motion_utils',
-            executable='head_tof_pcl_publisher.py',
-            name='head_tof_pcl_publisher',
-            namespace=namespace,
-            )
-
     ld = launch.LaunchDescription([
         namespace_declare,
         odom_out_cmd,
         motion_manager_cmd,
         sensor_manager_cmd,
         device_manager_cmd,
-        head_tof_pc_cmd,
         audio_cmd
     ])
 
