@@ -143,12 +143,19 @@ private:
     INFO("Abnorm");
     auto request = std::make_shared<protocol::srv::AudioTextPlay::Request>();
     request->module_name = node_->get_name();
-    request->speech.play_id = protocol::msg::AudioPlay::PID_FACE_ENTRY_FIX_STABLE;
+    request->is_online = true;
+    request->text = "跳台阶出现异常，跳台阶出现异常";
     auto callback = [](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
         INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
       };
-    auto future = audio_play_client_->async_send_request(request, callback);
-    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    auto future_online = audio_play_client_->async_send_request(request, callback);
+    if (future_online.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response of AudioPlay");
+    }
+    request->is_online = false;
+    request->speech.play_id = protocol::msg::AudioPlay::PID_FACE_ENTRY_FIX_STABLE;
+    auto future_offline = audio_play_client_->async_send_request(request, callback);
+    if (future_offline.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
       ERROR("Cannot get response of AudioPlay");
     }
   }
