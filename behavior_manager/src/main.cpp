@@ -17,13 +17,26 @@
 #include <string>
 #include "behavior_manager/behavior_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 
 int main(int argc, char ** argv)
 {
   LOGGER_MAIN_INSTANCE("BehaviorManager");
   cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("behavior_manager_test");
   auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>("behavior_manager");
-  atm->Launch(true, true);
-  rclcpp::spin(std::make_shared<rclcpp::Node>("main"));
+  auto reset_bm_srv = node->create_service<std_srvs::srv::SetBool>(
+      "launch_bm",
+      [atm](const std_srvs::srv::SetBool_Request::SharedPtr req,
+        std_srvs::srv::SetBool_Response::SharedPtr res) {
+          if(req->data) {
+            atm->Launch(true, true);
+          } else {
+            atm->Launch(false, false);
+            atm->Reset();
+          }
+          res->success = true;
+        });
+  rclcpp::spin(node);
 }

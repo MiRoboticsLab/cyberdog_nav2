@@ -171,6 +171,7 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
   GetBehaviorManager()->Launch(false, false);
+  GetBehaviorManager()->Reset();
   if (response == nullptr) {
     return;
   }
