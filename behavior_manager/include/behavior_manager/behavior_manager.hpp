@@ -81,6 +81,11 @@ public:
   {
     mode_detector_->Launch(stair_detect, static_detect);
   }
+  void Reset()
+  {
+    DoNormallyTracking(true);
+    status_ = Status::kNormTracking;
+  }
   ~BehaviorManager() {}
 
 private:
