@@ -226,6 +226,10 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("UWB Tracking reported aborted, this should never happened");
+      target_tracking_goal_handle_.reset();
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
+      task_feedback_callback_(feedback_);
       // DeactivateDepsLifecycleNodes();
       // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       // task_abort_callback_();
