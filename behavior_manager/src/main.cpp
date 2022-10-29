@@ -27,16 +27,16 @@ int main(int argc, char ** argv)
   auto node = std::make_shared<rclcpp::Node>("behavior_manager_test");
   auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>("behavior_manager");
   auto reset_bm_srv = node->create_service<std_srvs::srv::SetBool>(
-      "launch_bm",
-      [atm](const std_srvs::srv::SetBool_Request::SharedPtr req,
-        std_srvs::srv::SetBool_Response::SharedPtr res) {
-          if(req->data) {
-            atm->Launch(true, true);
-          } else {
-            atm->Launch(false, false);
-            atm->Reset();
-          }
-          res->success = true;
-        });
+    "launch_bm",
+    [atm](const std_srvs::srv::SetBool_Request::SharedPtr req,
+    std_srvs::srv::SetBool_Response::SharedPtr res) {
+      if (req->data) {
+        atm->Launch(true, true);
+      } else {
+        atm->Launch(false, false);
+        atm->Reset();
+      }
+      res->success = true;
+    });
   rclcpp::spin(node);
 }
