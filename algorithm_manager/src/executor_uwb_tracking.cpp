@@ -31,6 +31,8 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
+  GetBehaviorManager()->RegisterStateCallback(
+    std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -179,10 +181,38 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
     StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
 }
 
+void ExecutorUwbTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status)
+{
+  behavior_status_ = status;
+  switch (behavior_status_) {
+    case BehaviorManager::BehaviorStatus::kStairJumping:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_STAIRJUMPING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAutoTracking:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_AUTOTRACKING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAbnorm:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_BEHAVIORABNORM;
+
+    default:
+      return;
+  }
+  task_feedback_callback_(feedback_);
+}
+
+
 void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
+  if (behavior_status_ != BehaviorManager::BehaviorStatus::kNormTracking) {
+    return;
+  }
   INFO_MILLSECONDS(1000, "Get TargetTracking Feedback: %d", feedback->exception_code);
   switch (feedback->exception_code) {
     case 0:
