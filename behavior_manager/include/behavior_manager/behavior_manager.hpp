@@ -101,6 +101,7 @@ private:
   void DoAutoTracking()
   {
     if (!CheckStatusValid()) {
+      WARN("Cannot DoAutoTracking when %s", status_map_.at(status_).c_str());
       return;
     }
     DoNormallyTracking(false);
