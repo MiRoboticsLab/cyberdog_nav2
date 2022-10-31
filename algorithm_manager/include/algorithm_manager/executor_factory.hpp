@@ -62,6 +62,10 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
       result = std::make_shared<ExecutorVisionTracking>(task_name);
       break;
 
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING:
+      result = std::make_shared<ExecutorAutoDock>(task_name);
+      break;
+
     case 0:
       result = std::make_shared<ExecutorResetNav>(task_name);
       break;

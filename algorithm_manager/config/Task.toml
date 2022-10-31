@@ -55,3 +55,12 @@ Id = 0
 OutDoor = false
 DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = []
+
+
+[[task]]
+TaskName = "AutoDock"
+Id = 9
+OutDoor = false
+DepsNav2LifecycleNodes = [""]
+DepsLifecycleNodes = ["charging_localization", "controller_server", "planner_server", "recoveries_server",
+                      "bt_navigator"]
