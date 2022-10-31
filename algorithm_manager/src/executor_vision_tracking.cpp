@@ -306,54 +306,21 @@ void ExecutorVisionTracking::HandleResultCallback(
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Vision Tracking reported succeeded");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Vision Tracking reported aborted");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_abort_callback_();
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
+      target_tracking_goal_handle_.reset();
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_cancle_callback_();
       break;
     default:
       ERROR("Vision Tracking reported unknown result code");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_abort_callback_();
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
       break;
   }
 }
@@ -373,22 +340,6 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     }
     RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
   }
-
-  // auto client_cb = [timeout](rclcpp::Client<protocol::srv::BodyRegion>::SharedFuture future) {
-  //     std::future_status status = future.wait_for(timeout);
-
-  //     if (status == std::future_status::ready) {
-  //       if (0 != future.get()->success) {
-  //         return false;
-  //       } else {
-  //         return true;
-  //       }
-  //     } else {
-  //       return false;
-  //     }
-  //   };
-
-  // auto result = client->async_send_request(req, client_cb);
   auto result = client->async_send_request(req);
   if (result.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result TrackingClientCallService");
@@ -397,7 +348,6 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     INFO("result.get()->success: %d", result.get()->success);
     return true;
   }
-  // return true;
 }
 }  // namespace algorithm
 }  // namespace cyberdog
