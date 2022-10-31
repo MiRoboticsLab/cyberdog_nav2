@@ -39,21 +39,11 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
-    charging_localization_cmd = Node(
-        package='charging_localization',
-        executable='charging_localization_node',
-        name='charging_localization',
-        namespace=namespace,
-        parameters=[
-            {'topic_name': 'scan'},
-            {'threshold_intensity': 33000},
-            {'threshold_radius': float(3.0)},
-            {'threshold_min_dis': float(0.11)},
-            {'threshold_max_dis': float(0.17)},
-            {'high_light_find_num': 36},
-            {'publish_topic_name':'/chargetolidar'},
-            {'charge_length_radius': float(0.0815),}]
-        )
+    charging_localization_dir = FindPackageShare(package='charging_localization').find('charging_localization') 
+    charging_localization_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(charging_localization_dir, 'launch/charging_localization.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
 
     ld = launch.LaunchDescription([
         namespace_declare,
