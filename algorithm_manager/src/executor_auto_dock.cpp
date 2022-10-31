@@ -106,7 +106,6 @@ void ExecutorAutoDock::OnCancel()
   task_cancle_callback_();
   INFO("OnCancel completed");
   laser_charge_goal_handle_.reset();
-  return;
 }
 // This section is for the stage2 client interface
 void ExecutorAutoDock::stage2_goal_response_callback(
@@ -115,7 +114,7 @@ void ExecutorAutoDock::stage2_goal_response_callback(
   if (!goal_handle) {
     ERROR("stage2 Goal was rejected by server");
   } else {
-    INFO( "stage2 Goal accepted by server, waiting for result");
+    INFO("stage2 Goal accepted by server, waiting for result");
   }
 }
 
@@ -123,7 +122,8 @@ void ExecutorAutoDock::stage2_feedback_callback(
   GoalHandleAutomaticRecharge::SharedPtr,
   const std::shared_ptr<const AutomaticRechargeT::Feedback> feedback)
 {
-  INFO("stage2 feedback current_distance: %f",
+  INFO(
+    "stage2 feedback current_distance: %f",
     feedback->current_distance);
 }
 
@@ -133,7 +133,7 @@ void ExecutorAutoDock::stage2_result_callback(
   stage2_goal_done_ = true;
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      INFO( "stage2 Result SUCCEEDED.");
+      INFO("stage2 Result SUCCEEDED.");
       // OnCancel();
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");

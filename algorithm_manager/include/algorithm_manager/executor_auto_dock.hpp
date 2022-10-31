@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
 
 #include <string>
+#include <memory>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -24,12 +25,13 @@ namespace algorithm
 {
 class ExecutorAutoDock : public ExecutorBase
 {
-using SeatAdjustT = protocol::action::SeatAdjust;
-using GoalHandleSeatAdjust = rclcpp_action::ClientGoalHandle<SeatAdjustT>;
-using AutomaticRechargeT = mcr_msgs::action::AutomaticRecharge;
-using GoalHandleAutomaticRecharge = rclcpp_action::ClientGoalHandle<AutomaticRechargeT>;
-using NavigateToPoseT = nav2_msgs::action::NavigateToPose;
-using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPoseT>;
+  using SeatAdjustT = protocol::action::SeatAdjust;
+  using GoalHandleSeatAdjust = rclcpp_action::ClientGoalHandle<SeatAdjustT>;
+  using AutomaticRechargeT = mcr_msgs::action::AutomaticRecharge;
+  using GoalHandleAutomaticRecharge = rclcpp_action::ClientGoalHandle<AutomaticRechargeT>;
+  using NavigateToPoseT = nav2_msgs::action::NavigateToPose;
+  using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPoseT>;
+
 public:
   explicit ExecutorAutoDock(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -38,6 +40,7 @@ public:
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
   void OnCancel();
+
 private:
   // std::shared_ptr<cyberdog::algorithm::ExecutorBase> exe_laser_loc_ptr_ = nullptr;
   // std::shared_ptr<cyberdog::algorithm::ExecutorBase> exe_ab_nav_ptr_ = nullptr;
