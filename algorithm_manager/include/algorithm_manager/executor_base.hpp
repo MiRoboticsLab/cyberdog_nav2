@@ -21,6 +21,8 @@
 #include <vector>
 #include "rclcpp/rclcpp.hpp"
 #include "protocol/action/navigation.hpp"
+#include "protocol/action/seat_adjust.hpp"
+#include "mcr_msgs/action/automatic_recharge.hpp"
 #include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
 // #include "nav2_msgs/action/follow_waypoints.hpp"
 // #include "nav2_msgs/action/navigate_through_poses.hpp"
