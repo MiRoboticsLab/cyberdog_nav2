@@ -19,6 +19,11 @@
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "std_srvs/srv/set_bool.hpp"
 
+void UpdateBehaviorStatus(const cyberdog::algorithm::BehaviorManager::BehaviorStatus & status)
+{
+  INFO("BehaviorManager Status: %d", (int)status);
+}
+
 int main(int argc, char ** argv)
 {
   LOGGER_MAIN_INSTANCE("BehaviorManager");
@@ -26,6 +31,7 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("behavior_manager_test");
   auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>("behavior_manager");
+  atm->RegisterStateCallback(UpdateBehaviorStatus);
   auto reset_bm_srv = node->create_service<std_srvs::srv::SetBool>(
     "launch_bm",
     [atm](const std_srvs::srv::SetBool_Request::SharedPtr req,

@@ -45,6 +45,7 @@ private:
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
   void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
   void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
+  void UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status);
   // bool ActivateDepsLifecycleNodes();
   // bool DeactivateDepsLifecycleNodes();
   ExecutorData executor_uwb_tracking_data_;
@@ -55,6 +56,7 @@ private:
   std::mutex target_tracking_server_mutex_;
   std::condition_variable target_tracking_server_cv_;
   std::shared_ptr<BehaviorManager> behavior_manager_;
+  BehaviorManager::BehaviorStatus behavior_status_;
   bool cancel_tracking_result_{true};
 };  // class ExecutorUwbTracking
 }  // namespace algorithm

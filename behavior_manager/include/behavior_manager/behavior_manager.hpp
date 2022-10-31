@@ -39,7 +39,7 @@ namespace algorithm
 class BehaviorManager
 {
 public:
-  enum class Status : uint8_t
+  enum class BehaviorStatus : uint8_t
   {
     kNormTracking,
     kAutoTracking,
@@ -69,13 +69,17 @@ public:
       "speech_text_play",
       rmw_qos_profile_services_default,
       callback_group_);
-    status_map_.emplace(Status::kAutoTracking, "AutoTracking");
-    status_map_.emplace(Status::kNormTracking, "NormTracking");
-    status_map_.emplace(Status::kStairJumping, "StairJumping");
-    status_map_.emplace(Status::kAbnorm, "Abnorm");
+    status_map_.emplace(BehaviorStatus::kAutoTracking, "AutoTracking");
+    status_map_.emplace(BehaviorStatus::kNormTracking, "NormTracking");
+    status_map_.emplace(BehaviorStatus::kStairJumping, "StairJumping");
+    status_map_.emplace(BehaviorStatus::kAbnorm, "Abnorm");
     ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     ros_executor_->add_node(node_);
     std::thread{[this]() {ros_executor_->spin();}}.detach();
+  }
+  void RegisterStateCallback(std::function<void(BehaviorStatus)> state_callback)
+  {
+    state_callback_ = state_callback;
   }
   void Launch(bool stair_detect, bool static_detect)
   {
@@ -84,14 +88,15 @@ public:
   void Reset()
   {
     DoNormallyTracking(true);
-    status_ = Status::kNormTracking;
+    status_ = BehaviorStatus::kNormTracking;
+    state_callback_(status_);
   }
   ~BehaviorManager() {}
 
 private:
   bool CheckStatusValid()
   {
-    return status_ == Status::kNormTracking;
+    return status_ == BehaviorStatus::kNormTracking;
   }
   void DoAutoTracking()
   {
@@ -114,7 +119,8 @@ private:
       return;
     }
     executor_stair_jumping_->Execute(trigger);
-    status_ = Status::kStairJumping;
+    status_ = BehaviorStatus::kStairJumping;
+    state_callback_(status_);
   }
   bool DoNormallyTracking(bool trigger)
   {
@@ -129,12 +135,14 @@ private:
   }
   bool HandleJumped()
   {
-    status_ = Status::kNormTracking;
+    status_ = BehaviorStatus::kNormTracking;
+    state_callback_(status_);
     return DoNormallyTracking(true);
   }
   bool HandleJumpFailed()
   {
-    status_ = Status::kAbnorm;
+    status_ = BehaviorStatus::kAbnorm;
+    state_callback_(status_);
     HandleAbnormStatus();
     return true;
   }
@@ -168,8 +176,9 @@ private:
   std::shared_ptr<ExecutorAutoTracking> executor_auto_tracking_;
   std::shared_ptr<ExecutorStairJumping> executor_stair_jumping_;
   rclcpp::Executor::SharedPtr ros_executor_;
-  Status status_{Status::kNormTracking};
-  std::unordered_map<Status, std::string> status_map_;
+  BehaviorStatus status_{BehaviorStatus::kNormTracking};
+  std::unordered_map<BehaviorStatus, std::string> status_map_;
+  std::function<void(BehaviorStatus)> state_callback_;
   bool stair_detected_{false}, stair_aligned_{false}, stair_align_timeout_{false};
   bool stair_possible_jump_{false};
 };  // class BehaviorManager
