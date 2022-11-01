@@ -74,6 +74,13 @@ add_executable(auto_tracking
 ament_target_dependencies(auto_tracking
   ${dependencies}
 )
+
+add_executable(targetstatic_test
+  test/targetstatic_test.cpp
+)
+ament_target_dependencies(targetstatic_test
+  ${dependencies}
+)
 # target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
 # add_executable(core_client test/motioncore_client.cpp)
@@ -112,6 +119,7 @@ install(
 install(TARGETS ${PROJECT_NAME}
   fake_nodes
   auto_tracking
+  targetstatic_test
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)
