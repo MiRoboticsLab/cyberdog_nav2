@@ -339,7 +339,9 @@ bool ExecutorLaserMapping::StartBuildMapping()
   request->data = true;
 
   // Send request
-  return start_->invoke(request, response);
+  // return start_->invoke(request, response);
+  auto future_result = start_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
@@ -378,7 +380,6 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   // Set request data
-  auto response = std::make_shared<visualization::srv::Stop::Response>();
   auto request = std::make_shared<visualization::srv::Stop::Request>();
   request->finish = true;
   // request->map_name = map_filename;
@@ -386,7 +387,9 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   INFO("Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request
-  return stop_->invoke(request, response);
+  // return stop_->invoke(request, response);
+  auto future_result = stop_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
@@ -481,16 +484,18 @@ bool ExecutorLaserMapping::VelocitySmoother()
   }
 
   // Set request data
-  auto response = std::make_shared<MotionServiceCommand::Response>();
   auto request = std::make_shared<MotionServiceCommand::Request>();
-
   std::vector<float> step_height{0.01, 0.01};
   request->motion_id = 303;
   request->value = 2;
   request->step_height = step_height;
 
   // Send request
-  return velocity_smoother_->invoke(request, response);
+  // velocity_smoother_->invoke(request, std::chrono::seconds(5s))
+
+  // return velocity_smoother_->invoke(request, response);
+  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+  return future_result->result;
 }
 
 }  // namespace algorithm

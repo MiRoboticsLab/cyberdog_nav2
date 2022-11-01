@@ -345,16 +345,12 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   // Set request data
   auto request = std::make_shared<MapAvailableResult::Request>();
-  auto response = std::make_shared<MapAvailableResult::Response>();
   // request->map_id = 0;
 
   // Send request
-  bool success = map_result_client_->invoke(request, response);
-  if (!success) {
-    ERROR("Send miloc map handler request failed.");
-    return false;
-  }
-  return response->code == 0;
+  // bool success = map_result_client_->invoke(request, response);
+  auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->code == 0;
 }
 
 }  // namespace algorithm

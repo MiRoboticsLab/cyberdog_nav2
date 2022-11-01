@@ -294,7 +294,6 @@ bool ExecutorVisionMapping::VelocitySmoother()
   }
 
   // Set request data
-  auto response = std::make_shared<MotionServiceCommand::Response>();
   auto request = std::make_shared<MotionServiceCommand::Request>();
 
   std::vector<float> step_height{0.01, 0.01};
@@ -303,7 +302,8 @@ bool ExecutorVisionMapping::VelocitySmoother()
   request->step_height = step_height;
 
   // Send request
-  return velocity_smoother_->invoke(request, response);
+  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+  return future_result->result;
 }
 
 }  // namespace algorithm
