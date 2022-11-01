@@ -71,15 +71,21 @@ private:
 
   bool CheckStatusValid()
   {
-    std::lock_guard<std::mutex> lk(status_mutex_);
-    INFO("Current status: %d", (int)manager_status_);
-    return manager_status_ == ManagerStatus::kIdle;
+    auto status = GetStatus();
+    INFO("Current status: %d", (int)status);
+    return status == ManagerStatus::kIdle;
   }
 
-  void SetStatus(ManagerStatus status)
+  void SetStatus(const ManagerStatus & status)
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
     manager_status_ = status;
+  }
+
+  ManagerStatus & GetStatus()
+  {
+    std::lock_guard<std::mutex> lk(status_mutex_);
+    return manager_status_;
   }
 
   void ResetManagerStatus()
