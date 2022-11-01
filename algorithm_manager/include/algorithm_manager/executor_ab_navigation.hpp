@@ -23,6 +23,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
+#include "protocol/srv/motion_result_cmd.hpp"
 
 namespace cyberdog
 {
@@ -32,6 +33,8 @@ namespace algorithm
 class ExecutorAbNavigation : public ExecutorBase
 {
 public:
+  using MotionServiceCommand = protocol::srv::MotionResultCmd;
+
   explicit ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation();
 
@@ -140,6 +143,14 @@ private:
   bool LifecycleNodesReinitialize();
 
   /**
+   * @brief When robot mapping it's should walk smoother
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool VelocitySmoother();
+
+  /**
    * @brief Print target goal pose
    *
    * @param pose APP or rviz set target pose goal
@@ -167,6 +178,9 @@ private:
 
   // Control localization_node lifecycle
   // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+
+  // velocity smoother 'velocity_adaptor_gait'
+  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Control `map server` lifecycle node
   std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};

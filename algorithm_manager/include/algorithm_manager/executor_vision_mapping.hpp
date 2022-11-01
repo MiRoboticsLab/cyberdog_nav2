@@ -21,7 +21,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
-
+#include "protocol/srv/motion_result_cmd.hpp"
 namespace cyberdog
 {
 namespace algorithm
@@ -31,6 +31,7 @@ class ExecutorVisionMapping : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+  using MotionServiceCommand = protocol::srv::MotionResultCmd;
 
   explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -75,6 +76,14 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
+  /**
+   * @brief When robot mapping it's should walk smoother
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool VelocitySmoother();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -85,6 +94,9 @@ private:
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+
+  // velocity smoother 'velocity_adaptor_gait'
+  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

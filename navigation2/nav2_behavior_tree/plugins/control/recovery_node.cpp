@@ -127,3 +127,4 @@ BT_REGISTER_NODES(factory)
 {
   factory.registerNodeType<nav2_behavior_tree::RecoveryNode>("RecoveryNode");
 }
+

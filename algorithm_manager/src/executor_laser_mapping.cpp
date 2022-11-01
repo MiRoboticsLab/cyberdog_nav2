@@ -35,6 +35,9 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   // localization_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
   //   "lifecycle_manager_localization");
 
+  // Initialize all ros parameters
+  DeclareParameters();
+
   localization_client_ = std::make_unique<LifecycleController>("localization_node");
   mapping_client_ = std::make_unique<LifecycleController>("map_builder");
 
@@ -77,7 +80,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = CheckAvailable();
   if (!ready) {
     ERROR("[Laser Mapping] Laser Localization is running, Laser Mapping is not available.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -85,7 +89,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   ready = IsDependsReady();
   if (!ready) {
     ERROR("[Laser Mapping] Laser Mapping lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -95,26 +100,40 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       "start_mapping", shared_from_this());
   }
 
+  // Get all ros parameters
+  GetParameters();
+
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
     ERROR("[Laser Mapping] Start laser mapping failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
+
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
+  // Smoother walk
+  VelocitySmoother();
 
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+  ReportPreparationFinished(
+    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Laser Mapping] Laser Mapping success.");
 }
 
@@ -129,7 +148,8 @@ void ExecutorLaserMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -144,7 +164,8 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -160,7 +181,8 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -174,6 +196,8 @@ void ExecutorLaserMapping::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  ReportPreparationFinished(
+    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Laser Mapping] Laser Mapping stoped success");
   task_success_callback_();
 }
@@ -211,6 +235,26 @@ void ExecutorLaserMapping::Cancel()
   //   task_abort_callback_();
   //   return;
   // }
+}
+
+void ExecutorLaserMapping::DeclareParameters()
+{
+  INFO("DeclareParameters.");
+  declare_parameter("localization_service_timeout", rclcpp::ParameterValue(5));
+  declare_parameter("mapping_start_service_timeout", rclcpp::ParameterValue(5));
+  declare_parameter("mapping_stop_service_timeout", rclcpp::ParameterValue(5));
+  declare_parameter("pose_report_service_timeout", rclcpp::ParameterValue(5));
+  declare_parameter("velocity_smoother_service_timeout", rclcpp::ParameterValue(5));
+}
+
+void ExecutorLaserMapping::GetParameters()
+{
+  INFO("GetParameters.");
+  get_parameter("localization_service_timeout", localization_service_timeout_);
+  get_parameter("mapping_start_service_timeout", mapping_start_service_timeout_);
+  get_parameter("mapping_stop_service_timeout", mapping_stop_service_timeout_);
+  get_parameter("pose_report_service_timeout", pose_report_service_timeout_);
+  get_parameter("velocity_smoother_service_timeout", velocity_smoother_service_timeout_);
 }
 
 bool ExecutorLaserMapping::IsDependsReady()
@@ -425,6 +469,28 @@ bool ExecutorLaserMapping::DisenableLocalization()
   }
 
   return future.get()->success;
+}
+
+bool ExecutorLaserMapping::VelocitySmoother()
+{
+  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Laser Mapping] Connect velocity adaptor service timeout");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto response = std::make_shared<MotionServiceCommand::Response>();
+  auto request = std::make_shared<MotionServiceCommand::Request>();
+
+  std::vector<float> step_height{0.01, 0.01};
+  request->motion_id = 303;
+  request->value = 2;
+  request->step_height = step_height;
+
+  // Send request
+  return velocity_smoother_->invoke(request, response);
 }
 
 }  // namespace algorithm

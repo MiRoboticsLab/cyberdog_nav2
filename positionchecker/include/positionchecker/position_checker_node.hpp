@@ -39,7 +39,7 @@ public:
 
 private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   void loop();
   bool looping_;
   std::shared_ptr<std::thread> loop_thread_;
