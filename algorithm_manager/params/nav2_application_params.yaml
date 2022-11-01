@@ -1,0 +1,17 @@
+laser_slam:
+  ros__parameters:
+    map_builder:
+      localization_service_timeout: 5
+      mapping_start_service_timeout: 5
+      mapping_stop_service_timeout: 5
+      pose_report_service_timeout: 5
+      velocity_smoother_service_timeout: 5
+    localization:
+      start_service_timeout: 5
+      stop_service_timeout: 5
+      pose_report_service_timeout: 5
+
+nav_application:
+  ros__parameters:
+    velocity_smoother_service_timeout: 5
+

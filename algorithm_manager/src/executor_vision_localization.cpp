@@ -67,7 +67,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Vision localization lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -81,7 +81,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   bool available = CheckMapAvailable();
   if (!available) {
     ERROR("Vision build map file not available.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -90,7 +90,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -99,7 +99,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   success = WaitRelocalization(std::chrono::seconds(60s));
   if (!success) {
     ERROR("Vision localization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -107,7 +107,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -116,13 +116,13 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
   task_success_callback_();
 }
@@ -138,7 +138,7 @@ void ExecutorVisionLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -147,7 +147,7 @@ void ExecutorVisionLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -165,7 +165,7 @@ void ExecutorVisionLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Vision Localization stoped success");
-  feedback_->feedback_code = 0;
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   task_success_callback_();
 }
 
@@ -345,16 +345,12 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   // Set request data
   auto request = std::make_shared<MapAvailableResult::Request>();
-  auto response = std::make_shared<MapAvailableResult::Response>();
   // request->map_id = 0;
 
   // Send request
-  bool success = map_result_client_->invoke(request, response);
-  if (!success) {
-    ERROR("Send miloc map handler request failed.");
-    return false;
-  }
-  return response->code == 0;
+  // bool success = map_result_client_->invoke(request, response);
+  auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->code == 0;
 }
 
 }  // namespace algorithm

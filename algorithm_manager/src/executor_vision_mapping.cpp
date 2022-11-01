@@ -53,7 +53,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
@@ -62,22 +63,33 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool success = StartBuildMapping();
   if (!success) {
     ERROR("[Vision Mapping] Start Vision Mapping failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
+
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
+  // Smoother walk
+  VelocitySmoother();
 
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("[Vision Mapping] Enable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+  ReportPreparationFinished(
+    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Vision Mapping] Vision Mapping success.");
 }
 
@@ -92,7 +104,8 @@ void ExecutorVisionMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
@@ -101,7 +114,8 @@ void ExecutorVisionMapping::Stop(
   success = StopBuildMapping(request->map_name);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
     task_abort_callback_();
     return;
@@ -113,7 +127,8 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
@@ -123,13 +138,16 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
     return;
   }
 
-  task_success_callback_();
+  ReportPreparationFinished(
+    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Vision Mapping] Vision Mapping stoped success");
+  task_success_callback_();
 }
 
 void ExecutorVisionMapping::Cancel()
@@ -264,6 +282,28 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
     return false;
   }
   return future.get()->success;
+}
+
+bool ExecutorVisionMapping::VelocitySmoother()
+{
+  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Laser Mapping] Connect velocity adaptor service timeout");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MotionServiceCommand::Request>();
+
+  std::vector<float> step_height{0.01, 0.01};
+  request->motion_id = 303;
+  request->value = 2;
+  request->step_height = step_height;
+
+  // Send request
+  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+  return future_result->result;
 }
 
 }  // namespace algorithm

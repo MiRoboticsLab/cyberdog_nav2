@@ -36,7 +36,6 @@ PositionChecker::PositionChecker()
     get_node_base_interface(), get_node_timers_interface());
   tf_buffer_->setCreateTimerInterface(timer_interface);
   tf_buffer_->setUsingDedicatedThread(true);
-  // tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
   enable_service = create_service<SetBool>(
     "PoseEnable",
     std::bind(
@@ -78,6 +77,10 @@ void PositionChecker::serviceCallback(
   std::shared_ptr<SetBool::Response> response)
 {
   if (request->data == true && !looping_) {
+    if (tf_listener_ == nullptr) {
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    }
+
     looping_ = true;
     INFO("Request start report robot's realtime pose.");
     loop_thread_ = std::make_shared<std::thread>(&PositionChecker::loop, this);
