@@ -17,7 +17,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(nav2_core REQUIRED)
 find_package(pluginlib REQUIRED)
-
+find_package(cyberdog_debug REQUIRED)
+find_package(cyberdog_common REQUIRED)
 nav2_package()
 
 include_directories(
@@ -42,6 +43,9 @@ set(dependencies
   nav2_costmap_2d
   nav2_core
   pluginlib
+  cyberdog_debug
+  cyberdog_common
+  
 )
 
 # plugins
