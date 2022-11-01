@@ -131,7 +131,8 @@ public:
       auto_tracking_start_cv_.notify_one();
     }
   }
-
+  void Interupt()
+  {}
   void DoAutoTracking()
   {
     while (rclcpp::ok()) {
