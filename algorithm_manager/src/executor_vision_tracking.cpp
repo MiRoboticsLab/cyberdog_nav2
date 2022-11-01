@@ -106,7 +106,6 @@ void ExecutorVisionTracking::OnCancel()
     start_vision_tracking_ = false;
     INFO("OnCancel completed");
   }
-  return;
 }
 
 // TODO(PDF):
@@ -189,7 +188,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   const std::shared_ptr<BodyRegionT::Request> req,
   std::shared_ptr<BodyRegionT::Response> res)
 {
-  if(!start_vision_tracking_){
+  if (!start_vision_tracking_) {
     ERROR("Should activate the depends node at first");
     res->success = false;
     return;
