@@ -18,6 +18,8 @@ find_package(nav2_util REQUIRED)
 find_package(nav2_core REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(protocol REQUIRED)
+find_package(cyberdog_debug REQUIRED)
+find_package(cyberdog_common REQUIRED)
 nav2_package()
 
 include_directories(
@@ -48,6 +50,9 @@ set(dependencies
   nav2_core
   tf2_ros
   protocol
+  cyberdog_debug
+  cyberdog_common
+    
 )
 
 add_library(${library_name} SHARED
