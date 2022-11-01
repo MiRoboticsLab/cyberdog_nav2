@@ -87,6 +87,9 @@ public:
   }
   void Reset()
   {
+    executor_stair_jumping_->Interupt();
+    executor_auto_tracking_->Interupt();
+    mode_detector_->Reset();
     DoNormallyTracking(true);
     status_ = BehaviorStatus::kNormTracking;
     state_callback_(status_);
@@ -105,6 +108,7 @@ private:
       return;
     }
     DoNormallyTracking(false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     executor_auto_tracking_->Execute(true);
   }
   void DoStairJump(bool trigger)

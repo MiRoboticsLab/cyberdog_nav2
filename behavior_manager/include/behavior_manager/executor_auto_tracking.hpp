@@ -131,7 +131,10 @@ public:
       auto_tracking_start_cv_.notify_one();
     }
   }
-
+  void Interupt()
+  {
+    Execute(false);
+  }
   void DoAutoTracking()
   {
     while (rclcpp::ok()) {
@@ -194,7 +197,7 @@ public:
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
       }
-      break;
+      // break;
       // else
       // {
       //   req_led->client = iter->second.client;

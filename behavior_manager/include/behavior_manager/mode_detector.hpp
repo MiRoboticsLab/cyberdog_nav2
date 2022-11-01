@@ -81,6 +81,12 @@ public:
     stair_detect_ = stair_detect;
     static_detect_ = static_detect;
   }
+  void Reset()
+  {
+    last_static_ = false;
+    stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
+    // TODO(lijian): 目标静止检测相关的变量复位
+  }
 
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
@@ -102,7 +108,6 @@ private:
       return;
     }
     bool target_static = CheckTargetStatic(msg);
-    INFO("%d", target_static);
     if (target_static == last_static_) {
       return;
     }
