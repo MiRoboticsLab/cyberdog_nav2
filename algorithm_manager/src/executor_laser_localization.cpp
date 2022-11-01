@@ -68,7 +68,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -77,7 +77,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -86,7 +86,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = WaitRelocalization(std::chrono::seconds(60s));
   if (!success) {
     ERROR("Laser localization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -94,7 +94,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -103,13 +103,13 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Laser localization success.");
   task_success_callback_();
 }
@@ -125,7 +125,7 @@ void ExecutorLaserLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -134,7 +134,7 @@ void ExecutorLaserLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -156,6 +156,7 @@ void ExecutorLaserLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Laser localization stoped success");
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   feedback_->feedback_code = 0;
   task_success_callback_();
 }

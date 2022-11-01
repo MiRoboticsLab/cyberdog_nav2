@@ -22,16 +22,17 @@
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/service_client.hpp"
+#include "protocol/srv/motion_result_cmd.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
-
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+  using MotionServiceCommand = protocol::srv::MotionResultCmd;
 
   explicit ExecutorLaserMapping(std::string node_name);
   ~ExecutorLaserMapping();
@@ -45,6 +46,16 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
+  /**
+   * @brief declare_parameter for yaml file
+   */
+  void DeclareParameters();
+
+  /**
+   * @brief Get the Parameters object
+   */
+  void GetParameters();
+
   /**
    * @brief Check `camera/camera` real sense sensor status
    *
@@ -95,6 +106,14 @@ private:
    */
   bool DisenableLocalization();
 
+  /**
+   * @brief When robot mapping it's should walk smoother
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool VelocitySmoother();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -112,13 +131,24 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
 
+  // velocity smoother 'velocity_adaptor_gait'
+  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
+
   // Control realsense camera lifecycle
   std::shared_ptr<LifecycleController> localization_client_ {nullptr};
   std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
 
+
   // realtime robot pose
   bool start_report_realtime_pose_ {false};
+
+  // timeout parameters
+  int localization_service_timeout_;
+  int mapping_start_service_timeout_;
+  int mapping_stop_service_timeout_;
+  int pose_report_service_timeout_;
+  int velocity_smoother_service_timeout_;
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #include <memory>
-
+#include "cyberdog_debug/backtrace.hpp"
 #include "nav2_lifecycle_manager/lifecycle_manager.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 int main(int argc, char ** argv)
 {
+  cyberdog::debug::register_signal();  
   rclcpp::init(argc, argv);
   auto node = std::make_shared<nav2_lifecycle_manager::LifecycleManager>();
   rclcpp::spin(node);

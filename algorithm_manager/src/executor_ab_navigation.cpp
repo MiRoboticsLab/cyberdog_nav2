@@ -57,7 +57,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("[Navigation AB] AB navigation lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -66,7 +66,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool connect = IsConnectServer();
   if (!connect) {
     ERROR("[Navigation AB] Connect navigation AB point server failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -75,10 +75,18 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool legal = IsLegal(goal);
   if (!legal) {
     ERROR("[Navigation AB] Current navigation AB point is not legal.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
   }
+
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
+  // Smoother walk
+  VelocitySmoother();
 
   // Print set target goal pose
   Debug2String(goal->poses[0]);
@@ -89,13 +97,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     // Reset lifecycle nodes
     // LifecycleNodesReinitialize();
 
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("[Navigation AB] Navigation AB point send target goal request success.");
 }
 
@@ -108,6 +116,7 @@ void ExecutorAbNavigation::Stop(
   if (nav_goal_handle_ != nullptr) {
     action_client_->async_cancel_goal(nav_goal_handle_);
   } else {
+    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
   }
 
@@ -115,6 +124,7 @@ void ExecutorAbNavigation::Stop(
   response->result = StopTaskSrv::Response::SUCCESS;
 
   StopReportPreparationThread();
+  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("[Navigation AB] Navigation AB Stoped");
 }
 
@@ -136,7 +146,7 @@ void ExecutorAbNavigation::HandleFeedbackCallback(
   const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
   (void)feedback;
-  feedback_->feedback_code = 100;
+  feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING;
   task_feedback_callback_(feedback_);
 }
 
@@ -290,6 +300,27 @@ bool ExecutorAbNavigation::LifecycleNodesReinitialize()
   //   return false;
   // }
   return true;
+}
+
+bool ExecutorAbNavigation::VelocitySmoother()
+{
+  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Navigation AB] Connect velocity adaptor service timeout");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MotionServiceCommand::Request>();
+  std::vector<float> step_height{0.01, 0.01};
+  request->motion_id = 303;
+  request->value = 2;
+  request->step_height = step_height;
+
+  // Send request
+  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+  return future_result->result;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)

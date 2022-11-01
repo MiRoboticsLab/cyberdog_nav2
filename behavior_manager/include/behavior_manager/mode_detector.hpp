@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <deque>
 #include <unordered_map>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int8.hpp"
@@ -80,6 +81,12 @@ public:
     stair_detect_ = stair_detect;
     static_detect_ = static_detect;
   }
+  void Reset()
+  {
+    last_static_ = false;
+    stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
+    // TODO(lijian): 目标静止检测相关的变量复位
+  }
 
 private:
   void HandleStairDetectionCallback(const std_msgs::msg::Int8::SharedPtr msg)
@@ -100,9 +107,16 @@ private:
     if (!static_detect_) {
       return;
     }
-    if (!CheckTargetStatic(msg)) {
+    bool target_static = CheckTargetStatic(msg);
+    if (target_static == last_static_) {
+      return;
+    }
+    last_static_ = target_static;
+    if (target_static) {
+      INFO("Target Checked Static");
       do_auto_tracking_func_();
     } else {
+      INFO("Target Checked Moving");
       do_normal_tracking_func_(true);
     }
   }
@@ -116,8 +130,38 @@ private:
    */
   bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
-    (void)msg;
-    return true;
+    poseQueue.push_back(*msg);
+    if (!target_first_get) {
+      target_first = poseQueue.front();
+      poseQueue.pop_front();
+      target_first_get = true;
+    }
+    if (poseQueue.size() >= 150) {  //  确保刚超过规定秒数内的帧的数量
+      target_first_timestamp = target_first.header.stamp.sec;
+      float target_first_pose_x = target_first.pose.position.x;
+      float target_first_pose_y = target_first.pose.position.y;
+      for (auto i = poseQueue.begin(); i < poseQueue.end(); i++) {
+        target_current = *i;
+        target_current_timestamp = target_current.header.stamp.sec;
+        float target_current_pose_x = target_current.pose.position.x;
+        float target_current_pose_y = target_current.pose.position.y;
+        if (target_current_timestamp - target_first_timestamp < 5) {
+          if (abs(target_first_pose_x - target_current_pose_x) > 0.3 ||
+            abs(target_first_pose_y - target_current_pose_y) > 0.3)
+          {
+            target_first_get = false;
+            for (auto j = poseQueue.begin(); j < i; j++) {
+              poseQueue.pop_front();
+            }
+            return false;
+          }
+        } else {
+          target_first_get = false;
+          return true;
+        }
+      }
+    }
+    return false;
   }
   rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
@@ -129,6 +173,13 @@ private:
   std::function<void(bool)> do_normal_tracking_func_;
   int8_t stair_detection_{0};
   bool stair_detect_{false}, static_detect_{false};
+  bool last_static_{false};
+  bool target_first_get = false;
+  double target_first_timestamp = -1;
+  double target_current_timestamp = -1;
+  std::deque<geometry_msgs::msg::PoseStamped> poseQueue;
+  geometry_msgs::msg::PoseStamped target_first;
+  geometry_msgs::msg::PoseStamped target_current;
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog

@@ -39,11 +39,18 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
+    config = os.path.join(
+        get_package_share_directory('algorithm_manager'),
+        'params',
+        'nav2_application_params.yaml'
+        )
+
     algo_manager_cmd = Node(
         package='algorithm_manager',
         executable='algorithm_manager',
         # name='algorithm_manager',
         namespace=namespace,
+        parameters = [config]
         )
 
     ld = launch.LaunchDescription([

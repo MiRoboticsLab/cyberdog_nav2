@@ -36,7 +36,7 @@ def generate_launch_description():
         name='namespace',
         default_value='',
         description='Top-level namespace')
-    nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup') 
+    nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup')
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     node_lists = [
         'static_tf',

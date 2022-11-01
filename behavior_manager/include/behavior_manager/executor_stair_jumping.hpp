@@ -128,6 +128,26 @@ public:
   }
   JumpingStatus &
   GetStatus() {return jumping_status_;}
+  void StopAligning()
+  {
+    auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+    auto callback = [](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+        if (!future.get()->success) {
+          ERROR("Cannot stop stair align");
+        }
+      };
+    auto future = stop_stair_align_client_->async_send_request(request, callback);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get result of stopping stair align");
+    }
+  }
+  void Interupt()
+  {
+    if (jumping_status_ == JumpingStatus::kAligning) {
+      StopAligning();
+      check_align_timeout_start_ = false;
+    }
+  }
 
 private:
   void CheckAlignTimeout()
@@ -152,16 +172,7 @@ private:
         ERROR("Stair align timeout for %ds", unit * timeout_count / 1000);
         count = 0;
         check_align_timeout_start_ = false;
-        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-        auto callback = [](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
-            if (!future.get()->success) {
-              ERROR("Cannot stop stair align");
-            }
-          };
-        auto future = stop_stair_align_client_->async_send_request(request, callback);
-        if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-          ERROR("Cannot get result of stopping stair align");
-        }
+        StopAligning();
         handle_abnorm_func_();
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(unit));

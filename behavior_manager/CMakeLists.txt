@@ -25,6 +25,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(cyberdog_debug REQUIRED)
 find_package(mcr_msgs REQUIRED)
+find_package(motion_manager REQUIRED)
 # find_package(visualization REQUIRED)
 
 # uncomment the following section in order to fill in
@@ -67,6 +68,19 @@ ament_target_dependencies(fake_nodes
   ${dependencies}
 )
 
+add_executable(auto_tracking
+  test/client_test.cpp
+)
+ament_target_dependencies(auto_tracking
+  ${dependencies}
+)
+
+add_executable(targetstatic_test
+  test/targetstatic_test.cpp
+)
+ament_target_dependencies(targetstatic_test
+  ${dependencies}
+)
 # target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_lib)
 
 # add_executable(core_client test/motioncore_client.cpp)
@@ -97,7 +111,15 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${PROJECT_NAME} fake_nodes
+install(
+  DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(TARGETS ${PROJECT_NAME}
+  fake_nodes
+  auto_tracking
+  targetstatic_test
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 if(BUILD_TESTING)
