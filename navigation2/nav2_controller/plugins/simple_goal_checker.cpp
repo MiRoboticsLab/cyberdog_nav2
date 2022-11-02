@@ -109,8 +109,6 @@ bool SimpleGoalChecker::isGoalReached(
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
 
-    std::cout << "isGoalReached distance:" << (dx * dx + dy * dy) << ", xy_tolerance: " <<
-      xy_goal_tolerance_sq_ << std::endl;
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
       return false;
     }
@@ -123,8 +121,6 @@ bool SimpleGoalChecker::isGoalReached(
   double dyaw = angles::shortest_angular_distance(
     tf2::getYaw(query_pose.orientation),
     tf2::getYaw(goal_pose.orientation));
-  std::cout << "isGoalReached dyaw:" << fabs(dyaw) << ", yaw_tolerance: " << yaw_goal_tolerance_ <<
-    std::endl;
   return fabs(dyaw) < yaw_goal_tolerance_;
 }
 
