@@ -54,7 +54,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!ready) {
     ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -64,7 +64,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!success) {
     ERROR("[Vision Mapping] Start Vision Mapping failed.");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -82,7 +82,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!success) {
     ERROR("[Vision Mapping] Enable report realtime robot pose failed.");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -105,7 +105,7 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -115,7 +115,7 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
     task_abort_callback_();
     return;
@@ -126,9 +126,21 @@ void ExecutorVisionMapping::Stop(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Vision Mapping] Vision Mapping stop failed.");
+    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    task_abort_callback_();
+    return;
+  }
+
+  // realsense camera lifecycle
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -139,7 +151,7 @@ void ExecutorVisionMapping::Stop(
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
     ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -157,36 +169,46 @@ void ExecutorVisionMapping::Cancel()
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  // RealSense camera
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ERROR("[Vision Mapping] RealSense camera set configure state failed.");
-    return false;
+    // RealSense camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RealSense camera set configure state failed.");
+      return false;
+    }
+
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RealSense camera set activate state failed.");
+      return false;
+    }
   }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RealSense camera set activate state failed.");
-    return false;
-  }
-
-  // RGB-G camera lifecycle(configure state)
-  success = LifecycleNodeManager::GetSingleton()->Configure(
+  // RGB-G camera
+  success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
-    return false;
-  }
+    // RGB-G camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
+      return false;
+    }
 
-  // RGB-G camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
-    return false;
+    // RGB-G camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
+      return false;
+    }
   }
 
   // // Nav lifecycle

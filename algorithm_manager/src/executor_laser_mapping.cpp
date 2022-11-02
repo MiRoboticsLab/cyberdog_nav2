@@ -273,18 +273,20 @@ bool ExecutorLaserMapping::IsDependsReady()
   //   return false;
   // }
 
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
+  if (LifecycleNodeManager::GetSingleton()->IsActivate(LifeCycleNodeType::RealSenseCameraSensor)) {
+    // RealSense camera lifecycle(configure state)
+    bool success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
   // Laser mapping  lifecycle
@@ -388,7 +390,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 
   // Send request
   // return stop_->invoke(request, response);
-  auto future_result = stop_->invoke(request, std::chrono::seconds(5s));
+  auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
   return future_result->success;
 }
 
