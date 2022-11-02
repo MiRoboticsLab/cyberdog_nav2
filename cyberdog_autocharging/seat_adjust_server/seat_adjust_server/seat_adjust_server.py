@@ -113,12 +113,13 @@ adjust_times = (int)(10 / timer_period)
 
 
 class SeatAdjustServer(Node):
+
     def __init__(self):
-        super().__init__("seat_adjust_server")
+        super().__init__('seat_adjust_server')
         self._action_server = ActionServer(
             self,
             SeatAdjust,
-            "seatadjust",
+            'seatadjust',
             execute_callback=self.execute_callback,
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback,
@@ -126,18 +127,18 @@ class SeatAdjustServer(Node):
         )
 
         self.head_subscription = self.create_subscription(
-            HeadTofPayload, "head_tof_payload", self.head_listener_callback, 10
+            HeadTofPayload, 'head_tof_payload', self.head_listener_callback, 10
         )
 
         self.rear_subscription = self.create_subscription(
-            RearTofPayload, "rear_tof_payload", self.rear_listener_callback, 10
+            RearTofPayload, 'rear_tof_payload', self.rear_listener_callback, 10
         )
 
         self.motion_result_client_ = self.create_client(
-            MotionResultCmd, "motion_result_cmd"
+            MotionResultCmd, 'motion_result_cmd'
         )
         while not self.motion_result_client_.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info("motion service not available, waiting again...")
+            self.get_logger().info('motion service not available, waiting again...')
 
         compute_trig_coeffs()
 
@@ -150,10 +151,10 @@ class SeatAdjustServer(Node):
 
         self.timer_nums = 0
         self.pcd_topic = []
-        self.pcd_topic.append("left_head_pcd")
-        self.pcd_topic.append("right_head_pcd")
-        self.pcd_topic.append("left_rear_pcd")
-        self.pcd_topic.append("right_rear_pcd")
+        self.pcd_topic.append('left_head_pcd')
+        self.pcd_topic.append('right_head_pcd')
+        self.pcd_topic.append('left_rear_pcd')
+        self.pcd_topic.append('right_rear_pcd')
 
         self.trans_R = []
         self.trans_R.append(left_head_R)
@@ -178,14 +179,14 @@ class SeatAdjustServer(Node):
         self.timer_count = 0
         self.action_start = 0
         self.action_complete = 0
-        self.get_logger().info("__init__ complete")
+        self.get_logger().info('__init__ complete')
 
     def goal_callback(self, goal_request):
         """Accept or reject a client request to begin an action."""
         # This server allows multiple goals in parallel
         self.action_start = 1
         self.action_complete = 0
-        self.get_logger().info("Received goal request")
+        self.get_logger().info('Received goal request')
 
         self.motion_req = MotionResultCmd.Request()
         self.motion_req.motion_id = 111
@@ -203,7 +204,7 @@ class SeatAdjustServer(Node):
 
     def cancel_callback(self, goal_handle):
         """Accept or reject a client request to cancel an action."""
-        self.get_logger().info("Received cancel request")
+        self.get_logger().info('Received cancel request')
         return CancelResponse.ACCEPT
 
     def destroy(self):
@@ -212,7 +213,7 @@ class SeatAdjustServer(Node):
 
     async def execute_callback(self, goal_handle):
         """Execute a goal."""
-        self.get_logger().info("Executing goal...")
+        self.get_logger().info('Executing goal...')
 
         # Append the seeds for the Fibonacci sequence
         feedback_msg = SeatAdjust.Feedback()
@@ -223,11 +224,11 @@ class SeatAdjustServer(Node):
         while self.action_complete == 0:
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
-                self.get_logger().info("Goal canceled")
+                self.get_logger().info('Goal canceled')
                 return SeatAdjust.Result()
 
             self.get_logger().info(
-                "Publishing feedback: {0}".format(feedback_msg.count)
+                'Publishing feedback: {0}'.format(feedback_msg.count)
             )
 
             # Publish the feedback
@@ -242,7 +243,7 @@ class SeatAdjustServer(Node):
         result = SeatAdjust.Result()
         result.result = result.SEATADJUST_RESULT_TYPE_SUCCESS
 
-        self.get_logger().info("Returning result: {0}".format(result.result))
+        self.get_logger().info('Returning result: {0}'.format(result.result))
 
         return result
 
@@ -323,7 +324,7 @@ class SeatAdjustServer(Node):
             points = np.vstack((points_depth, points_intensity))
         else:
             points = points_depth
-        pcd = point_cloud(points, "base_link")
+        pcd = point_cloud(points, 'base_link')
         self.pcd_publisher[tof_position].publish(pcd)
         self.point_depth_compute(points_depth, tof_msg)
         self.point_intensity_compute(intensity, tof_msg)
@@ -352,15 +353,15 @@ class SeatAdjustServer(Node):
                 else tag_row_idx
             )
             max_points_num = points_num
-            self.get_logger().info("idx:%d  " % idx + "points_num:%d  " % points_num)
+            self.get_logger().info('idx:%d  ' % idx + 'points_num:%d  ' % points_num)
         self.motion_req.pos_des[0] = move_step_length * (tag_row_idx - 4)
         self.x_adjust_sum = self.x_adjust_sum + self.motion_req.pos_des[0]
         self.motion_req.pos_des[0] = (
             self.motion_req.pos_des[0] if (abs(self.x_adjust_sum) < self.x_limit) else 0
         )
         self.get_logger().info(
-            "x_adjust: %3f" % (self.motion_req.pos_des[0])
-            + "x_adjust_sum: %3f" % (self.x_adjust_sum)
+            'x_adjust: %3f' % (self.motion_req.pos_des[0])
+            + 'x_adjust_sum: %3f' % (self.x_adjust_sum)
         )
 
     def y_pose_adjust(self):
@@ -388,8 +389,8 @@ class SeatAdjustServer(Node):
             self.motion_req.pos_des[1] if (abs(self.y_adjust_sum) < self.y_limit) else 0
         )
         self.get_logger().info(
-            "y_adjust: %3f" % (self.motion_req.pos_des[1])
-            + "y_adjust_sum: %3f" % (self.y_adjust_sum)
+            'y_adjust: %3f' % (self.motion_req.pos_des[1])
+            + 'y_adjust_sum: %3f' % (self.y_adjust_sum)
         )
 
     def yaw_adjust(self):
@@ -452,8 +453,8 @@ class SeatAdjustServer(Node):
             else 0
         )
         self.get_logger().info(
-            "yaw_adjust: %3f" % (self.motion_req.rpy_des[2])
-            + "yaw_adjust_sum: %3f" % (self.yaw_adjust_sum)
+            'yaw_adjust: %3f' % (self.motion_req.rpy_des[2])
+            + 'yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
         )
 
     def point_depth_compute(self, points, tof_msg):
@@ -496,7 +497,7 @@ class SeatAdjustServer(Node):
     def timer_callback(self):
         if self.action_start and (self.timer_count < adjust_times):
             self.timer_count = self.timer_count + 1
-            self.get_logger().info("timer_callback: %d " % (self.timer_count))
+            self.get_logger().info('timer_callback: %d ' % (self.timer_count))
             # self.x_pose_adjust()
             self.y_pose_adjust()
             self.yaw_adjust()
@@ -551,7 +552,7 @@ def point_cloud(points, parent_frame):
     # represents the x-coordinate, the next 4 the y-coordinate, etc.
     fields = [
         sensor_msgs.PointField(name=n, offset=i * itemsize, datatype=ros_dtype, count=1)
-        for i, n in enumerate("xyz")
+        for i, n in enumerate('xyz')
     ]
 
     # The PointCloud2 message also has a header which specifies which
@@ -585,5 +586,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
