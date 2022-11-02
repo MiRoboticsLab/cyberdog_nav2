@@ -136,6 +136,15 @@ public:
    */
   static bool Cleanup(const LifeCycleNode & which);
 
+  /**
+   * @brief Check LifeCycle state
+   *
+   * @param which Get which lifecycle node state
+   * @return true Success
+   * @return false Failure
+   */
+  static bool IsActivate(const LifeCycleNode & which);
+
 private:
   LifecycleNodeManager();
 
