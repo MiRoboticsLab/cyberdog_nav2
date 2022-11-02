@@ -126,7 +126,19 @@ void ExecutorVisionMapping::Stop(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Vision Mapping] Vision Mapping stop failed.");
+    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+    task_abort_callback_();
+    return;
+  }
+
+  // realsense camera lifecycle
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
     ReportPreparationFinished(
       AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
     task_abort_callback_();
