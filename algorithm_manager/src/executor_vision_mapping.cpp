@@ -169,36 +169,46 @@ void ExecutorVisionMapping::Cancel()
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  // RealSense camera
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    ERROR("[Vision Mapping] RealSense camera set configure state failed.");
-    return false;
+    // RealSense camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RealSense camera set configure state failed.");
+      return false;
+    }
+
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RealSense camera set activate state failed.");
+      return false;
+    }
   }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RealSense camera set activate state failed.");
-    return false;
-  }
-
-  // RGB-G camera lifecycle(configure state)
-  success = LifecycleNodeManager::GetSingleton()->Configure(
+  // RGB-G camera
+  success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
-    return false;
-  }
+    // RGB-G camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
+      return false;
+    }
 
-  // RGB-G camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
-    return false;
+    // RGB-G camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
+      return false;
+    }
   }
 
   // // Nav lifecycle
