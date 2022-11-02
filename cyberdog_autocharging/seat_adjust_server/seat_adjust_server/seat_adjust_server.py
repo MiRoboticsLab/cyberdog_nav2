@@ -145,9 +145,9 @@ class SeatAdjustServer(Node):
         self.yaw_limit = 25 * 3.14 / 180
         self.x_limit = 0.04
         self.y_limit = 0.04
-        self.yaw_adjust_sum = 0
-        self.x_adjust_sum = 0
-        self.y_adjust_sum = 0
+        self.yaw_adjust_sum = 0.00
+        self.x_adjust_sum = 0.00
+        self.y_adjust_sum = 0.00
 
         self.timer_nums = 0
         self.pcd_topic = []
@@ -361,7 +361,7 @@ class SeatAdjustServer(Node):
         )
         self.get_logger().info(
             'x_adjust: %3f' % (self.motion_req.pos_des[0])
-            + 'x_adjust_sum: %3f' % (self.x_adjust_sum)
+            + '  x_adjust_sum: %3f' % (self.x_adjust_sum)
         )
 
     def y_pose_adjust(self):
@@ -379,8 +379,7 @@ class SeatAdjustServer(Node):
             elif find_first_edge and abs(col_depth_sum_edge[idx]) > judge_threshold:
                 last_edge_idx = idx
         delta_y = (
-            col_depth_sum_edge[first_edge_idx]
-            / abs(col_depth_sum_edge[first_edge_idx])
+            np.sign(col_depth_sum_edge[first_edge_idx])
             * ((last_edge_idx - first_edge_idx) / 2)
         )
         self.motion_req.pos_des[1] = 0.002 * delta_y
@@ -390,7 +389,7 @@ class SeatAdjustServer(Node):
         )
         self.get_logger().info(
             'y_adjust: %3f' % (self.motion_req.pos_des[1])
-            + 'y_adjust_sum: %3f' % (self.y_adjust_sum)
+            + '  y_adjust_sum: %3f' % (self.y_adjust_sum)
         )
 
     def yaw_adjust(self):
@@ -454,7 +453,7 @@ class SeatAdjustServer(Node):
         )
         self.get_logger().info(
             'yaw_adjust: %3f' % (self.motion_req.rpy_des[2])
-            + 'yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
+            + '  yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
         )
 
     def point_depth_compute(self, points, tof_msg):
