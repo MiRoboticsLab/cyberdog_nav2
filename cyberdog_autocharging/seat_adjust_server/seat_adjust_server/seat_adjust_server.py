@@ -135,7 +135,7 @@ class SeatAdjustServer(Node):
         )
 
         self.motion_result_client_ = self.create_client(
-            MotionResultCmd, '/motion_result_cmd'
+            MotionResultCmd, 'motion_result_cmd'
         )
         while not self.motion_result_client_.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('motion service not available, waiting again...')
@@ -143,7 +143,11 @@ class SeatAdjustServer(Node):
         compute_trig_coeffs()
 
         self.yaw_limit = 25 * 3.14 / 180
+        self.x_limit = 0.04
+        self.y_limit = 0.04
         self.yaw_adjust_sum = 0
+        self.x_adjust_sum = 0
+        self.y_adjust_sum = 0
 
         self.timer_nums = 0
         self.pcd_topic = []
@@ -274,7 +278,7 @@ class SeatAdjustServer(Node):
             if (tof_position == SingleTofPayload.RIGHT_HEAD) or (
                 tof_position == SingleTofPayload.LEFT_HEAD
             ):
-                if (use_tof_intensity):
+                if use_tof_intensity:
                     intensity[idx] = (
                         intensity_set_value
                         if ((tof_msg.intensity[idx]) > intensity_threshold)
@@ -289,7 +293,7 @@ class SeatAdjustServer(Node):
                     compute_xy(1000 * z_array[idx], trig_coeffs[(int)(idx / 8)]) / 1000
                 )
             else:
-                if (use_tof_intensity):
+                if use_tof_intensity:
                     intensity[idx] = (
                         intensity_set_value
                         if ((tof_msg.intensity[63 - idx]) > intensity_threshold)
@@ -316,7 +320,7 @@ class SeatAdjustServer(Node):
         points_intensity = np.vstack(
             (np.asarray(x_array), (np.asarray(y_array) - 0.5), np.asarray(intensity))
         ).T
-        if (use_tof_intensity):
+        if use_tof_intensity:
             points = np.vstack((points_depth, points_intensity))
         else:
             points = points_depth
@@ -351,6 +355,14 @@ class SeatAdjustServer(Node):
             max_points_num = points_num
             self.get_logger().info('idx:%d  ' % idx + 'points_num:%d  ' % points_num)
         self.motion_req.pos_des[0] = move_step_length * (tag_row_idx - 4)
+        self.x_adjust_sum = self.x_adjust_sum + self.motion_req.pos_des[0]
+        self.motion_req.pos_des[0] = (
+            self.motion_req.pos_des[0] if (abs(self.x_adjust_sum) < self.x_limit) else 0
+        )
+        self.get_logger().info(
+            'x_adjust: %3f' % (self.motion_req.pos_des[0])
+            + 'x_adjust_sum: %3f' % (self.x_adjust_sum)
+        )
 
     def y_pose_adjust(self):
         find_first_edge = 0
@@ -372,6 +384,14 @@ class SeatAdjustServer(Node):
             * ((last_edge_idx - first_edge_idx) / 2)
         )
         self.motion_req.pos_des[1] = 0.002 * delta_y
+        self.y_adjust_sum = self.y_adjust_sum + self.motion_req.pos_des[1]
+        self.motion_req.pos_des[1] = (
+            self.motion_req.pos_des[1] if (abs(self.y_adjust_sum) < self.y_limit) else 0
+        )
+        self.get_logger().info(
+            'y_adjust: %3f' % (self.motion_req.pos_des[1])
+            + 'y_adjust_sum: %3f' % (self.y_adjust_sum)
+        )
 
     def yaw_adjust(self):
         # for idx in range(0,8):
@@ -408,10 +428,10 @@ class SeatAdjustServer(Node):
             (diff_left_tof_depth.flatten()) > depth_threshold
         ) + sum((diff_right_tof_depth.flatten()) < -1 * depth_threshold)
 
-        self.get_logger().info(
-            'diff_left_points_num:%d  ' % deviation_left_num
-            + 'diff_right_points_num:%d  ' % deviation_right_num
-        )
+        # self.get_logger().info(
+        #     'diff_left_points_num:%d  ' % deviation_left_num
+        #     + 'diff_right_points_num:%d  ' % deviation_right_num
+        # )
         need_adjust_points = max(deviation_left_num, deviation_right_num)
         delta_yaw = need_adjust_points / 2
         if (
@@ -431,6 +451,10 @@ class SeatAdjustServer(Node):
             self.motion_req.rpy_des[2]
             if (abs(self.yaw_adjust_sum) < self.yaw_limit)
             else 0
+        )
+        self.get_logger().info(
+            'yaw_adjust: %3f' % (self.motion_req.rpy_des[2])
+            + 'yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
         )
 
     def point_depth_compute(self, points, tof_msg):

@@ -87,23 +87,24 @@ void ExecutorVisionTracking::Cancel()
 
 void ExecutorVisionTracking::OnCancel()
 {
-  if (start_vision_tracking_) {
-    if (target_tracking_goal_handle_ != nullptr) {
-      INFO("Cancel target_tracking_goal_handle_");
-      auto future_cancel =
-        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  if (target_tracking_goal_handle_ != nullptr) {
+    INFO("Cancel target_tracking_goal_handle_");
+    auto future_cancel =
+      target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+    if (future_cancel.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
+      ERROR("Cancel target_tracking_goal_handle_ failed, timeout.");
     } else {
-      WARN("target_tracking_goal_handle_ is nullptr");
-      if (!DeactivateDepsLifecycleNodes(50000)) {
-        ERROR("DeactivateDepsLifecycleNodes failed");
-      }
+      INFO("Cancel target_tracking_goal_handle_ success");
+    }
+  } else {
+    WARN("target_tracking_goal_handle_ is nullptr");
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
     }
     StopReportPreparationThread();
     task_cancle_callback_();
-    INFO("OnCancel completed");
     start_vision_tracking_ = false;
-    target_tracking_goal_handle_.reset();
-    return;
+    INFO("OnCancel completed");
   }
 }
 
@@ -187,6 +188,11 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   const std::shared_ptr<BodyRegionT::Request> req,
   std::shared_ptr<BodyRegionT::Response> res)
 {
+  if (!start_vision_tracking_) {
+    ERROR("Should activate the depends node at first");
+    res->success = false;
+    return;
+  }
   // send tracking_object to cyberdog_vision
   if (TrackingClientCallService(client_tracking_object_, req->roi)) {
     INFO("TrackingClientCallService success");
@@ -318,6 +324,11 @@ void ExecutorVisionTracking::HandleResultCallback(
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
+      StopReportPreparationThread();
+      task_cancle_callback_();
+      start_vision_tracking_ = false;
+      INFO("OnCancel completed");
+      target_tracking_goal_handle_.reset();
       break;
     default:
       ERROR("Vision Tracking reported unknown result code");
