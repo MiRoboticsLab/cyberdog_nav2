@@ -1,6 +1,17 @@
-#恢复站立
+#趴下
 [[behavior_ids]]
 behavior_id = 1
+property = "motion"
+motion_id = 101
+vel_des = [0.0, 0.0, 0.0]
+rpy_des = [0.0, 0.0, 0.0]
+pos_des = [0.0, 0.0, 0.0]
+step_height = [0.0, 0.0]
+duration = 0
+
+#恢复站立
+[[behavior_ids]]
+behavior_id = 2
 property = "motion"
 motion_id = 111
 vel_des = [0.0, 0.0, 0.0]
@@ -11,7 +22,7 @@ duration = 0
 
 # 作揖， duration必须为0
 [[behavior_ids]]
-behavior_id = 2  
+behavior_id = 3  
 property = "motion"
 motion_id = 123
 vel_des = [0.0, 0.0, 0.0]

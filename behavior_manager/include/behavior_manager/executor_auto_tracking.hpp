@@ -72,6 +72,14 @@ public:
     audio_play_client_ = node_->create_client<protocol::srv::AudioTextPlay>(
       "speech_text_play", rmw_qos_profile_services_default,
       callback_group_);
+    std::string toml_file = ament_index_cpp::get_package_share_directory(
+      "behavior_manager") + "/config/parameter.toml";
+    toml::value config;
+    if(!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
+      FATAL("Cannot parse %s", toml_file.c_str());
+      exit(-1);
+    }
+    GET_TOML_VALUE(config, "time", time_);
     std::string behavior_id_map_config = ament_index_cpp::get_package_share_directory(
       "behavior_manager") + "/config/auto_tracking.toml";
     toml::value behavior_ids;
@@ -99,7 +107,7 @@ public:
         GET_TOML_VALUE(value, "step_height", behavior_id_map.step_height);
         GET_TOML_VALUE(value, "duration", behavior_id_map.duration);
       } else if (behavior_id_map.property == "audio") {
-        GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
+        // GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
         GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
         // GET_TOML_VALUE(value, "speech", behavior_id_map.speech);
         GET_TOML_VALUE(value, "play_id", behavior_id_map.play_id);
@@ -184,18 +192,21 @@ public:
 
         } else {
           req_audio->module_name = iter->second.module_name;
+          INFO("req_audio->module_name=%s", req_audio->module_name.c_str());
           req_audio->is_online = iter->second.is_online;
+          INFO("req_audio->is_online=%d", req_audio->is_online);
           // req_audio->speech = iter->second.speech;
           req_audio->speech.play_id = iter->second.play_id;
+          INFO("req_audio->speech.play_id=%d", req_audio->speech.play_id);
           auto future_result = audio_play_client_->async_send_request(req_audio);
-          if (future_result.wait_for(std::chrono::milliseconds(2000)) ==
+          if (future_result.wait_for(std::chrono::milliseconds(10000)) ==
             std::future_status::timeout)
           {
             FATAL("Audio service failed");
             return;
           }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
       // break;
       // else
@@ -231,6 +242,7 @@ private:
   std::map<int32_t, BehaviorIdMap> behavior_id_map_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   std::thread tm;
+  int time_;
 };  // class ExecutorAutoTracking
 }  // namespace algorithm
 }  // namespace cyberdog
