@@ -68,7 +68,7 @@ void PositionChecker::loop()
       pos_pub_->publish(pose_based_on_global_frame);
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
 }
 void PositionChecker::serviceCallback(
