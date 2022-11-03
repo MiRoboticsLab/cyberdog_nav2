@@ -50,6 +50,7 @@ private:
   rclcpp_action::Client<NavigateToPoseT>::SharedPtr client_navtopose_ptr_;
 
   GoalHandleAutomaticRecharge::SharedPtr laser_charge_goal_handle_;
+  GoalHandleSeatAdjust::SharedPtr seat_adjust_goal_handle_;
   bool stage1_goal_done_;
   bool stage2_goal_done_;
   bool stage3_goal_done_;
@@ -62,6 +63,13 @@ private:
     const std::shared_ptr<const AutomaticRechargeT::Feedback> feedback);
   void stage2_result_callback(const GoalHandleAutomaticRecharge::WrappedResult & result);
   void stage2_send_goal();
+  // This section is for the seat_adjust stage client interface
+  void stage3_goal_response_callback(GoalHandleSeatAdjust::SharedPtr goal_handle);
+  void stage3_feedback_callback(
+    GoalHandleSeatAdjust::SharedPtr,
+    const std::shared_ptr<const SeatAdjustT::Feedback> feedback);
+  void stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result);
+  void stage3_send_goal();
 };  // class ExecutorAutoDock
 }  // namespace algorithm
 }  // namespace cyberdog
