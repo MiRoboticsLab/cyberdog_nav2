@@ -40,6 +40,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
   target_tracking_goal.keep_distance = goal->keep_distance;
+  static uint8_t last_relative_pos = AlgorithmMGR::Goal::TRACING_AUTO;
   switch (goal->relative_pos) {
     case AlgorithmMGR::Goal::TRACING_AUTO:
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::AUTO;
@@ -58,11 +59,11 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       break;
 
     default:
-      ERROR("Get Invalid tracking pos");
-      task_abort_callback_();
-      return;
+      INFO("Get Invalid tracking pos %d, will use last: %d", goal->relative_pos, last_relative_pos);
+      target_tracking_goal.relative_pos = last_relative_pos;
+      break;
   }
-
+  last_relative_pos = goal->relative_pos;
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
