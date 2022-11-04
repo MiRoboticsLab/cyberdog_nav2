@@ -138,6 +138,16 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
       return;
     }
+
+    // release resources
+    auto task = task_map_.find("NavAB");
+    if (task != task_map_.end()) {
+      INFO("Call NavAB task ReleaseSources() function.");
+      task->second.executor->ReleaseSources();
+    } else {
+      ERROR("Cannot find NavAB task.");
+    }
+
     std::string task_name;
     for (auto task : task_map_) {
       if (task.second.id == request->task_id) {
@@ -223,7 +233,9 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
 {
-  goal_handle_executing_->publish_feedback(feedback);
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->publish_feedback(feedback);
+  }
 }
 
 void AlgorithmTaskManager::TaskSuccessd()

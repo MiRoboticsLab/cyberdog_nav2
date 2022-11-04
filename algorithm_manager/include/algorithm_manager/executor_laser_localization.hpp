@@ -21,6 +21,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 namespace cyberdog
 {
@@ -68,6 +69,13 @@ private:
    * @param msg The lidar relocalization result
    */
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
+
+  /**
+   * @brief Handle some request stop location module
+   *
+   * @param msg Request command
+   */
+  void HandleStopTriggerCommandMessages(const std_msgs::msg::Bool::SharedPtr msg);
 
   /**
   * @brief Check `camera/camera` real sense sensor status
@@ -126,6 +134,7 @@ private:
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_trigger_sub_{nullptr};
 
   // Record relocalization result
   bool relocalization_success_ {false};

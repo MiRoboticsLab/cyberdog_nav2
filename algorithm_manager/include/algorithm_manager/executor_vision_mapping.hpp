@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 
+#include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
@@ -84,6 +85,11 @@ private:
    */
   bool VelocitySmoother();
 
+  /**
+   * @brief Vision is mapping
+   */
+  void PublishBuildMapType();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -97,6 +103,9 @@ private:
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
+
+  // vision mapping alive
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

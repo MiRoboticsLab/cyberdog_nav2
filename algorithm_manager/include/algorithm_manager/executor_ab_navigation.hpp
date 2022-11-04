@@ -20,10 +20,12 @@
 #include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
 {
@@ -34,6 +36,7 @@ class ExecutorAbNavigation : public ExecutorBase
 {
 public:
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
+  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   explicit ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation();
@@ -157,6 +160,41 @@ private:
    */
   void Debug2String(const geometry_msgs::msg::PoseStamped & pose);
 
+  /**
+   * @brief Release source and reset
+   *
+   */
+  void ReleaseSources();
+
+  /**
+   * @brief Check vision slam location
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool IsUseVisionLocation();
+
+  /**
+   * @brief Check lidar slam location
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool IsUseLidarLocation();
+
+  /**
+   * @brief Set the Location Type object
+   *
+   * @param outdoor true : vision
+   *                false: lidar
+   */
+  void SetLocationType(bool outdoor);
+
+  /**
+   * @brief Set `use_vision_slam_` and `use_lidar_slam_` default value
+   */
+  void ResetDefaultValue();
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
@@ -183,10 +221,21 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Control `map server` lifecycle node
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};
+
+  // Control `map server` lifecycle node
   std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};
+
+  // Stop lidar and vision location module
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
+
+  // Record lidar or vision flag
+  bool use_vision_slam_ {false};
+  bool use_lidar_slam_ {false};
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

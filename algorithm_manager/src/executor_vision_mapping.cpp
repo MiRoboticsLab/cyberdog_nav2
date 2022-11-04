@@ -25,6 +25,9 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
+  // Mapping build type
+  vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
+
   // Control `mivinsmapping` lifecycle turn on and turn off
   mapping_client_ = std::make_shared<LifecycleController>("mivinsmapping");
 
@@ -273,6 +276,10 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
     return false;
   }
 
+  if (future.get()->success) {
+    PublishBuildMapType();
+  }
+
   return future.get()->success;
 }
 
@@ -326,6 +333,13 @@ bool ExecutorVisionMapping::VelocitySmoother()
   // Send request
   auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
   return future_result->result;
+}
+
+void ExecutorVisionMapping::PublishBuildMapType()
+{
+  std_msgs::msg::Bool state;
+  state.data = true;
+  vision_mapping_trigger_pub_->publish(state);
 }
 
 }  // namespace algorithm

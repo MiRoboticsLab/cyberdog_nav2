@@ -29,6 +29,9 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
 
+  stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
+  stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
+
   // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
   map_server_lifecycle_ = std::make_shared<LifecycleController>("map_server");
 
@@ -52,6 +55,9 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("[Navigation AB] AB navigation started");
   ReportPreparationStatus();
+
+  // Set vision and lidar flag
+  SetLocationType(goal->outdoor);
 
   // Check all depends is ok
   bool ready = IsDependsReady();
@@ -326,6 +332,48 @@ bool ExecutorAbNavigation::VelocitySmoother()
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
 {
   INFO("[Navigation AB] Nav target goal: [%f, %f]", pose.pose.position.x, pose.pose.position.y);
+}
+
+void ExecutorAbNavigation::ReleaseSources()
+{
+  INFO("[Navigation AB] Release all sources and reset all lifecycle default state.");
+  auto command = std::make_shared<std_msgs::msg::Bool>();
+  command->data = true;
+  stop_vision_trigger_pub_->publish(*command);
+
+  // if (IsUseVisionLocation()) {
+  //   stop_vision_trigger_pub_->publish(*command);
+  // } else if (IsUseLidarLocation()) {
+  //   stop_lidar_trigger_pub_->publish(*command);
+  // }
+  ResetDefaultValue();
+}
+
+bool ExecutorAbNavigation::IsUseVisionLocation()
+{
+  return use_vision_slam_;
+}
+
+bool ExecutorAbNavigation::IsUseLidarLocation()
+{
+  return use_lidar_slam_;
+}
+
+void ExecutorAbNavigation::SetLocationType(bool outdoor)
+{
+  if (outdoor) {
+    INFO("Current location mode use vision slam.");
+    use_vision_slam_ = true;
+  } else {
+    INFO("Current location mode use lidar slam.");
+    use_lidar_slam_ = true;
+  }
+}
+
+void ExecutorAbNavigation::ResetDefaultValue()
+{
+  use_vision_slam_ = false;
+  use_lidar_slam_ = false;
 }
 
 }  // namespace algorithm

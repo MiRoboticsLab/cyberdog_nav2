@@ -39,6 +39,13 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       &ExecutorVisionLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
+  stop_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "stop_vision_relocation",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &ExecutorVisionLocalization::HandleStopTriggerCommandMessages, this,
+      std::placeholders::_1));
+
   // Control vision relocalization turn on
   start_client_ = create_client<std_srvs::srv::SetBool>(
     "start_vins_location", rmw_qos_profile_services_default);
@@ -66,6 +73,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   bool ready = IsDependsReady();
   if (!ready) {
+    ResetLifecycleDefaultValue();
     ERROR("Vision localization lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
@@ -192,46 +200,71 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   }
 }
 
+void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
+  const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Handle stop relocalization module.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    auto request = std::make_shared<StopTaskSrv::Request>();
+    auto response = std::make_shared<StopTaskSrv::Response>();
+    Stop(request, response);
+  }
+}
+
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    return false;
+    // RealSense camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
+
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
-
-  // RGB-D camera lifecycle(configure state)
-  success = LifecycleNodeManager::GetSingleton()->Configure(
+  success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
-    return false;
+    // RGB-D camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      return false;
+    }
+
+    // RGB-D camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
-  // RGB-D camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RGBCameraSensor);
+  success = localization_lifecycle_->IsActivate();
   if (!success) {
-    return false;
-  }
+    // localization_node lifecycle(configure state)
+    if (!localization_lifecycle_->Configure()) {
+      return false;
+    }
 
-  // localization_node lifecycle(configure state)
-  if (!localization_lifecycle_->Configure()) {
-    return false;
+    // localization_node lifecycle(activate state)
+    if (!localization_lifecycle_->Startup()) {
+      return false;
+    }
   }
-
-  // localization_node lifecycle(activate state)
-  if (!localization_lifecycle_->Startup()) {
-    return false;
-  }
-
   return true;
 }
 
@@ -271,7 +304,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
 
   // Send request
   auto future = start_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
     ERROR("Connect relocalization start service timeout");
     return false;
   }
@@ -351,6 +384,27 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
   // bool success = map_result_client_->invoke(request, response);
   auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
   return future_result->code == 0;
+}
+
+bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    ERROR("Release RealSense failed.");
+  }
+
+  LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    ERROR("Release RGBCamera failed.");
+  }
+
+  localization_lifecycle_->Pause();
+  if (!success) {
+    ERROR("Release localization failed.");
+  }
+  return success;
 }
 
 }  // namespace algorithm

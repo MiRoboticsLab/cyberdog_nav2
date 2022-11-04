@@ -22,6 +22,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
@@ -73,6 +74,13 @@ private:
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
 
   /**
+   * @brief Handle some request stop location module
+   *
+   * @param msg Request command
+   */
+  void HandleStopTriggerCommandMessages(const std_msgs::msg::Bool::SharedPtr msg);
+
+  /**
   * @brief Check `camera/camera` real sense sensor status
   *
   * @return true Return success
@@ -122,6 +130,14 @@ private:
    */
   bool CheckMapAvailable();
 
+  /**
+   * @brief Set all lifecycle default state
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool ResetLifecycleDefaultValue();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -137,6 +153,7 @@ private:
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_trigger_sub_{nullptr};
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
