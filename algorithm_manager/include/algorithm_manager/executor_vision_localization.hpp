@@ -147,9 +147,13 @@ private:
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
 
   // service client
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};

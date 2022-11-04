@@ -46,17 +46,17 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       &ExecutorVisionLocalization::HandleStopTriggerCommandMessages, this,
       std::placeholders::_1));
 
-  // Control vision relocalization turn on
-  start_client_ = create_client<std_srvs::srv::SetBool>(
-    "start_vins_location", rmw_qos_profile_services_default);
+  // // Control vision relocalization turn on
+  // start_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "start_vins_location", rmw_qos_profile_services_default);
 
-  // Control vision relocalization turn off
-  stop_client_ = create_client<std_srvs::srv::SetBool>(
-    "stop_vins_location", rmw_qos_profile_services_default);
+  // // Control vision relocalization turn off
+  // stop_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "stop_vins_location", rmw_qos_profile_services_default);
 
-  // Control vision mapping report realtime pose turn on and turn off
-  realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
-    "PoseEnable", rmw_qos_profile_services_default);
+  // // Control vision mapping report realtime pose turn on and turn off
+  // realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "PoseEnable", rmw_qos_profile_services_default);
 
   // spin
   std::thread{[this]() {
@@ -83,6 +83,21 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (map_result_client_ == nullptr) {
     map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
       "get_miloc_status", shared_from_this());
+  }
+
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_vins_location", shared_from_this());
+  }
+
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_location", shared_from_this());
+  }
+
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
   }
 
   // Check current map available
@@ -147,8 +162,8 @@ void ExecutorVisionLocalization::Stop(
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
+    // task_abort_callback_();
+    // return;
   }
 
   // Disenable report realtime robot pose
@@ -290,10 +305,32 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 
 bool ExecutorVisionLocalization::EnableRelocalization()
 {
-  // Wait service
+  // // Wait service
+  // while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for relocalization start the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = start_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
+  //   ERROR("Connect relocalization start service timeout");
+  //   return false;
+  // }
+
+  // INFO("Send start relocalization service request success.");
+  // return future.get()->success;
+
+   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for relocalization start the service. but cannot connect the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -303,21 +340,37 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   request->data = true;
 
   // Send request
-  auto future = start_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
-    ERROR("Connect relocalization start service timeout");
-    return false;
-  }
-
-  INFO("Send start relocalization service request success.");
-  return future.get()->success;
+  // return start_->invoke(request, response);
+  auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorVisionLocalization::DisenableRelocalization()
 {
+  // while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for relocalization stop the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = stop_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
+  //   ERROR("Connect relocalization stop service timeout");
+  //   return false;
+  // }
+
+  // return future.get()->success;
+
+  // Wait service
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for relocalization stop the service. but cannot connect the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -327,21 +380,44 @@ bool ExecutorVisionLocalization::DisenableRelocalization()
   request->data = true;
 
   // Send request
-  auto future = stop_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect relocalization stop service timeout");
-    return false;
-  }
-
-  return future.get()->success;
+  // return start_->invoke(request, response);
+  auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
+  return future_result->success;
 }
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
-  // Wait service
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+  // // Wait service
+  // while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for position checker the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = enable;
+
+  // // Print enable and disenable message
+  // if (enable) {
+  //   INFO("Start report robot's realtime pose");
+  // } else {
+  //   INFO("Stop report robot's realtime pose.");
+  // }
+
+  // // Send request
+  // auto future = realtime_pose_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  //   ERROR("Connect position checker service timeout");
+  //   return false;
+  // }
+
+  // return future.get()->success;
+
+   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for position checker the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -358,13 +434,9 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   }
 
   // Send request
-  auto future = realtime_pose_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect position checker service timeout");
-    return false;
-  }
-
-  return future.get()->success;
+  // return start_->invoke(request, response);
+  auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorVisionLocalization::CheckMapAvailable()

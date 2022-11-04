@@ -233,6 +233,9 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
 
+  // nav trigger
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_sub_{nullptr};
+
   // Record lidar or vision flag
   bool use_vision_slam_ {false};
   bool use_lidar_slam_ {false};
