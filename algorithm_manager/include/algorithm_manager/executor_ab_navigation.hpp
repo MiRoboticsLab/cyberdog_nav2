@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
 #include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"
@@ -86,6 +87,13 @@ private:
    * @param goal_handle
    */
   void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
+
+  /**
+   * @brief Handle executor_reset_nav command
+   *
+   * @param msg The executor request
+   */
+  void HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
   /**
    * @brief Check `lifecycle_manager_navigation` and `lifecycle_manager_localization`
@@ -232,9 +240,11 @@ private:
   // Stop lidar and vision location module
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_nav_trigger_sub_{nullptr};
 
   // nav trigger
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_sub_{nullptr};
+  std::atomic_bool navigation_reset_trigger_{false};
 
   // Record lidar or vision flag
   bool use_vision_slam_ {false};

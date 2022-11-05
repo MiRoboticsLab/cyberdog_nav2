@@ -176,7 +176,17 @@ void ExecutorVisionLocalization::Stop(
   }
 
   // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    task_abort_callback_();
+    return;
+  }
+
+  // RGB-D camera lifecycle(dectivate state)
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
@@ -327,7 +337,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // INFO("Send start relocalization service request success.");
   // return future.get()->success;
 
-   // Wait service
+  // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for the service. but cannot connect the service.");
@@ -415,7 +425,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 
   // return future.get()->success;
 
-   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for the service. but cannot connect the service.");
       return false;

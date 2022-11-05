@@ -180,8 +180,6 @@ public:
     return true;
   }
 
-  virtual void ReleaseSources() {}
-
 protected:
   bool OperateDepsNav2LifecycleNodes(const std::string & task_name, Nav2LifecycleMode mode)
   {

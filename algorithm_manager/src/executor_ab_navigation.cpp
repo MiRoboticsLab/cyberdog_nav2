@@ -29,8 +29,17 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
 
+  // trigger slam
   stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
   stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
+
+  // trigger navigation
+  stop_nav_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "stop_nav_trigger",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &ExecutorAbNavigation::HandleTriggerStopCallback, this,
+      std::placeholders::_1));
 
   // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
   map_server_lifecycle_ = std::make_shared<LifecycleController>("map_server");
@@ -53,7 +62,7 @@ ExecutorAbNavigation::~ExecutorAbNavigation()
 
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
-  INFO("[Navigation AB] AB navigation started");
+  INFO("AB navigation started");
   ReportPreparationStatus();
 
   // Set vision and lidar flag
@@ -62,7 +71,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Check all depends is ok
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("[Navigation AB] AB navigation lifecycle depend start up failed.");
+    ERROR("AB navigation lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -71,7 +80,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Check action client connect server
   bool connect = IsConnectServer();
   if (!connect) {
-    ERROR("[Navigation AB] Connect navigation AB point server failed.");
+    ERROR("Connect navigation AB point server failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -80,7 +89,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Check input target goal is legal
   bool legal = IsLegal(goal);
   if (!legal) {
-    ERROR("[Navigation AB] Current navigation AB point is not legal.");
+    ERROR("Current navigation AB point is not legal.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -99,7 +108,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
-    ERROR("[Navigation AB] Send navigation AB point send target goal request failed.");
+    ERROR("Send navigation AB point send target goal request failed.");
     // Reset lifecycle nodes
     // LifecycleNodesReinitialize();
 
@@ -110,7 +119,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
-  INFO("[Navigation AB] Navigation AB point send target goal request success.");
+  INFO("Navigation AB point send target goal request success.");
 }
 
 void ExecutorAbNavigation::Stop(
@@ -118,40 +127,42 @@ void ExecutorAbNavigation::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("[Navigation AB] Navigation AB will stop");
+  INFO("Navigation AB will stop");
   if (nav_goal_handle_ != nullptr) {
     action_client_->async_cancel_goal(nav_goal_handle_);
   } else {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
+    ERROR("Navigation AB will stop failed.");
   }
 
   nav_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
 
   StopReportPreparationThread();
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
-  INFO("[Navigation AB] Navigation AB Stoped");
+  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+  INFO("Navigation AB Stoped success");
+  task_cancle_callback_();
 }
 
 void ExecutorAbNavigation::Cancel()
 {
   // Reset lifecycle nodes
-  INFO("[Navigation AB] Navigation AB Canceled");
+  INFO("Navigation AB Canceled");
 }
 
 void ExecutorAbNavigation::HandleGoalResponseCallback(
   NavigationGoalHandle::SharedPtr goal_handle)
 {
   (void)goal_handle;
-  INFO("[Navigation AB] Navigation AB Goal accepted");
+  INFO("Navigation AB Goal accepted");
 }
 
 void ExecutorAbNavigation::HandleFeedbackCallback(
   NavigationGoalHandle::SharedPtr,
   const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
-  (void)feedback;
+  INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
   feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING;
   task_feedback_callback_(feedback_);
 }
@@ -161,19 +172,23 @@ void ExecutorAbNavigation::HandleResultCallback(
 {
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      INFO("[Navigation AB] Navigation AB point run target goal succeeded");
+      INFO("Navigation AB point have arrived target goal success");
+      SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      ERROR("[Navigation AB] Navigation AB run target goal aborted");
+      ERROR("Navigation AB run target goal aborted");
+      SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      ERROR("[Navigation AB] Navigation AB run target goal canceled");
+      ERROR("Navigation AB run target goal canceled");
+      SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_cancle_callback_();
       break;
     default:
-      ERROR("[Navigation AB] Navigation AB run target goal unknown result code");
+      ERROR("Navigation AB run target goal unknown result code");
+      SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_abort_callback_();
       break;
   }
@@ -181,6 +196,18 @@ void ExecutorAbNavigation::HandleResultCallback(
   // Deactivate all nav2 lifecycle nodes
   // Reset lifecycle nodes
   // LifecycleNodesReinitialize();
+}
+
+void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Reset location module and reset some sensor.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    ReleaseSources();
+  }
 }
 
 bool ExecutorAbNavigation::IsDependsReady()
@@ -202,7 +229,7 @@ bool ExecutorAbNavigation::IsDependsReady()
 
   if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!nav_client_->startup()) {
-      WARN("[Navigation AB] navigation client lifecycle startup failed.");
+      WARN("Navigation client lifecycle startup failed.");
       return false;
     }
   }
@@ -211,13 +238,13 @@ bool ExecutorAbNavigation::IsDependsReady()
   if (!map_server_lifecycle_->IsActivate()) {
     bool success = map_server_lifecycle_->Configure();
     if (!success) {
-      ERROR("[Navigation AB] Configure map server lifecycle configure state failed.");
+      ERROR("Configure map server lifecycle configure state failed.");
       return false;
     }
 
     success = map_server_lifecycle_->Startup();
     if (!success) {
-      ERROR("[Navigation AB] Configure map server lifecycle activate state failed.");
+      ERROR("Configure map server lifecycle activate state failed.");
       return false;
     }
   }
@@ -230,7 +257,7 @@ bool ExecutorAbNavigation::IsConnectServer()
   auto is_action_server_ready = action_client_->wait_for_action_server(timeout);
 
   if (!is_action_server_ready) {
-    ERROR("[Navigation AB] navigation action server is not available.");
+    ERROR("Navigation action server is not available.");
     return false;
   }
   return true;
@@ -265,7 +292,8 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
   auto future_goal_handle = action_client_->async_send_goal(
     target_goal_, send_goal_options);
 
-  if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
+  std::chrono::seconds timeout{5};
+  if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
     ERROR("[Navigation AB] Wait navigation server timeout.");
     return false;
   }
@@ -331,12 +359,12 @@ bool ExecutorAbNavigation::VelocitySmoother()
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
 {
-  INFO("[Navigation AB] Nav target goal: [%f, %f]", pose.pose.position.x, pose.pose.position.y);
+  INFO("Nav target goal: [%f, %f]", pose.pose.position.x, pose.pose.position.y);
 }
 
 void ExecutorAbNavigation::ReleaseSources()
 {
-  INFO("[Navigation AB] Release all sources and reset all lifecycle default state.");
+  INFO("Release all sources and reset all lifecycle default state.");
   auto command = std::make_shared<std_msgs::msg::Bool>();
   command->data = true;
   stop_vision_trigger_pub_->publish(*command);

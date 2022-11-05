@@ -36,6 +36,8 @@ public:
   explicit ExecutorResetNav(std::string node_name)
   : ExecutorBase(node_name)
   {
+    // Publish trigger signal message for navigation module, Let's stop all depend other
+    // modules and some sensors
     nav_stop_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_nav_trigger", 10);
 
     // spin
@@ -62,6 +64,7 @@ public:
       StopTaskSrv::Response::FAILED;
     INFO("Nav Reset");
 
+    // Trigger signal
     PublishResetNavTrigger();
   }
   void Cancel() override
