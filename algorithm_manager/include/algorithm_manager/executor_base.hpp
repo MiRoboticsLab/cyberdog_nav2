@@ -314,7 +314,11 @@ protected:
 
   bool DeactivateDepsLifecycleNodes(int timeout = 20000)
   {
-    for (auto client : lifecycle_activated_) {
+    // for (auto client : lifecycle_activated_) {
+    for (auto lifecycle_activated_rtr = lifecycle_activated_.rbegin();
+      lifecycle_activated_rtr != lifecycle_activated_.rend(); lifecycle_activated_rtr++)
+    {
+      auto client = *lifecycle_activated_rtr;
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
         WARN("Lifecycle [%s] not exist, will not deactive it", client.name.c_str());
         continue;
@@ -446,6 +450,7 @@ private:
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
+  std::vector<LifecycleNodeRef>::reverse_iterator lifecycle_activated_rtr;
   static std::shared_ptr<BehaviorManager> behavior_manager_;
   bool preparation_finished_{true};
 
