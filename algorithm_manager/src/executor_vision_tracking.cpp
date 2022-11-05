@@ -33,6 +33,16 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   callback_group_ =
     action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
+  // Subscription vision_manager object tracking status
+  rclcpp::SensorDataQoS pub_qos;
+  pub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+  vision_manager_status_sub_ = action_client_node_->create_subscription<TrackingStatusT>(
+    "processing_status",
+    pub_qos,
+    std::bind(
+      &ExecutorVisionTracking::VisionManagerStatusCallback, this,
+      std::placeholders::_1));
+
   client_vision_algo_ =
     action_client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
 
@@ -74,38 +84,46 @@ void ExecutorVisionTracking::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("VisionTracking Stop");
-  OnCancel();
-  response->result = StopTaskSrv::Response::SUCCESS;
+  INFO("VisionTracking will stop");
+  OnCancel(response);
+  INFO("VisionTracking Stoped");
 }
 
 void ExecutorVisionTracking::Cancel()
 {
-  INFO("VisionTracking Cancel");
+  INFO("VisionTracking will cancel");
   OnCancel();
+  INFO("VisionTracking canceled");
 }
 
-void ExecutorVisionTracking::OnCancel()
+void ExecutorVisionTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
 {
+  std::unique_lock<std::mutex> lk(target_tracking_server_mutex_);
   if (target_tracking_goal_handle_ != nullptr) {
     INFO("Cancel target_tracking_goal_handle_");
     auto future_cancel =
       target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
-    if (future_cancel.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
-      ERROR("Cancel target_tracking_goal_handle_ failed, timeout.");
+    if (target_tracking_server_cv_.wait_for(lk, 10s) == std::cv_status::timeout) {
+      cancel_tracking_result_ = false;
     } else {
-      INFO("Cancel target_tracking_goal_handle_ success");
+      cancel_tracking_result_ = true;
     }
   } else {
     WARN("target_tracking_goal_handle_ is nullptr");
     if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
-    StopReportPreparationThread();
-    task_cancle_callback_();
-    start_vision_tracking_ = false;
-    INFO("OnCancel completed");
   }
+  StopReportPreparationThread();
+  target_tracking_goal_handle_.reset();
+  task_cancle_callback_();
+  start_vision_tracking_ = false;
+  vision_manager_tracking_ = false;
+  if (response == nullptr) {
+    return;
+  }
+  response->result = cancel_tracking_result_ ?
+    StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
 }
 
 // TODO(PDF):
@@ -273,6 +291,9 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
   // INFO("HandleFeedbackCallback: %d", feedback->exception_code);
+  if (feedback_->feedback_code == 505) {
+    return;
+  }
   switch (feedback->exception_code) {
     case 0:
       feedback_->feedback_code = 503;
@@ -324,11 +345,7 @@ void ExecutorVisionTracking::HandleResultCallback(
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
-      StopReportPreparationThread();
-      task_cancle_callback_();
-      start_vision_tracking_ = false;
-      INFO("OnCancel completed");
-      target_tracking_goal_handle_.reset();
+      target_tracking_server_cv_.notify_one();
       break;
     default:
       ERROR("Vision Tracking reported unknown result code");
@@ -358,6 +375,24 @@ bool ExecutorVisionTracking::TrackingClientCallService(
   } else {
     INFO("result.get()->success: %d", result.get()->success);
     return true;
+  }
+}
+void ExecutorVisionTracking::VisionManagerStatusCallback(const TrackingStatusT::SharedPtr msg)
+{
+  // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+  switch (msg->status) {
+    case TrackingStatusT::STATUS_SELECTING:
+      if (vision_manager_tracking_) {
+        vision_manager_tracking_ = false;
+        SetFeedbackCode(505);
+        INFO("FeedbackCode: %d", feedback_->feedback_code);
+      }
+      break;
+    case TrackingStatusT::STATUS_TRACKING:
+      vision_manager_tracking_ = true;
+      break;
+    default:
+      break;
   }
 }
 }  // namespace algorithm
