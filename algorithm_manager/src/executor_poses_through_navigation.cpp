@@ -15,19 +15,20 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include "algorithm_manager/executor_ab_navigation.hpp"
+
+#include "algorithm_manager/executor_poses_through_navigation.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
 
-ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
+ExecutorPosesThroughNavigation::ExecutorPosesThroughNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {
-  action_client_ =
-    rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
-    this, "navigate_to_pose");
+  nav_through_poses_action_client_ =
+    rclcpp_action::create_client<nav2_msgs::action::NavigateThroughPoses>(
+    this, "navigate_through_poses");
 
   // trigger slam
   stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
@@ -38,12 +39,13 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     "stop_nav_trigger",
     rclcpp::SystemDefaultsQoS(),
     std::bind(
-      &ExecutorAbNavigation::HandleTriggerStopCallback, this,
+      &ExecutorPosesThroughNavigation::HandleTriggerStopCallback, this,
       std::placeholders::_1));
 
   // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
   map_server_lifecycle_ = std::make_shared<LifecycleController>("map_server");
 
+  // poses though
   nav_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
     "lifecycle_manager_navigation");
 
@@ -54,15 +56,13 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
   }.detach();
 }
 
-ExecutorAbNavigation::~ExecutorAbNavigation()
+ExecutorPosesThroughNavigation::~ExecutorPosesThroughNavigation()
 {
-  nav_client_->reset();
-  ReinitializeAndCleanup();
 }
 
-void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+void ExecutorPosesThroughNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
-  INFO("AB navigation started");
+  INFO("Poses Through navigation started");
   ReportPreparationStatus();
 
   // Set vision and lidar flag
@@ -71,25 +71,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Check all depends is ok
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("AB navigation lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    task_abort_callback_();
-    return;
-  }
-
-  // Check action client connect server
-  bool connect = IsConnectServer();
-  if (!connect) {
-    ERROR("Connect navigation AB point server failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    task_abort_callback_();
-    return;
-  }
-
-  // Check input target goal is legal
-  bool legal = IsLegal(goal);
-  if (!legal) {
-    ERROR("Current navigation AB point is not legal.");
+    ERROR("Poses Through navigation lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -103,15 +85,10 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Smoother walk
   VelocitySmoother();
 
-  // Print set target goal pose
-  Debug2String(goal->poses[0]);
-
   // Send goal request
-  if (!SendGoal(goal->poses[0])) {
-    ERROR("Send navigation AB point send target goal request failed.");
-    // Reset lifecycle nodes
-    // LifecycleNodesReinitialize();
-
+  bool success = StartNavThroughPoses(goal->poses);
+  if (!success) {
+    ERROR("Poses Through send target goal request failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -119,86 +96,87 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
-  INFO("Navigation AB point send target goal request success.");
+  INFO("Poses Through send target goal request success.");
 }
 
-void ExecutorAbNavigation::Stop(
+void ExecutorPosesThroughNavigation::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("Navigation AB will stop");
+  INFO("Poses Through will stop");
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-  if (nav_goal_handle_ != nullptr) {
-    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+  if (nav_through_poses_goal_handle_ != nullptr) {
+    auto future_cancel = nav_through_poses_action_client_->async_cancel_goal(
+      nav_through_poses_goal_handle_);
   } else {
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
-    ERROR("Navigation AB will stop failed.");
+    ERROR("Poses Through will stop failed.");
   }
 
-  nav_goal_handle_.reset();
+  nav_through_poses_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
 
   StopReportPreparationThread();
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
-  INFO("Navigation AB Stoped success");
+  INFO("Poses Through Stoped success");
   task_cancle_callback_();
 }
 
-void ExecutorAbNavigation::Cancel()
+void ExecutorPosesThroughNavigation::Cancel()
 {
-  // Reset lifecycle nodes
-  INFO("Navigation AB Canceled");
+  INFO("Poses Through Canceled");
 }
 
-void ExecutorAbNavigation::HandleGoalResponseCallback(
-  NavigationGoalHandle::SharedPtr goal_handle)
+void ExecutorPosesThroughNavigation::HandleGoalResponseCallback(
+  NavThroughPosesGoalHandle::SharedPtr goal_handle)
 {
   (void)goal_handle;
-  INFO("Navigation AB Goal accepted");
+  INFO("Poses Through Goal accepted");
 }
 
-void ExecutorAbNavigation::HandleFeedbackCallback(
-  NavigationGoalHandle::SharedPtr,
-  const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
+void ExecutorPosesThroughNavigation::HandleFeedbackCallback(
+  NavThroughPosesGoalHandle::SharedPtr,
+  const std::shared_ptr<const nav2_msgs::action::NavigateThroughPoses::Feedback> feedback)
 {
   (void)feedback;
   // INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING);
+  task_feedback_callback_(feedback_);
 }
 
-void ExecutorAbNavigation::HandleResultCallback(
-  const NavigationGoalHandle::WrappedResult result)
+void ExecutorPosesThroughNavigation::HandleResultCallback(
+  const NavThroughPosesGoalHandle::WrappedResult result)
 {
-  nav_goal_handle_.reset();
+  nav_through_poses_goal_handle_.reset();
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      INFO("Navigation AB point have arrived target goal success");
+      INFO("Poses Through have arrived target goal success");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      ERROR("Navigation AB run target goal aborted");
+      ERROR("Poses Through run target goal aborted");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_abort_callback_();
-      nav_client_->shutdown();
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      ERROR("Navigation AB run target goal canceled");
+      ERROR("Poses Through run target goal canceled");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_cancle_callback_();
       break;
     default:
-      ERROR("Navigation AB run target goal unknown result code");
+      ERROR("Poses Through run target goal unknown result code");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_abort_callback_();
       break;
   }
 }
 
-void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void ExecutorPosesThroughNavigation::HandleTriggerStopCallback(
+  const std_msgs::msg::Bool::SharedPtr msg)
 {
   INFO("Reset location module and reset some sensor.");
   if (msg == nullptr) {
@@ -210,23 +188,8 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
   }
 }
 
-bool ExecutorAbNavigation::IsDependsReady()
+bool ExecutorPosesThroughNavigation::IsDependsReady()
 {
-  // Nav lifecycle
-  // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-  //   return false;
-  // }
-
-  // bool success = LifecycleNodesConfigure();
-  // if (!success) {
-  //   return false;
-  // }
-
-  // success = LifecycleNodesStartup();
-  //  if (!success) {
-  //   return false;
-  // }
-
   if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!nav_client_->startup()) {
       WARN("Navigation client lifecycle startup failed.");
@@ -251,46 +214,43 @@ bool ExecutorAbNavigation::IsDependsReady()
   return true;
 }
 
-bool ExecutorAbNavigation::IsConnectServer()
+bool ExecutorPosesThroughNavigation::IsConnectServer()
 {
-  std::chrono::seconds timeout(5);
-  auto is_action_server_ready = action_client_->wait_for_action_server(timeout);
-
+  auto is_action_server_ready =
+    nav_through_poses_action_client_->wait_for_action_server(std::chrono::seconds(5));
   if (!is_action_server_ready) {
-    ERROR("Navigation action server is not available.");
+    ERROR("Poses Through action server is not available. Is the initial pose set?");
     return false;
   }
   return true;
 }
 
-bool ExecutorAbNavigation::IsLegal(const AlgorithmMGR::Goal::ConstSharedPtr goal)
+bool ExecutorPosesThroughNavigation::StartNavThroughPoses(
+  const std::vector<geometry_msgs::msg::PoseStamped> & poses)
 {
-  return goal->poses.empty() ? false : true;
-}
-
-bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose)
-{
-  // Set orientation
-  NormalizedGoal(pose);
+  nav_through_poses_goal_.poses = poses;
+  Debug2String(poses);
 
   // Send the goal pose
   auto send_goal_options =
-    rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+    rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SendGoalOptions();
 
+  send_goal_options.result_callback =
+    std::bind(
+    &ExecutorPosesThroughNavigation::HandleResultCallback,
+    this, std::placeholders::_1);
   send_goal_options.goal_response_callback =
     std::bind(
-    &ExecutorAbNavigation::HandleGoalResponseCallback,
+    &ExecutorPosesThroughNavigation::HandleGoalResponseCallback,
     this, std::placeholders::_1);
   send_goal_options.feedback_callback =
     std::bind(
-    &ExecutorAbNavigation::HandleFeedbackCallback,
+    &ExecutorPosesThroughNavigation::HandleFeedbackCallback,
     this, std::placeholders::_1, std::placeholders::_2);
-  send_goal_options.result_callback =
-    std::bind(
-    &ExecutorAbNavigation::HandleResultCallback,
-    this, std::placeholders::_1);
-  auto future_goal_handle = action_client_->async_send_goal(
-    target_goal_, send_goal_options);
+
+  auto future_goal_handle =
+    nav_through_poses_action_client_->async_send_goal(
+    nav_through_poses_goal_, send_goal_options);
 
   std::chrono::seconds timeout{5};
   if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
@@ -298,45 +258,16 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     return false;
   }
 
-  nav_goal_handle_ = future_goal_handle.get();
-  if (!nav_goal_handle_) {
-    ERROR("Navigation AB Goal was rejected by server");
+  // Get the goal handle and save so that we can check on completion in the timer callback
+  nav_through_poses_goal_handle_ = future_goal_handle.get();
+  if (!nav_through_poses_goal_handle_) {
+    ERROR("Navigation Poses Though Goal was rejected by server");
     return false;
   }
   return true;
 }
 
-void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose)
-{
-  // Normalize the goal pose
-  target_goal_.pose = pose;
-  target_goal_.pose.header.frame_id = "map";
-  target_goal_.pose.pose.orientation.w = 1;
-}
-
-bool ExecutorAbNavigation::ReinitializeAndCleanup()
-{
-  // return localization_lifecycle_->Pause() && localization_lifecycle_->Cleanup();
-  return true;
-}
-
-bool ExecutorAbNavigation::LifecycleNodesReinitialize()
-{
-  // bool success = nav_client_->pause();
-  // if (!success) {
-  //   ERROR("Reset navigation lifecycle nodes deactivate state failed.");
-  //   return false;
-  // }
-
-  // bool success = localization_lifecycle_->Pause();
-  // if (!success) {
-  //   ERROR("Reset localization lifecycle node deactivate state failed.");
-  //   return false;
-  // }
-  return true;
-}
-
-bool ExecutorAbNavigation::VelocitySmoother()
+bool ExecutorPosesThroughNavigation::VelocitySmoother()
 {
   while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -357,12 +288,18 @@ bool ExecutorAbNavigation::VelocitySmoother()
   return future_result->result;
 }
 
-void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
+void ExecutorPosesThroughNavigation::Debug2String(
+  const std::vector<geometry_msgs::msg::PoseStamped> & poses)
 {
-  INFO("Nav target goal: [%f, %f]", pose.pose.position.x, pose.pose.position.y);
+  INFO("Robot poses though:");
+  for (std::size_t index = 0; index < poses.size(); index++) {
+    INFO(
+      "\t[pose %d] [%lf, %lf]",
+      index, poses[index].pose.position.x, poses[index].pose.position.y);
+  }
 }
 
-void ExecutorAbNavigation::ReleaseSources()
+void ExecutorPosesThroughNavigation::ReleaseSources()
 {
   INFO("Release all sources and reset all lifecycle default state.");
   auto command = std::make_shared<std_msgs::msg::Bool>();
@@ -377,17 +314,17 @@ void ExecutorAbNavigation::ReleaseSources()
   ResetDefaultValue();
 }
 
-bool ExecutorAbNavigation::IsUseVisionLocation()
+bool ExecutorPosesThroughNavigation::IsUseVisionLocation()
 {
   return use_vision_slam_;
 }
 
-bool ExecutorAbNavigation::IsUseLidarLocation()
+bool ExecutorPosesThroughNavigation::IsUseLidarLocation()
 {
   return use_lidar_slam_;
 }
 
-void ExecutorAbNavigation::SetLocationType(bool outdoor)
+void ExecutorPosesThroughNavigation::SetLocationType(bool outdoor)
 {
   if (outdoor) {
     INFO("Current location mode use vision slam.");
@@ -398,7 +335,7 @@ void ExecutorAbNavigation::SetLocationType(bool outdoor)
   }
 }
 
-void ExecutorAbNavigation::ResetDefaultValue()
+void ExecutorPosesThroughNavigation::ResetDefaultValue()
 {
   use_vision_slam_ = false;
   use_lidar_slam_ = false;

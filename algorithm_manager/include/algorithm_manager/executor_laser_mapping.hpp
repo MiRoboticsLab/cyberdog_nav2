@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 
+#include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
@@ -114,6 +115,11 @@ private:
    */
   bool VelocitySmoother();
 
+  /**
+   * @brief Radar is mapping
+   */
+  void PublishBuildMapType();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -139,6 +145,8 @@ private:
   std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
 
+  // lidar mapping alive
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};
 
   // realtime robot pose
   bool start_report_realtime_pose_ {false};

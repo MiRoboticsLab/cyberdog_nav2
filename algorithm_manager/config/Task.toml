@@ -42,6 +42,13 @@ DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = []
 
 [[task]]
+TaskName = "PosesThrough"
+Id = 2
+OutDoor = false
+DepsNav2LifecycleNodes = []
+DepsLifecycleNodes = []
+
+[[task]]
 TaskName = "VisionTracking"
 Id = 13
 OutDoor = false

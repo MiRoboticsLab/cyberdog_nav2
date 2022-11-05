@@ -35,12 +35,24 @@ class ExecutorResetNav : public ExecutorBase
 public:
   explicit ExecutorResetNav(std::string node_name)
   : ExecutorBase(node_name)
-  {}
+  {
+    // Publish trigger signal message for navigation module, Let's stop all depend other
+    // modules and some sensors
+    nav_stop_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_nav_trigger", 10);
+
+    // spin
+    std::thread{[this]() {
+        rclcpp::spin(this->get_node_base_interface());
+      }
+    }.detach();
+  }
+
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override
   {
     (void)goal;
     ERROR("Error: Start ExecutorResetNav should never be called");
   }
+
   void Stop(
     const StopTaskSrv::Request::SharedPtr request,
     StopTaskSrv::Response::SharedPtr response) override
@@ -51,6 +63,9 @@ public:
       StopTaskSrv::Response::SUCCESS :
       StopTaskSrv::Response::FAILED;
     INFO("Nav Reset");
+
+    // Trigger signal
+    PublishResetNavTrigger();
   }
   void Cancel() override
   {
@@ -60,6 +75,18 @@ public:
   // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
+  /**
+   * @brief Reset all nav default state
+   */
+  void PublishResetNavTrigger()
+  {
+    std_msgs::msg::Bool data;
+    data.data = true;
+    nav_stop_trigger_pub_->publish(data);
+  }
+
+  // vision mapping alive
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_pub_{nullptr};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

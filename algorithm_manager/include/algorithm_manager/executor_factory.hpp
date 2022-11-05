@@ -18,6 +18,7 @@
 #include <string>
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "algorithm_manager/executor_ab_navigation.hpp"
+#include "algorithm_manager/executor_poses_through_navigation.hpp"
 #include "algorithm_manager/executor_auto_dock.hpp"
 #include "algorithm_manager/executor_vision_localization.hpp"
 #include "algorithm_manager/executor_laser_localization.hpp"
@@ -73,6 +74,11 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
     // NavAB
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB:
       result = std::make_shared<ExecutorAbNavigation>(task_name);
+      break;
+
+    // PosesThrough
+    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AB:
+      result = std::make_shared<ExecutorPosesThroughNavigation>(task_name);
       break;
 
     // Laser Localization

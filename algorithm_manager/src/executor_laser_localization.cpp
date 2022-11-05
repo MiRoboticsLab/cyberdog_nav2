@@ -40,6 +40,13 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
       &ExecutorLaserLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
+  stop_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "stop_lidar_relocation",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &ExecutorLaserLocalization::HandleStopTriggerCommandMessages, this,
+      std::placeholders::_1));
+
   // ontrol lidar relocalization turn on
   start_client_ = create_client<std_srvs::srv::SetBool>(
     "start_location", rmw_qos_profile_services_default);
@@ -118,6 +125,7 @@ void ExecutorLaserLocalization::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  (void)request;
   INFO("Laser localization will stop");
   StopReportPreparationThread();
 
@@ -181,6 +189,21 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
     relocalization_failure_ = true;
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     WARN("Relocalization failed.");
+  }
+}
+
+void ExecutorLaserLocalization::HandleStopTriggerCommandMessages(
+  const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Handle stop relocalization module.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    auto request = std::make_shared<StopTaskSrv::Request>();
+    auto response = std::make_shared<StopTaskSrv::Response>();
+    Stop(request, response);
   }
 }
 
