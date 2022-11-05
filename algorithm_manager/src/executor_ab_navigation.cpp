@@ -128,8 +128,10 @@ void ExecutorAbNavigation::Stop(
 {
   (void)request;
   INFO("Navigation AB will stop");
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
   if (nav_goal_handle_ != nullptr) {
-    action_client_->async_cancel_goal(nav_goal_handle_);
+    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
   } else {
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
@@ -162,14 +164,15 @@ void ExecutorAbNavigation::HandleFeedbackCallback(
   NavigationGoalHandle::SharedPtr,
   const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
-  INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
-  feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING;
-  task_feedback_callback_(feedback_);
+  (void)feedback;
+  // INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
+  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING);
 }
 
 void ExecutorAbNavigation::HandleResultCallback(
   const NavigationGoalHandle::WrappedResult result)
 {
+  nav_goal_handle_.reset();
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
@@ -192,10 +195,6 @@ void ExecutorAbNavigation::HandleResultCallback(
       task_abort_callback_();
       break;
   }
-
-  // Deactivate all nav2 lifecycle nodes
-  // Reset lifecycle nodes
-  // LifecycleNodesReinitialize();
 }
 
 void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -294,13 +293,13 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
 
   std::chrono::seconds timeout{5};
   if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
-    ERROR("[Navigation AB] Wait navigation server timeout.");
+    ERROR("Wait navigation server timeout.");
     return false;
   }
 
   nav_goal_handle_ = future_goal_handle.get();
   if (!nav_goal_handle_) {
-    ERROR("[Navigation AB] Navigation AB Goal was rejected by server");
+    ERROR("Navigation AB Goal was rejected by server");
     return false;
   }
   return true;
@@ -340,7 +339,7 @@ bool ExecutorAbNavigation::VelocitySmoother()
 {
   while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("[Navigation AB] Connect velocity adaptor service timeout");
+      ERROR("Connect velocity adaptor service timeout");
       return false;
     }
   }
