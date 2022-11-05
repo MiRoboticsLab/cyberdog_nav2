@@ -183,6 +183,7 @@ void ExecutorAbNavigation::HandleResultCallback(
       ERROR("Navigation AB run target goal aborted");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       task_abort_callback_();
+      nav_client_->shutdown();
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
