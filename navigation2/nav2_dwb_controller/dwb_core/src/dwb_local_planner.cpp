@@ -46,6 +46,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "nav2_util/line_iterator.hpp"
 #include "nav_2d_msgs/msg/twist2_d.hpp"
 #include "nav_2d_utils/conversions.hpp"
 #include "nav_2d_utils/parameters.hpp"
@@ -521,8 +522,25 @@ nav_2d_msgs::msg::Path2D DWBLocalPlanner::transformGlobalPlan(
   auto transformation_end = std::find_if(
     transformation_begin, end(global_plan_.poses),
     [&](const auto & global_plan_pose) {
-      return getSquareDistance(robot_pose.pose, global_plan_pose) >
-      sq_transform_end_threshold;
+      nav2_costmap_2d::Costmap2D * costmap = costmap_ros_->getCostmap();
+      int x0, x1, y0, y1;
+      costmap->worldToMapNoBounds(robot_pose.pose.x, robot_pose.pose.y, x0, y0);
+      costmap->worldToMapNoBounds(global_plan_pose.x, global_plan_pose.y, x1, y1);
+
+      if(getSquareDistance(robot_pose.pose, global_plan_pose) > sq_transform_end_threshold){
+        return true;
+      }
+
+      for (nav2_util::LineIterator line(x0, y0, x1, y1); line.isValid(); line.advance()) {
+        unsigned char cost = costmap->getCost(line.getX(), line.getY());
+        // if the cell is in an obstacle the path is invalid or unknown
+        if (cost > nav2_costmap_2d::LETHAL_OBSTACLE) {
+          return true;
+        }
+        line.advance();
+      }
+
+      return false;
     });
 
   // Transform the near part of the global plan into the robot's frame of

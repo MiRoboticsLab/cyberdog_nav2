@@ -29,6 +29,7 @@ find_package(motion_action REQUIRED)
 find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
 find_package(cyberdog_visions_interfaces REQUIRED)
+find_package(behavior_manager REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -56,6 +57,7 @@ set(dependencies
   cyberdog_system
   visualization
   cyberdog_visions_interfaces
+  behavior_manager
 )
 
 set(sources
@@ -65,6 +67,7 @@ set(sources
   src/executor_ab_navigation.cpp
   src/executor_poses_through_navigation.cpp
   # src/executor_auto_dock.cpp
+  src/executor_auto_dock.cpp
   src/executor_laser_mapping.cpp
   src/executor_laser_localization.cpp
   src/executor_vision_mapping.cpp

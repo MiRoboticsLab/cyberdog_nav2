@@ -21,6 +21,8 @@
 #include <vector>
 #include "rclcpp/rclcpp.hpp"
 #include "protocol/action/navigation.hpp"
+#include "protocol/action/seat_adjust.hpp"
+#include "mcr_msgs/action/automatic_recharge.hpp"
 #include "nav2_lifecycle_manager/lifecycle_manager_client.hpp"
 // #include "nav2_msgs/action/follow_waypoints.hpp"
 // #include "nav2_msgs/action/navigate_through_poses.hpp"
@@ -40,6 +42,7 @@
 #include "motion_action/motion_macros.hpp"
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
+#include "behavior_manager/behavior_manager.hpp"
 
 namespace cyberdog
 {
@@ -311,7 +314,11 @@ protected:
 
   bool DeactivateDepsLifecycleNodes(int timeout = 20000)
   {
-    for (auto client : lifecycle_activated_) {
+    // for (auto client : lifecycle_activated_) {
+    for (auto lifecycle_activated_rtr = lifecycle_activated_.rbegin();
+      lifecycle_activated_rtr != lifecycle_activated_.rend(); lifecycle_activated_rtr++)
+    {
+      auto client = *lifecycle_activated_rtr;
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
         WARN("Lifecycle [%s] not exist, will not deactive it", client.name.c_str());
         continue;
@@ -416,6 +423,14 @@ protected:
     std::unique_lock<std::mutex> lk(preparation_finish_mutex_);
     preparation_finished_ = true;
   }
+  std::shared_ptr<BehaviorManager>
+  GetBehaviorManager()
+  {
+    if (behavior_manager_ == nullptr) {
+      behavior_manager_ = std::make_shared<BehaviorManager>("behavior_manager");
+    }
+    return behavior_manager_;
+  }
   static std::unordered_map<std::string,
     std::shared_ptr<Nav2LifecyleMgrClient>> nav2_lifecycle_clients;
   static std::unordered_map<std::string,
@@ -437,6 +452,8 @@ private:
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
+  std::vector<LifecycleNodeRef>::reverse_iterator lifecycle_activated_rtr;
+  static std::shared_ptr<BehaviorManager> behavior_manager_;
   bool preparation_finished_{true};
 
 

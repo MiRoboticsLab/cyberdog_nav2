@@ -31,6 +31,8 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
+  GetBehaviorManager()->RegisterStateCallback(
+    std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -38,6 +40,7 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
   target_tracking_goal.keep_distance = goal->keep_distance;
+  static uint8_t last_relative_pos = AlgorithmMGR::Goal::TRACING_AUTO;
   switch (goal->relative_pos) {
     case AlgorithmMGR::Goal::TRACING_AUTO:
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::AUTO;
@@ -56,11 +59,11 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       break;
 
     default:
-      ERROR("Get Invalid tracking pos");
-      task_abort_callback_();
-      return;
+      INFO("Get Invalid tracking pos %d, will use last: %d", goal->relative_pos, last_relative_pos);
+      target_tracking_goal.relative_pos = last_relative_pos;
+      break;
   }
-
+  last_relative_pos = goal->relative_pos;
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   ReportPreparationStatus();
@@ -170,6 +173,8 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
   }
   StopReportPreparationThread();
   target_tracking_goal_handle_.reset();
+  GetBehaviorManager()->Launch(false, false);
+  GetBehaviorManager()->Reset();
   if (response == nullptr) {
     return;
   }
@@ -177,10 +182,38 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
     StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
 }
 
+void ExecutorUwbTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status)
+{
+  behavior_status_ = status;
+  switch (behavior_status_) {
+    case BehaviorManager::BehaviorStatus::kStairJumping:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_STAIRJUMPING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAutoTracking:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_AUTOTRACKING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAbnorm:
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_BEHAVIORABNORM;
+
+    default:
+      return;
+  }
+  task_feedback_callback_(feedback_);
+}
+
+
 void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
+  if (behavior_status_ != BehaviorManager::BehaviorStatus::kNormTracking) {
+    return;
+  }
   INFO_MILLSECONDS(1000, "Get TargetTracking Feedback: %d", feedback->exception_code);
   switch (feedback->exception_code) {
     case 0:
@@ -225,6 +258,10 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("UWB Tracking reported aborted, this should never happened");
+      target_tracking_goal_handle_.reset();
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
+      task_feedback_callback_(feedback_);
       // DeactivateDepsLifecycleNodes();
       // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
       // task_abort_callback_();

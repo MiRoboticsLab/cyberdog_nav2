@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from cgi import parse_multipart
 import os
 import sys
+from tkinter.tix import Tree
 
 import launch
 import subprocess
@@ -30,31 +32,29 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
-from nav2_common.launch import RewrittenYaml
+from launch.actions import GroupAction 
+from launch_ros.actions import PushRosNamespace
 
 def generate_launch_description():
-
-    namespace = LaunchConfiguration('namespace', default='')
+    
+    namespace = LaunchConfiguration('namespace')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
-        description='Top-level namespace'
-        )
-    lifecycle_nodes = ['controller_server',
-                       'planner_server',
-                       'recoveries_server',
-                       'bt_navigator']
-    lifecycle_nav_cmd = Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_navigation',
+        description='Top-level namespace')
+
+    head_tof_pc_cmd = Node(
+            package='motion_utils',
+            executable='stair_align',
+            name='stair_align',
             namespace=namespace,
-            output='screen',
-            parameters=[{'node_names': lifecycle_nodes}, {'bond_timeout': 20.0}])
+            )
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        lifecycle_nav_cmd,
+        head_tof_pc_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':

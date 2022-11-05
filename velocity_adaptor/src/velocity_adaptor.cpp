@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "velocity_adaptor/velocity_adaptor.hpp"
+#include "protocol/msg/motion_id.hpp"
 
 namespace cyberdog
 {
@@ -22,7 +23,8 @@ namespace navigation
 {
 
 VelocityAdaptor::VelocityAdaptor()
-: Node("velocity_adaptor"), gait_motion_id(303), gait_step_height({0.05, 0.05}), gait_shape_value(0)
+: Node("velocity_adaptor"), gait_motion_id(protocol::msg::MotionID::WALK_USERTROT),
+  gait_step_height({0.05, 0.05}), gait_shape_value(0)
 {
   motion_vel_cmd_pub_ = this->create_publisher<::protocol::msg::MotionServoCmd>(
     "motion_servo_cmd", rclcpp::SystemDefaultsQoS());
@@ -58,6 +60,7 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
   gait_motion_id = request->motion_id;
   gait_shape_value = request->value;
   gait_step_height = request->step_height;
+  cmd_source = request->cmd_source;
 
   response->result = true;
   response->motion_id = request->motion_id;
@@ -65,6 +68,13 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
 
 void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg)
 {
+  if (fabs(msg->linear.x) < 5e-3 &&
+    fabs(msg->linear.y) < 5e-3 &&
+    fabs(msg->angular.z) < 5e-3)
+  {
+    return;
+  }
+
   // INFO("SetCommandVelocity");
   std::vector<float> vel_des {
     static_cast<float>(msg->linear.x),

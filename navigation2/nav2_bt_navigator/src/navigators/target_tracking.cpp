@@ -40,14 +40,24 @@ TargetTrackingNavigator::configure(
   }
   goal_blackboard_keep_dist_ = node->get_parameter("goal_blackboard_keep_dist").as_string();
 
+  if (!node->has_parameter("target_topic")) {
+    node->declare_parameter("target_topic", std::string("tracking_pose"));
+  }
+  target_topic_ = node->get_parameter("target_topic").as_string();
+  
+  if (!node->has_parameter("maxwait")) {
+    node->declare_parameter("maxwait", 0.0);
+  }
+  maxwait_ = node->get_parameter("maxwait").as_double();
+
   // Odometry smoother object for getting current speed
   odom_smoother_ = std::make_unique<nav2_util::OdomSmoother>(node, 0.3);
 
   self_client_ = rclcpp_action::create_client<ActionT>(node, getName());
 
   goal_sub_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "follow",
-    rclcpp::SystemDefaultsQoS(),
+    target_topic_,
+    rclcpp::SensorDataQoS(),
     std::bind(&TargetTrackingNavigator::onGoalPoseReceived, this, std::placeholders::_1));
   return true;
 }
@@ -76,10 +86,27 @@ TargetTrackingNavigator::cleanup()
   self_client_.reset();
   return true;
 }
-
+using namespace std::chrono_literals;
 bool
 TargetTrackingNavigator::goalReceived(ActionT::Goal::ConstSharedPtr goal)
 {
+  start_time_ = clock_->now();
+  rclcpp::WallRate r(500ms);
+  if(maxwait_ > 1.0){
+    while(rclcpp::ok()){
+      RCLCPP_INFO(logger_, "Waiting for the destiny...");
+      if(clock_->now().seconds() - latest_goal_.header.stamp.sec < 2.0){
+        RCLCPP_INFO(logger_, "The tracking target has appeared in the last 2s and can be tracked.");
+        break;
+      }
+      r.sleep();
+      if(clock_->now().seconds() - start_time_.seconds() > maxwait_){
+        RCLCPP_ERROR(logger_, "No target input in last %lf secs, unable to execute follow task.", maxwait_);
+        return false;
+      }
+    }
+  }
+
   auto bt_xml_filename = goal->behavior_tree;
 
   if (!bt_action_server_->loadBehaviorTree(bt_xml_filename)) {
@@ -171,7 +198,7 @@ TargetTrackingNavigator::initializeGoalPose(ActionT::Goal::ConstSharedPtr goal)
     logger_, "Start tracking target with direction: %s.", dir_analysis(goal->relative_pos).c_str());
 
   // Reset state for new action feedback
-  start_time_ = clock_->now();
+
   auto blackboard = bt_action_server_->getBlackboard();
   blackboard->set<int>("number_recoveries", 0);  // NOLINT
 
@@ -182,14 +209,12 @@ TargetTrackingNavigator::initializeGoalPose(ActionT::Goal::ConstSharedPtr goal)
 
 void
 TargetTrackingNavigator::onGoalPoseReceived(
-  const geometry_msgs::msg::PoseStamped::SharedPtr /*pose*/)
+  const geometry_msgs::msg::PoseStamped::SharedPtr pose)
 {
-
-  ActionT::Goal goal;
-  goal.keep_distance = 1.0;
-  goal.relative_pos = goal.BEHIND;
-  // goal.behavior_tree
-  self_client_->async_send_goal(goal);
+  if(pose->header.frame_id == "")
+    return;
+  latest_goal_ = *pose;
+  latest_goal_.header.stamp = clock_->now();
 }
 
 }  // namespace nav2_bt_navigator

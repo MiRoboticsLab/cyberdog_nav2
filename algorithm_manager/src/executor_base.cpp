@@ -27,6 +27,6 @@ std::unordered_map<std::string,
 std::unordered_map<std::string,
   std::shared_ptr<nav2_util::LifecycleServiceClient>> ExecutorBase::lifecycle_clients;
 std::unordered_map<std::string, ExecutorBase::LifecycleNodeIndexs> ExecutorBase::task_map_;
-
+std::shared_ptr<BehaviorManager> ExecutorBase::behavior_manager_;
 }  // namespace algorithm
 }  // namespace cyberdog

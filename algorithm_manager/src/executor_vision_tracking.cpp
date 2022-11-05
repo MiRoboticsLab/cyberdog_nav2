@@ -33,6 +33,16 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
   callback_group_ =
     action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
+  // Subscription vision_manager object tracking status
+  rclcpp::SensorDataQoS pub_qos;
+  pub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+  vision_manager_status_sub_ = action_client_node_->create_subscription<TrackingStatusT>(
+    "processing_status",
+    pub_qos,
+    std::bind(
+      &ExecutorVisionTracking::VisionManagerStatusCallback, this,
+      std::placeholders::_1));
+
   client_vision_algo_ =
     action_client_node_->create_client<protocol::srv::AlgoManager>("algo_manager");
 
@@ -59,7 +69,9 @@ void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal
 {
   INFO("Vision Tracking starting");
   ReportPreparationStatus();
-  uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
+  uint8_t goal_result = StartVisionTracking(
+    goal->relative_pos, goal->keep_distance,
+    goal->object_tracking);
   if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
     ERROR("ExecutorVisionTracking::Start Error");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
@@ -72,50 +84,64 @@ void ExecutorVisionTracking::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("VisionTracking Stop");
-  OnCancel();
-  response->result = StopTaskSrv::Response::SUCCESS;
+  INFO("VisionTracking will stop");
+  OnCancel(response);
+  INFO("VisionTracking Stoped");
 }
 
 void ExecutorVisionTracking::Cancel()
 {
-  INFO("VisionTracking Cancel");
+  INFO("VisionTracking will cancel");
   OnCancel();
+  INFO("VisionTracking canceled");
 }
 
-void ExecutorVisionTracking::OnCancel()
+void ExecutorVisionTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
 {
-  if (start_vision_tracking_) {
-    if (target_tracking_goal_handle_ != nullptr) {
-      INFO("Cancel target_tracking_goal_handle_");
-      auto future_cancel =
-        target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+  std::unique_lock<std::mutex> lk(target_tracking_server_mutex_);
+  if (target_tracking_goal_handle_ != nullptr) {
+    INFO("Cancel target_tracking_goal_handle_");
+    auto future_cancel =
+      target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
+    if (target_tracking_server_cv_.wait_for(lk, 10s) == std::cv_status::timeout) {
+      cancel_tracking_result_ = false;
     } else {
-      WARN("target_tracking_goal_handle_ is nullptr");
-      if (!DeactivateDepsLifecycleNodes(50000)) {
-        ERROR("DeactivateDepsLifecycleNodes failed");
-      }
+      cancel_tracking_result_ = true;
     }
-    StopReportPreparationThread();
-    task_cancle_callback_();
-    INFO("OnCancel completed");
-    start_vision_tracking_ = false;
-    target_tracking_goal_handle_.reset();
+  } else {
+    WARN("target_tracking_goal_handle_ is nullptr");
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+  }
+  StopReportPreparationThread();
+  target_tracking_goal_handle_.reset();
+  task_cancle_callback_();
+  start_vision_tracking_ = false;
+  vision_manager_tracking_ = false;
+  if (response == nullptr) {
     return;
   }
+  response->result = cancel_tracking_result_ ?
+    StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
 }
 
 // TODO(PDF):
-bool ExecutorVisionTracking::CallVisionTrackAlgo()
+bool ExecutorVisionTracking::CallVisionTrackAlgo(bool object_tracking)
 {
   auto request = std::make_shared<protocol::srv::AlgoManager::Request>();
   protocol::msg::AlgoList algo;
   // algo.algo_module = protocol::msg::AlgoList::ALGO_FACE;
   // request->algo_enable.push_back(algo);
-  algo.algo_module = protocol::msg::AlgoList::ALGO_BODY;
-  request->algo_enable.push_back(algo);
-  algo.algo_module = protocol::msg::AlgoList::ALGO_REID;
-  request->algo_enable.push_back(algo);
+  if (!object_tracking) {
+    algo.algo_module = protocol::msg::AlgoList::ALGO_BODY;
+    request->algo_enable.push_back(algo);
+    algo.algo_module = protocol::msg::AlgoList::ALGO_REID;
+    request->algo_enable.push_back(algo);
+  } else {
+    algo.algo_module = protocol::msg::AlgoList::ALGO_FOCUS;
+    request->algo_enable.push_back(algo);
+  }
   // algo.algo_module = protocol::msg::AlgoList::ALGO_GESTURE;
   // request->algo_enable.push_back(algo);
   // algo.algo_module = protocol::msg::AlgoList::ALGO_KEYPOINTS;
@@ -143,7 +169,9 @@ bool ExecutorVisionTracking::CallVisionTrackAlgo()
   }
 }
 // TODO(PDF):
-uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float keep_distance)
+uint8_t ExecutorVisionTracking::StartVisionTracking(
+  uint8_t relative_pos, float keep_distance,
+  bool object_tracking)
 {
   (void)relative_pos;
   (void)keep_distance;
@@ -158,7 +186,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(uint8_t relative_pos, float 
     task_abort_callback_();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
-  if (!CallVisionTrackAlgo()) {
+  if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     if (!DeactivateDepsLifecycleNodes(50000)) {
@@ -178,6 +206,11 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   const std::shared_ptr<BodyRegionT::Request> req,
   std::shared_ptr<BodyRegionT::Response> res)
 {
+  if (!start_vision_tracking_) {
+    ERROR("Should activate the depends node at first");
+    res->success = false;
+    return;
+  }
   // send tracking_object to cyberdog_vision
   if (TrackingClientCallService(client_tracking_object_, req->roi)) {
     INFO("TrackingClientCallService success");
@@ -258,6 +291,9 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
   // INFO("HandleFeedbackCallback: %d", feedback->exception_code);
+  if (feedback_->feedback_code == 505) {
+    return;
+  }
   switch (feedback->exception_code) {
     case 0:
       feedback_->feedback_code = 503;
@@ -297,54 +333,22 @@ void ExecutorVisionTracking::HandleResultCallback(
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Vision Tracking reported succeeded");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Vision Tracking reported aborted");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_abort_callback_();
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
+      target_tracking_goal_handle_.reset();
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
       }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_cancle_callback_();
+      target_tracking_server_cv_.notify_one();
       break;
     default:
       ERROR("Vision Tracking reported unknown result code");
-      // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause)) {
-      //   ERROR("OperateDepsNav2LifecycleNodes failed.");
-      // }
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
-      // StopReportPreparationThread();
-      // target_tracking_goal_handle_.reset();
-      // task_abort_callback_();
-      // if (!DeactivateDepsLifecycleNodes(timeout=50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
       break;
   }
 }
@@ -364,22 +368,6 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     }
     RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
   }
-
-  // auto client_cb = [timeout](rclcpp::Client<protocol::srv::BodyRegion>::SharedFuture future) {
-  //     std::future_status status = future.wait_for(timeout);
-
-  //     if (status == std::future_status::ready) {
-  //       if (0 != future.get()->success) {
-  //         return false;
-  //       } else {
-  //         return true;
-  //       }
-  //     } else {
-  //       return false;
-  //     }
-  //   };
-
-  // auto result = client->async_send_request(req, client_cb);
   auto result = client->async_send_request(req);
   if (result.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result TrackingClientCallService");
@@ -388,7 +376,24 @@ bool ExecutorVisionTracking::TrackingClientCallService(
     INFO("result.get()->success: %d", result.get()->success);
     return true;
   }
-  // return true;
+}
+void ExecutorVisionTracking::VisionManagerStatusCallback(const TrackingStatusT::SharedPtr msg)
+{
+  // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+  switch (msg->status) {
+    case TrackingStatusT::STATUS_SELECTING:
+      if (vision_manager_tracking_) {
+        vision_manager_tracking_ = false;
+        SetFeedbackCode(505);
+        INFO("FeedbackCode: %d", feedback_->feedback_code);
+      }
+      break;
+    case TrackingStatusT::STATUS_TRACKING:
+      vision_manager_tracking_ = true;
+      break;
+    default:
+      break;
+  }
 }
 }  // namespace algorithm
 }  // namespace cyberdog

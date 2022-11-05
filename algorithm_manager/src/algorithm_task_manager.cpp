@@ -133,8 +133,9 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
 {
   INFO("=====================");
   if (request->task_id == 0) {
-    if (!CheckStatusValid()) {
-      ERROR("Cannot Reset Nav, status %d is invalid!", (int)manager_status_);
+    auto status = GetStatus();
+    if (status != ManagerStatus::kExecutingAbNavigation) {
+      ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
       return;
     }
@@ -155,8 +156,9 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     }
     INFO("Will Reset Nav");
   } else {
-    if (static_cast<uint8_t>(manager_status_) != request->task_id) {
-      ERROR("No task to stop");
+    auto status = GetStatus();
+    if (static_cast<uint8_t>(status) != request->task_id) {
+      ERROR("Task %d cannot stop when %d", request->task_id, (int)status);
       return;
     }
   }
@@ -211,7 +213,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
   activated_executor_->Cancel();
   auto result = std::make_shared<AlgorithmMGR::Result>();
   activated_executor_.reset();
-  manager_status_ = ManagerStatus::kIdle;
+  ResetManagerStatus();
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 

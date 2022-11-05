@@ -16,6 +16,7 @@
 #define ALGORITHM_MANAGER__EXECUTOR_AUTO_DOCK_HPP_
 
 #include <string>
+#include <memory>
 #include "algorithm_manager/executor_base.hpp"
 
 namespace cyberdog
@@ -24,12 +25,51 @@ namespace algorithm
 {
 class ExecutorAutoDock : public ExecutorBase
 {
+  using SeatAdjustT = protocol::action::SeatAdjust;
+  using GoalHandleSeatAdjust = rclcpp_action::ClientGoalHandle<SeatAdjustT>;
+  using AutomaticRechargeT = mcr_msgs::action::AutomaticRecharge;
+  using GoalHandleAutomaticRecharge = rclcpp_action::ClientGoalHandle<AutomaticRechargeT>;
+  using NavigateToPoseT = nav2_msgs::action::NavigateToPose;
+  using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPoseT>;
+
 public:
   explicit ExecutorAutoDock(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
+  void Stop(
+    const StopTaskSrv::Request::SharedPtr request,
+    StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
+  void OnCancel();
 
 private:
+  // std::shared_ptr<cyberdog::algorithm::ExecutorBase> exe_laser_loc_ptr_ = nullptr;
+  // std::shared_ptr<cyberdog::algorithm::ExecutorBase> exe_ab_nav_ptr_ = nullptr;
+
+  rclcpp_action::Client<SeatAdjustT>::SharedPtr client_seat_adjust_ptr_;
+  rclcpp_action::Client<AutomaticRechargeT>::SharedPtr client_laser_charge_ptr_;
+  rclcpp_action::Client<NavigateToPoseT>::SharedPtr client_navtopose_ptr_;
+
+  GoalHandleAutomaticRecharge::SharedPtr laser_charge_goal_handle_;
+  GoalHandleSeatAdjust::SharedPtr seat_adjust_goal_handle_;
+  bool stage1_goal_done_;
+  bool stage2_goal_done_;
+  bool stage3_goal_done_;
+  geometry_msgs::msg::PoseStamped goal_pose;
+
+  // This section is for the stage2 client interface
+  void stage2_goal_response_callback(GoalHandleAutomaticRecharge::SharedPtr goal_handle);
+  void stage2_feedback_callback(
+    GoalHandleAutomaticRecharge::SharedPtr,
+    const std::shared_ptr<const AutomaticRechargeT::Feedback> feedback);
+  void stage2_result_callback(const GoalHandleAutomaticRecharge::WrappedResult & result);
+  void stage2_send_goal();
+  // This section is for the seat_adjust stage client interface
+  void stage3_goal_response_callback(GoalHandleSeatAdjust::SharedPtr goal_handle);
+  void stage3_feedback_callback(
+    GoalHandleSeatAdjust::SharedPtr,
+    const std::shared_ptr<const SeatAdjustT::Feedback> feedback);
+  void stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result);
+  void stage3_send_goal();
 };  // class ExecutorAutoDock
 }  // namespace algorithm
 }  // namespace cyberdog

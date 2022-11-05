@@ -30,7 +30,6 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
-from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
 
@@ -38,23 +37,19 @@ def generate_launch_description():
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
-        description='Top-level namespace'
-        )
-    lifecycle_nodes = ['controller_server',
-                       'planner_server',
-                       'recoveries_server',
-                       'bt_navigator']
-    lifecycle_nav_cmd = Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_navigation',
-            namespace=namespace,
-            output='screen',
-            parameters=[{'node_names': lifecycle_nodes}, {'bond_timeout': 20.0}])
+        description='Top-level namespace')
+
+    seat_adjust_server_dir = FindPackageShare(package='seat_adjust_server').find('seat_adjust_server') 
+    seat_adjust_server_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(seat_adjust_server_dir, 'launch/seat_adjust_server.launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )   
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        lifecycle_nav_cmd,
+        seat_adjust_server_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':
