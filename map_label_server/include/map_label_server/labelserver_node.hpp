@@ -100,17 +100,16 @@ public:
    */
   std::string robot_map_name() const;
 
-
 private:
   /**
-   * @brief Handle vision is mapping 
+   * @brief Handle vision is mapping
    *
    * @param msg Request command
    */
   void HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
 
   /**
-   * @brief Handle lidar is mapping 
+   * @brief Handle lidar is mapping
    *
    * @param msg Request command
    */

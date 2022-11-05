@@ -299,7 +299,9 @@ void LabelStore::Read(
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     std::string key = it->name.GetString();
     INFO("key = %s", key.c_str());
-    if (it->name.GetString() == "map_name" || it->value.IsString()) {
+    if (key == "map_name" || it->value.IsString()) {
+      std::string name = it->value.GetString();
+      INFO("map_name: %s", name.c_str());
     }
 
     if (key == "is_outdoor") {
