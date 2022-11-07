@@ -136,12 +136,11 @@ void ExecutorAbNavigation::Stop(
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     ERROR("Navigation AB will stop failed.");
+    return;
   }
 
   nav_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
-
-  StopReportPreparationThread();
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("Navigation AB Stoped success");
   task_cancle_callback_();
@@ -172,7 +171,6 @@ void ExecutorAbNavigation::HandleFeedbackCallback(
 void ExecutorAbNavigation::HandleResultCallback(
   const NavigationGoalHandle::WrappedResult result)
 {
-  nav_goal_handle_.reset();
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
@@ -196,6 +194,7 @@ void ExecutorAbNavigation::HandleResultCallback(
       task_abort_callback_();
       break;
   }
+  // nav_goal_handle_.reset();
 }
 
 void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -353,8 +352,14 @@ bool ExecutorAbNavigation::VelocitySmoother()
   request->step_height = step_height;
 
   // Send request
-  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-  return future_result->result;
+  bool result = false;
+  try {
+    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->result;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
