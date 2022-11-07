@@ -450,7 +450,6 @@ private:
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
-  std::vector<LifecycleNodeRef>::reverse_iterator lifecycle_activated_rtr;
   static std::shared_ptr<BehaviorManager> behavior_manager_;
   bool preparation_finished_{true};
 

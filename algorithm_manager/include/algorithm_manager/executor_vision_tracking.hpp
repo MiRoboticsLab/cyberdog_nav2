@@ -59,6 +59,7 @@ public:
   bool CallVisionTrackAlgo(bool object_tracking);
   void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
   void VisionManagerStatusCallback(const TrackingStatusT::SharedPtr msg);
+  bool OnlyCancelNavStack();
 
 private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
