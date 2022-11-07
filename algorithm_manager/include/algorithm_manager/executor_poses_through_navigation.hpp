@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
-#define ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+#ifndef ALGORITHM_MANAGER__EXECUTOR_POSES_THROUGH_NAVIGATION_HPP_
+#define ALGORITHM_MANAGER__EXECUTOR_POSES_THROUGH_NAVIGATION_HPP_
 
 #include <string>
 #include <memory>
-#include <atomic>
-#include <unordered_map>
+#include <vector>
 
-#include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/bool.hpp"
+#include "nav2_msgs/action/navigate_through_poses.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "nav2_msgs/action/navigate_to_pose.hpp"
-#include "algorithm_manager/lifecycle_controller.hpp"
-#include "protocol/srv/motion_result_cmd.hpp"
+#include "algorithm_manager/lifecycle_node_manager.hpp"
+#include "std_msgs/msg/int32.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
@@ -33,17 +31,18 @@ namespace cyberdog
 namespace algorithm
 {
 
-class ExecutorAbNavigation : public ExecutorBase
+class ExecutorPosesThroughNavigation : public ExecutorBase
 {
 public:
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
-  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
+  using NavThroughPosesGoalHandle =
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateThroughPoses>;
 
-  explicit ExecutorAbNavigation(std::string node_name);
-  ~ExecutorAbNavigation();
+  explicit ExecutorPosesThroughNavigation(std::string node_name);
+  ~ExecutorPosesThroughNavigation();
 
   /**
-   * @brief Start Navigation AB
+   * @brief Start Poses Though AB
    *
    * @param goal APP or rviz set target pose goal
    */
@@ -60,17 +59,17 @@ public:
     StopTaskSrv::Response::SharedPtr response) override;
 
   /**
-   * @brief Cancel Navigation AB, it't can debug ros command
+   * @brief Cancel Navigation Poses Though, it't can debug ros command
    */
   void Cancel() override;
 
 private:
   /**
-   * @brief Handle `nav_action_client_` action client response callback function
-   *
-   * @param goal_handle
-   */
-  void HandleGoalResponseCallback(NavigationGoalHandle::SharedPtr goal_handle);
+  * @brief Handle `nav_action_client_` action client response callback function
+  *
+  * @param goal_handle
+  */
+  void HandleGoalResponseCallback(NavThroughPosesGoalHandle::SharedPtr goal_handle);
 
   /**
    * @brief Handle `nav_action_client_` action client feedback callback function
@@ -78,15 +77,15 @@ private:
    * @param feedback
    */
   void HandleFeedbackCallback(
-    NavigationGoalHandle::SharedPtr,
-    const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback);
+    NavThroughPosesGoalHandle::SharedPtr,
+    const std::shared_ptr<const nav2_msgs::action::NavigateThroughPoses::Feedback> feedback);
 
   /**
    * @brief Handle `nav_action_client_` action client result callback function
    *
    * @param goal_handle
    */
-  void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
+  void HandleResultCallback(const NavThroughPosesGoalHandle::WrappedResult result);
 
   /**
    * @brief Handle executor_reset_nav command
@@ -113,45 +112,11 @@ private:
   bool IsConnectServer();
 
   /**
-   * @brief Check current given pose is available
+   * @brief Call poses though navigation
    *
-   * @param pose Target pose goal
-   * @return true  Return success
-   * @return false  Return failure
+   * @param poses Multi poses
    */
-  bool IsLegal(const AlgorithmMGR::Goal::ConstSharedPtr goal);
-
-  /**
-   * @brief Send APP or rviz set target pose goal
-   *
-   * @param pose Target pose goal
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool SendGoal(const geometry_msgs::msg::PoseStamped & pose);
-
-  /**
-   * @brief Normalized app given pose
-   *
-   * @param pose
-   */
-  void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
-
-  /**
-   * @brief Sources reset and cleanup
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool ReinitializeAndCleanup();
-
-  /**
-   * @brief Reinitialize all lifecycle nodes
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesReinitialize();
+  bool StartNavThroughPoses(const std::vector<geometry_msgs::msg::PoseStamped> & poses);
 
   /**
    * @brief When robot mapping it's should walk smoother
@@ -166,7 +131,7 @@ private:
    *
    * @param pose APP or rviz set target pose goal
    */
-  void Debug2String(const geometry_msgs::msg::PoseStamped & pose);
+  void Debug2String(const std::vector<geometry_msgs::msg::PoseStamped> & poses);
 
   /**
    * @brief Release source and reset
@@ -203,39 +168,21 @@ private:
    */
   void ResetDefaultValue();
 
-  // feedback data
-  ExecutorData executor_nav_ab_data_;
+  // navigation through poses
+  rclcpp_action::Client<nav2_msgs::action::NavigateThroughPoses>::SharedPtr
+    nav_through_poses_action_client_;
 
-  // Navigation lifecycles
-  std::unordered_map<std::string, std::shared_ptr<LifecycleController>>
-  navigation_lifecycle_;
-
-  // navigation target goal
-  nav2_msgs::action::NavigateToPose::Goal target_goal_;
-
-  // nav client as request
-  rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_ {nullptr};
-
-  // navigation goal handle
-  NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
+  nav2_msgs::action::NavigateThroughPoses::Goal nav_through_poses_goal_;
+  NavThroughPosesGoalHandle::SharedPtr nav_through_poses_goal_handle_;
 
   // Lifecycle controller
   std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
 
-  // Control localization_node lifecycle
-  // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
-
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-
-  // Control `map server` lifecycle node
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};
-
   // Control `map server` lifecycle node
   std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};
 
-  // all depend is ready
-  bool lifecycle_depend_ready_ {false};
+  // velocity smoother 'velocity_adaptor_gait'
+  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Stop lidar and vision location module
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
@@ -249,7 +196,8 @@ private:
   // Record lidar or vision flag
   bool use_vision_slam_ {false};
   bool use_lidar_slam_ {false};
-};  // class ExecutorAbNavigation
+};
+
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  // ALGORITHM_MANAGER__EXECUTOR_AB_NAVIGATION_HPP_
+#endif  // ALGORITHM_MANAGER__EXECUTOR_POSES_THROUGH_NAVIGATION_HPP_

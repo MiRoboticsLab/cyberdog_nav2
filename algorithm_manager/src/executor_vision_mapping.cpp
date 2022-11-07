@@ -25,20 +25,23 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
+  // Mapping build type
+  vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
+
   // Control `mivinsmapping` lifecycle turn on and turn off
   mapping_client_ = std::make_shared<LifecycleController>("mivinsmapping");
 
-  // Control lidar mapping turn on
-  start_client_ = create_client<std_srvs::srv::SetBool>(
-    "start_vins_mapping", rmw_qos_profile_services_default);
+  // // Control lidar mapping turn on
+  // start_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "start_vins_mapping", rmw_qos_profile_services_default);
 
-  // Control lidar mapping turn off
-  stop_client_ = create_client<std_srvs::srv::SetBool>(
-    "stop_vins_mapping", rmw_qos_profile_services_default);
+  // // Control lidar mapping turn off
+  // stop_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "stop_vins_mapping", rmw_qos_profile_services_default);
 
-  // Control lidar mapping report realtime pose turn on and turn off
-  realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
-    "PoseEnable", rmw_qos_profile_services_default);
+  // // Control lidar mapping report realtime pose turn on and turn off
+  // realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "PoseEnable", rmw_qos_profile_services_default);
 
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
@@ -72,6 +75,21 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (velocity_smoother_ == nullptr) {
     velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
       "velocity_adaptor_gait", shared_from_this());
+  }
+
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_vins_mapping", shared_from_this());
+  }
+
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_mapping", shared_from_this());
+  }
+
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
   }
 
   // Smoother walk
@@ -231,6 +249,26 @@ bool ExecutorVisionMapping::IsDependsReady()
 
 bool ExecutorVisionMapping::StartBuildMapping()
 {
+  // // Wait service
+  // while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = start_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  //   ERROR("[Vision Mapping] Connect Vision Mapping start service timeout");
+  //   return false;
+  // }
+  // return future.get()->success;
+
   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -244,16 +282,32 @@ bool ExecutorVisionMapping::StartBuildMapping()
   request->data = true;
 
   // Send request
-  auto future = start_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("[Vision Mapping] Connect Vision Mapping start service timeout");
-    return false;
-  }
-  return future.get()->success;
+  // return start_->invoke(request, response);
+  auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
+  // // Wait service
+  // while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = stop_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  //   ERROR("[Vision Mapping] Connect Vision mapping stop service timeout");
+  //   return false;
+  // }
+
   // Wait service
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -267,18 +321,44 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   request->data = true;
 
   // Send request
-  auto future = stop_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("[Vision Mapping] Connect Vision mapping stop service timeout");
-    return false;
-  }
+  // return start_->invoke(request, response);
+  auto future_result = stop_client_->invoke(request, std::chrono::seconds(5s));
 
-  return future.get()->success;
+  if (future_result->success) {
+    PublishBuildMapType();
+  }
+  return future_result->success;
 }
 
 bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
 {
-  // Wait service
+  // // Wait service
+  // while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  // request->data = enable;
+
+  // // Print enable and disenable message
+  // if (enable) {
+  //   INFO("[Vision Mapping] Start report robot's realtime pose");
+  // } else {
+  //   INFO("[Vision Mapping] Stop report robot's realtime pose.");
+  // }
+
+  // // Send request
+  // auto future = realtime_pose_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  //   ERROR("[Vision Mapping] Connect position checker service timeout");
+  //   return false;
+  // }
+  // return future.get()->success;
+
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
@@ -287,7 +367,7 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   }
 
   // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = enable;
 
   // Print enable and disenable message
@@ -298,12 +378,9 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   }
 
   // Send request
-  auto future = realtime_pose_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("[Vision Mapping] Connect position checker service timeout");
-    return false;
-  }
-  return future.get()->success;
+  // return start_->invoke(request, response);
+  auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+  return future_result->success;
 }
 
 bool ExecutorVisionMapping::VelocitySmoother()
@@ -326,6 +403,13 @@ bool ExecutorVisionMapping::VelocitySmoother()
   // Send request
   auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
   return future_result->result;
+}
+
+void ExecutorVisionMapping::PublishBuildMapType()
+{
+  std_msgs::msg::Bool state;
+  state.data = true;
+  vision_mapping_trigger_pub_->publish(state);
 }
 
 }  // namespace algorithm

@@ -69,6 +69,22 @@ LabelServer::LabelServer()
   occ_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
     "map",
     rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+
+  // lidar mapping flag
+  vision_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "lidar_mapping_alive",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &LabelServer::HandleLidarIsMappingMessages, this,
+      std::placeholders::_1));
+
+  // vision mapping flag
+  lidar_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "vision_mapping_alive",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &LabelServer::HandleVisionIsMappingMessages, this,
+      std::placeholders::_1));
 }
 
 LabelServer::~LabelServer() {}
@@ -331,6 +347,43 @@ void LabelServer::set_robot_map_name(const std::string & name)
 std::string LabelServer::robot_map_name() const
 {
   return robot_map_name_;
+}
+
+void LabelServer::HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Current building map is vision.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    use_vision_create_map_ = msg->data;
+    SetOutdoorFlag(use_vision_create_map_);
+  }
+}
+
+void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Current building map is lidar.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    use_lidar_create_map_ = msg->data;
+    SetOutdoorFlag(false);
+  }
+}
+
+void LabelServer::SetOutdoorFlag(bool outdoor)
+{
+  const std::string map_name = "map";
+  std::string label_filename = map_label_store_ptr_->map_label_directory() + "map.json";
+
+  rapidjson::Document doc(rapidjson::kObjectType);
+  map_label_store_ptr_->SetMapName(map_name, map_name, doc);
+  map_label_store_ptr_->SetOutdoor(outdoor, doc);
+  map_label_store_ptr_->Write(label_filename, doc);
 }
 
 }  // namespace CYBERDOG_NAV
