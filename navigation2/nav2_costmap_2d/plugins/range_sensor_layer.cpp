@@ -151,7 +151,7 @@ void RangeSensorLayer::onInitialize()
     }
     
     if(topic_name[0] != '/')
-      topic_name = client_node_->get_namespace() + std::string("/") + topic;
+      topic_name = client_node_->get_namespace() + std::string("/") + topic_name;
 
     range_subs_.push_back(
       node->create_subscription<sensor_msgs::msg::Range>(
