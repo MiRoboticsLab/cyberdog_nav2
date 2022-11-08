@@ -46,6 +46,7 @@ def generate_launch_description():
         'realsense',
         'realsense_align',
         'mcr_uwb',
+        'mcr_voice',
         'velocity_adaptor',
         'nav2_base',
         'map_label_server',

@@ -149,6 +149,10 @@ void RangeSensorLayer::onInitialize()
         "and forgot to choose the subscriber for it?",
         name_.c_str(), sensor_type_name.c_str());
     }
+    
+    if(topic_name[0] != '/')
+      topic_name = client_node_->get_namespace() + std::string("/") + topic_name;
+
     range_subs_.push_back(
       node->create_subscription<sensor_msgs::msg::Range>(
         topic_name, rclcpp::SensorDataQoS(), std::bind(
