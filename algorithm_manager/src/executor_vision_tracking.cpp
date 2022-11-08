@@ -147,7 +147,7 @@ bool ExecutorVisionTracking::OnlyCancelNavStack()
     }
   } else {
     WARN("target_tracking_goal_handle_ is nullptr");
-    cancel_status = false;
+    cancel_status = true;
   }
   target_tracking_goal_handle_.reset();
   return cancel_status;
@@ -428,8 +428,10 @@ void ExecutorVisionTracking::VisionManagerStatusCallback(const TrackingStatusT::
           INFO("FeedbackCode: %d", feedback_->feedback_code);
         }
       }
+      vision_manager_tracking_ = false;
       break;
     case TrackingStatusT::STATUS_TRACKING:
+      INFO("TrackingStatusT::STATUS_TRACKING");
       vision_manager_tracking_ = true;
       break;
     default:
