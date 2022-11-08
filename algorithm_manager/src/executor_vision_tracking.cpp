@@ -68,6 +68,8 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
+  INFO("Start wait(lk)");
+  std::unique_lock<std::mutex> lk(start_stop_mutex_);
   INFO("Vision Tracking starting");
   ReportPreparationStatus();
   start_vision_tracking_ = false;
@@ -85,6 +87,8 @@ void ExecutorVisionTracking::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  INFO("Stop wait(lk)");
+  std::unique_lock<std::mutex> lk(start_stop_mutex_);
   (void)request;
   INFO("VisionTracking will stop");
   OnCancel(response);
@@ -114,7 +118,7 @@ void ExecutorVisionTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
     }
   } else {
     WARN("target_tracking_goal_handle_ is nullptr");
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
   }
@@ -206,7 +210,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
     ERROR("ActivateDepsLifecycleNodes failed");
     ReportPreparationFinished(506);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -215,7 +219,7 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(506);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -244,7 +248,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   } else {
     ERROR("TrackingClientCallService failed");
     ReportPreparationFinished(507);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -257,7 +261,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (!is_action_server_ready) {
     ERROR("Tracking target action server is not available.");
     ReportPreparationFinished(507);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     res->success = false;
@@ -289,7 +293,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result target_tracking_action_client_");
     ReportPreparationFinished(507);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
     }
     task_abort_callback_();
@@ -303,7 +307,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
     ReportPreparationFinished(507);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
+    if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
@@ -369,7 +373,7 @@ void ExecutorVisionTracking::HandleResultCallback(
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
       if (feedback_->feedback_code != 505) {
-        if (!DeactivateDepsLifecycleNodes(50000)) {
+        if (!DeactivateDepsLifecycleNodes(3000)) {
           ERROR("DeactivateDepsLifecycleNodes failed");
         }
       }
@@ -418,7 +422,7 @@ void ExecutorVisionTracking::VisionManagerStatusCallback(const TrackingStatusT::
           ERROR("OnlyCancelNavStack failed!");
           ReportPreparationFinished(508);
           INFO("FeedbackCode: %d", feedback_->feedback_code);
-          if (!DeactivateDepsLifecycleNodes(50000)) {
+          if (!DeactivateDepsLifecycleNodes(3000)) {
             ERROR("DeactivateDepsLifecycleNodes failed");
           }
           StopReportPreparationThread();

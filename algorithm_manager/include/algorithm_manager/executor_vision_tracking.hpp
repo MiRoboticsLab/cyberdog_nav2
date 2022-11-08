@@ -100,6 +100,7 @@ private:
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
   std::mutex target_tracking_server_mutex_;
   std::condition_variable target_tracking_server_cv_;
+  std::mutex start_stop_mutex_;
   int32_t vision_action_client_feedback_;
   bool start_vision_tracking_;
   bool vision_manager_tracking_{false};
