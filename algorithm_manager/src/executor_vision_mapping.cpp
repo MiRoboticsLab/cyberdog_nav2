@@ -62,21 +62,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  // Start build mapping
-  bool success = StartBuildMapping();
-  if (!success) {
-    ERROR("[Vision Mapping] Start Vision Mapping failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
-
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
-  }
-
   if (start_client_ == nullptr) {
     start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
       "start_vins_mapping", shared_from_this());
@@ -90,6 +75,21 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (realtime_pose_client_ == nullptr) {
     realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
       "PoseEnable", shared_from_this());
+  }
+
+  // Start build mapping
+  bool success = StartBuildMapping();
+  if (!success) {
+    ERROR("[Vision Mapping] Start Vision Mapping failed.");
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    task_abort_callback_();
+    return;
+  }
+
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
   }
 
   // Smoother walk
@@ -116,7 +116,6 @@ void ExecutorVisionMapping::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   INFO("[Vision Mapping] Vision Mapping will stop");
-  StopReportPreparationThread();
 
   // Disenable report realtime robot pose
   bool success = EnableReportRealtimePose(false);
@@ -174,9 +173,11 @@ void ExecutorVisionMapping::Stop(
     return;
   }
 
+  INFO("[Vision Mapping] Vision Mapping stoped success");
   ReportPreparationFinished(
     AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("[Vision Mapping] Vision Mapping stoped success");
+
+  StopReportPreparationThread();
   task_success_callback_();
 }
 
@@ -283,8 +284,14 @@ bool ExecutorVisionMapping::StartBuildMapping()
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
@@ -322,12 +329,18 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = stop_client_->invoke(request, std::chrono::seconds(5s));
+  bool result = false;
+  try {
+    auto future_result = stop_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
 
-  if (future_result->success) {
+  if (result) {
     PublishBuildMapType();
   }
-  return future_result->success;
+  return result;
 }
 
 bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
@@ -379,8 +392,14 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorVisionMapping::VelocitySmoother()
@@ -401,8 +420,14 @@ bool ExecutorVisionMapping::VelocitySmoother()
   request->step_height = step_height;
 
   // Send request
-  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-  return future_result->result;
+  bool result = false;
+  try {
+    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->result;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 void ExecutorVisionMapping::PublishBuildMapType()

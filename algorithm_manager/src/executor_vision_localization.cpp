@@ -351,8 +351,14 @@ bool ExecutorVisionLocalization::EnableRelocalization()
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(25s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorVisionLocalization::DisenableRelocalization()
@@ -391,8 +397,14 @@ bool ExecutorVisionLocalization::DisenableRelocalization()
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
@@ -445,8 +457,14 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorVisionLocalization::CheckMapAvailable()
@@ -464,8 +482,16 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   // Send request
   // bool success = map_result_client_->invoke(request, response);
-  auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->code == 0;
+
+  bool result = false;
+  try {
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->code == 0;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  return result;
 }
 
 bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
