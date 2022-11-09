@@ -276,9 +276,12 @@ bool ExecutorLaserMapping::IsDependsReady()
   //   return false;
   // }
 
-  if (LifecycleNodeManager::GetSingleton()->IsActivate(LifeCycleNodeType::RealSenseCameraSensor)) {
+  // RealSense camera
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
     // RealSense camera lifecycle(configure state)
-    bool success = LifecycleNodeManager::GetSingleton()->Configure(
+    success = LifecycleNodeManager::GetSingleton()->Configure(
       LifeCycleNodeType::RealSenseCameraSensor);
     if (!success) {
       return false;

@@ -128,8 +128,13 @@ void ExecutorAbNavigation::Stop(
 {
   (void)request;
   INFO("Navigation AB will stop");
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  bool cancel = ShouldCancelGoal();
+  if (!cancel) {
+    WARN("Current robot can't stop, due to navigation status is not available.");
+    return;
+  }
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
   if (nav_goal_handle_ != nullptr) {
     auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
   } else {
@@ -180,6 +185,7 @@ void ExecutorAbNavigation::HandleResultCallback(
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Navigation AB run target goal aborted");
       SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+      ResetPreprocessingValue();
       task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
@@ -225,6 +231,11 @@ bool ExecutorAbNavigation::IsDependsReady()
   //   return false;
   // }
 
+  if (start_lifecycle_depend_finished_) {
+    INFO("Current all lifecycle are activate.");
+    return true;
+  }
+
   if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
     if (!nav_client_->startup()) {
       WARN("Navigation client lifecycle startup failed.");
@@ -246,11 +257,18 @@ bool ExecutorAbNavigation::IsDependsReady()
       return false;
     }
   }
+
+  start_lifecycle_depend_finished_ = true;
   return true;
 }
 
 bool ExecutorAbNavigation::IsConnectServer()
 {
+  if (connect_server_finished_) {
+    INFO("Current server have connected.");
+    return true;
+  }
+
   std::chrono::seconds timeout(5);
   auto is_action_server_ready = action_client_->wait_for_action_server(timeout);
 
@@ -258,6 +276,8 @@ bool ExecutorAbNavigation::IsConnectServer()
     ERROR("Navigation action server is not available.");
     return false;
   }
+
+  connect_server_finished_ = true;
   return true;
 }
 
@@ -289,6 +309,7 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     this, std::placeholders::_1);
   auto future_goal_handle = action_client_->async_send_goal(
     target_goal_, send_goal_options);
+  time_goal_sent_ = this->now();
 
   std::chrono::seconds timeout{5};
   if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
@@ -299,6 +320,50 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
   nav_goal_handle_ = future_goal_handle.get();
   if (!nav_goal_handle_) {
     ERROR("Navigation AB Goal was rejected by server");
+    return false;
+  }
+  return true;
+}
+
+bool ExecutorAbNavigation::ShouldCancelGoal()
+{
+  // No need to cancel the goal if goal handle is invalid
+  if (!nav_goal_handle_) {
+    return false;
+  }
+
+  // Check if the goal is still executing
+  auto status = nav_goal_handle_->get_status();
+  NavigationStatus2String(status);
+
+  return status == action_msgs::msg::GoalStatus::STATUS_ACCEPTED ||
+          status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;
+}
+
+
+bool ExecutorAbNavigation::CheckTimeout()
+{
+  if (nav_goal_handle_) {
+    auto elapsed = (this->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
+    if (!IsFutureGoalHandleComplete(elapsed)) {
+      // return RUNNING if there is still some time before timeout happens
+      if (elapsed < server_timeout_) {
+        return false;
+      }
+      // if server has taken more time than the specified timeout value return FAILURE
+      WARN("Timed out while waiting for action server to acknowledge goal request.");
+      nav_goal_handle_.reset();
+      return true;
+    }
+  }
+}
+
+bool ExecutorAbNavigation::IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed)
+{
+  auto remaining = server_timeout_ - elapsed;
+  // server has already timed out, no need to sleep
+  if (remaining <= std::chrono::milliseconds(0)) {
+    nav_goal_handle_.reset();
     return false;
   }
   return true;
@@ -336,6 +401,11 @@ bool ExecutorAbNavigation::LifecycleNodesReinitialize()
 
 bool ExecutorAbNavigation::VelocitySmoother()
 {
+  if (start_velocity_smoother_finished_) {
+    INFO("Current start velocity smoother finished.");
+    return true;
+  }
+
   while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Connect velocity adaptor service timeout");
@@ -358,12 +428,33 @@ bool ExecutorAbNavigation::VelocitySmoother()
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
+
+  start_velocity_smoother_finished_ = true;
   return result;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
 {
   INFO("Nav target goal: [%f, %f]", pose.pose.position.x, pose.pose.position.y);
+}
+
+void ExecutorAbNavigation::NavigationStatus2String(int8_t status)
+{
+  if (status == action_msgs::msg::GoalStatus::STATUS_UNKNOWN) {
+    INFO("Bt navigation return status : STATUS_UNKNOWN");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_ACCEPTED) {
+    INFO("Bt navigation return status : STATUS_ACCEPTED");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_EXECUTING) {
+    INFO("Bt navigation return status : STATUS_EXECUTING");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_CANCELING) {
+    INFO("Bt navigation return status : STATUS_CANCELING");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_SUCCEEDED) {
+    INFO("Bt navigation return status : STATUS_SUCCEEDED");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_CANCELED) {
+    INFO("Bt navigation return status : STATUS_CANCELED");
+  } else if (status == action_msgs::msg::GoalStatus::STATUS_ABORTED) {
+    INFO("Bt navigation return status : STATUS_ABORTED");
+  }
 }
 
 void ExecutorAbNavigation::ReleaseSources()
@@ -406,6 +497,13 @@ void ExecutorAbNavigation::ResetDefaultValue()
 {
   use_vision_slam_ = false;
   use_lidar_slam_ = false;
+}
+
+void ExecutorAbNavigation::ResetPreprocessingValue()
+{
+  connect_server_finished_ = false;
+  start_lifecycle_depend_finished_ = false;
+  start_velocity_smoother_finished_ = false;
 }
 
 }  // namespace algorithm
