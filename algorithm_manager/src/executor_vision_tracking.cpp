@@ -78,7 +78,9 @@ bool ExecutorVisionTracking::GetParams()
 
   tracking_keep_distance_ = toml::find<float>(params_toml_, "tracking_keep_distance");
   tracking_relative_pos_ = toml::find<int>(params_toml_, "tracking_relative_pos");
-  INFO("tracking_keep_distance_: %2f, tracking_relative_pos_: %d",tracking_keep_distance_,tracking_relative_pos_);
+  INFO(
+    "tracking_keep_distance_: %2f, tracking_relative_pos_: %d", tracking_keep_distance_,
+    tracking_relative_pos_);
   return true;
 }
 
