@@ -27,6 +27,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_debug/backtrace.hpp"
+
 namespace cyberdog
 {
 namespace algorithm

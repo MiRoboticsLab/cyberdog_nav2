@@ -1,6 +1,37 @@
-#趴下
+#动作组合
 [[behavior_ids]]
 behavior_id = 1
+property = "motion"
+motion_id = 143
+vel_des = [0.0, 0.0, 0.0]
+rpy_des = [0.0, 0.0, 0.0]
+pos_des = [0.0, 0.0, 0.0]
+step_height = [0.0, 0.0]
+duration = 0
+module_name = "node_"  
+is_online = true
+text = "坐下，坐下，坐下"
+client = "undefined"
+target = 1
+mode = 0x01
+effect = 0xA4
+
+#等待组合
+[[behavior_ids]]
+behavior_id = 2
+property = "wait"
+wait_time = 20
+module_name = "node_"  
+is_online = true
+text = "坐等二十秒"
+client = "undefined"
+target = 1
+mode = 0x01
+effect = 0xA8 
+
+#动作组合
+[[behavior_ids]]
+behavior_id = 3
 property = "motion"
 motion_id = 101
 vel_des = [0.0, 0.0, 0.0]
@@ -8,25 +39,23 @@ rpy_des = [0.0, 0.0, 0.0]
 pos_des = [0.0, 0.0, 0.0]
 step_height = [0.0, 0.0]
 duration = 0
+module_name = "node_"  
+is_online = true
+text = "我是铁蛋，我是铁蛋"
+client = "undefined"
+target = 1
+mode = 0x01
+effect = 0xAF
 
-#恢复站立
+#等待组合
 [[behavior_ids]]
-behavior_id = 2
-property = "motion"
-motion_id = 111
-vel_des = [0.0, 0.0, 0.0]
-rpy_des = [0.0, 0.0, 0.0]
-pos_des = [0.0, 0.0, 0.0]
-step_height = [0.0, 0.0]
-duration = 0
-
-# 作揖， duration必须为0
-[[behavior_ids]]
-behavior_id = 3  
-property = "motion"
-motion_id = 123
-vel_des = [0.0, 0.0, 0.0]
-rpy_des = [0.0, 0.0, 0.0]
-pos_des = [0.0, 0.0, 0.0]
-step_height = [0.0, 0.0]
-duration = 0
+behavior_id = 4
+property = "wait"
+wait_time = 20
+module_name = "node_"  
+is_online = true
+text = "坐等二十秒"
+client = "undefined"
+target = 1
+mode = 0x01
+effect = 0xB3
