@@ -39,17 +39,24 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       &ExecutorVisionLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
-  // Control vision relocalization turn on
-  start_client_ = create_client<std_srvs::srv::SetBool>(
-    "start_vins_location", rmw_qos_profile_services_default);
+  stop_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "stop_vision_relocation",
+    rclcpp::SystemDefaultsQoS(),
+    std::bind(
+      &ExecutorVisionLocalization::HandleStopTriggerCommandMessages, this,
+      std::placeholders::_1));
 
-  // Control vision relocalization turn off
-  stop_client_ = create_client<std_srvs::srv::SetBool>(
-    "stop_vins_location", rmw_qos_profile_services_default);
+  // // Control vision relocalization turn on
+  // start_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "start_vins_location", rmw_qos_profile_services_default);
 
-  // Control vision mapping report realtime pose turn on and turn off
-  realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
-    "PoseEnable", rmw_qos_profile_services_default);
+  // // Control vision relocalization turn off
+  // stop_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "stop_vins_location", rmw_qos_profile_services_default);
+
+  // // Control vision mapping report realtime pose turn on and turn off
+  // realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
+  //   "PoseEnable", rmw_qos_profile_services_default);
 
   // spin
   std::thread{[this]() {
@@ -66,6 +73,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   bool ready = IsDependsReady();
   if (!ready) {
+    ResetLifecycleDefaultValue();
     ERROR("Vision localization lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
@@ -75,6 +83,21 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (map_result_client_ == nullptr) {
     map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
       "get_miloc_status", shared_from_this());
+  }
+
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_vins_location", shared_from_this());
+  }
+
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_location", shared_from_this());
+  }
+
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
   }
 
   // Check current map available
@@ -139,8 +162,8 @@ void ExecutorVisionLocalization::Stop(
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
+    // task_abort_callback_();
+    // return;
   }
 
   // Disenable report realtime robot pose
@@ -153,7 +176,17 @@ void ExecutorVisionLocalization::Stop(
   }
 
   // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    task_abort_callback_();
+    return;
+  }
+
+  // RGB-D camera lifecycle(dectivate state)
+  success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
@@ -192,46 +225,71 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   }
 }
 
+void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
+  const std_msgs::msg::Bool::SharedPtr msg)
+{
+  INFO("Handle stop relocalization module.");
+  if (msg == nullptr) {
+    return;
+  }
+
+  if (msg->data) {
+    auto request = std::make_shared<StopTaskSrv::Request>();
+    auto response = std::make_shared<StopTaskSrv::Response>();
+    Stop(request, response);
+  }
+}
+
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    return false;
+    // RealSense camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
+
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
-
-  // RGB-D camera lifecycle(configure state)
-  success = LifecycleNodeManager::GetSingleton()->Configure(
+  success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RGBCameraSensor);
   if (!success) {
-    return false;
+    // RGB-D camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      return false;
+    }
+
+    // RGB-D camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RGBCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
-  // RGB-D camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RGBCameraSensor);
+  success = localization_lifecycle_->IsActivate();
   if (!success) {
-    return false;
-  }
+    // localization_node lifecycle(configure state)
+    if (!localization_lifecycle_->Configure()) {
+      return false;
+    }
 
-  // localization_node lifecycle(configure state)
-  if (!localization_lifecycle_->Configure()) {
-    return false;
+    // localization_node lifecycle(activate state)
+    if (!localization_lifecycle_->Startup()) {
+      return false;
+    }
   }
-
-  // localization_node lifecycle(activate state)
-  if (!localization_lifecycle_->Startup()) {
-    return false;
-  }
-
   return true;
 }
 
@@ -257,10 +315,32 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 
 bool ExecutorVisionLocalization::EnableRelocalization()
 {
+  // // Wait service
+  // while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for relocalization start the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = start_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
+  //   ERROR("Connect relocalization start service timeout");
+  //   return false;
+  // }
+
+  // INFO("Send start relocalization service request success.");
+  // return future.get()->success;
+
   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for relocalization start the service. but cannot connect the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -270,21 +350,43 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   request->data = true;
 
   // Send request
-  auto future = start_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect relocalization start service timeout");
-    return false;
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(25s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
   }
-
-  INFO("Send start relocalization service request success.");
-  return future.get()->success;
+  return result;
 }
 
 bool ExecutorVisionLocalization::DisenableRelocalization()
 {
+  // while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for relocalization stop the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = true;
+
+  // // Send request
+  // auto future = stop_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
+  //   ERROR("Connect relocalization stop service timeout");
+  //   return false;
+  // }
+
+  // return future.get()->success;
+
+  // Wait service
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for relocalization stop the service. but cannot connect the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -294,21 +396,50 @@ bool ExecutorVisionLocalization::DisenableRelocalization()
   request->data = true;
 
   // Send request
-  auto future = stop_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect relocalization stop service timeout");
-    return false;
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
   }
-
-  return future.get()->success;
+  return result;
 }
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
-  // Wait service
+  // // Wait service
+  // while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for position checker the service.");
+  //     return false;
+  //   }
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // request->data = enable;
+
+  // // Print enable and disenable message
+  // if (enable) {
+  //   INFO("Start report robot's realtime pose");
+  // } else {
+  //   INFO("Stop report robot's realtime pose.");
+  // }
+
+  // // Send request
+  // auto future = realtime_pose_client_->async_send_request(request);
+  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  //   ERROR("Connect position checker service timeout");
+  //   return false;
+  // }
+
+  // return future.get()->success;
+
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
-      ERROR("Waiting for position checker the service.");
+      ERROR("Waiting for the service. but cannot connect the service.");
       return false;
     }
   }
@@ -325,13 +456,15 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   }
 
   // Send request
-  auto future = realtime_pose_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect position checker service timeout");
-    return false;
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
   }
-
-  return future.get()->success;
+  return result;
 }
 
 bool ExecutorVisionLocalization::CheckMapAvailable()
@@ -349,8 +482,37 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   // Send request
   // bool success = map_result_client_->invoke(request, response);
-  auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
-  return future_result->code == 0;
+
+  bool result = false;
+  try {
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->code == 0;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  return result;
+}
+
+bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    ERROR("Release RealSense failed.");
+  }
+
+  LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    ERROR("Release RGBCamera failed.");
+  }
+
+  localization_lifecycle_->Pause();
+  if (!success) {
+    ERROR("Release localization failed.");
+  }
+  return success;
 }
 
 }  // namespace algorithm

@@ -197,5 +197,22 @@ bool LifecycleNodeManager::Cleanup(const LifeCycleNode & which)
   return true;
 }
 
+bool LifecycleNodeManager::IsActivate(const LifeCycleNode & which)
+{
+  switch (which) {
+    case LifeCycleNode::RealSenseCameraSensor:
+      return realsense_lifecycle_->IsActivate();
+      break;
+
+    case LifeCycleNode::RGBCameraSensor:
+      return camera_lifecycle_->IsActivate();
+      break;
+
+    default:
+      break;
+  }
+  return true;
+}
+
 }  // namespace algorithm
 }  // namespace cyberdog

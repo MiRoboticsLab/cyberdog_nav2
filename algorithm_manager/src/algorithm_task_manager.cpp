@@ -139,6 +139,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
       return;
     }
+
     std::string task_name;
     for (auto task : task_map_) {
       if (task.second.id == request->task_id) {
@@ -225,7 +226,9 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
 {
-  goal_handle_executing_->publish_feedback(feedback);
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->publish_feedback(feedback);
+  }
 }
 
 void AlgorithmTaskManager::TaskSuccessd()

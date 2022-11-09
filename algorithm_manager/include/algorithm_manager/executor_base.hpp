@@ -314,7 +314,11 @@ protected:
 
   bool DeactivateDepsLifecycleNodes(int timeout = 20000)
   {
-    for (auto client : lifecycle_activated_) {
+    // for (auto client : lifecycle_activated_) {
+    for (auto lifecycle_activated_rtr = lifecycle_activated_.rbegin();
+      lifecycle_activated_rtr != lifecycle_activated_.rend(); lifecycle_activated_rtr++)
+    {
+      auto client = *lifecycle_activated_rtr;
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
         WARN("Lifecycle [%s] not exist, will not deactive it", client.name.c_str());
         continue;
@@ -351,6 +355,7 @@ protected:
     task_feedback_callback_(feedback);
     // INFO("Over Enqueue");
   }
+
   void UpdatePreparationStatus()
   {
     while (rclcpp::ok()) {
@@ -392,6 +397,7 @@ protected:
   {
     feedback_->feedback_code = feedback;
   }
+
   /**
    * @brief
    * 结束向底层任务执行器send_goal前的状态上报
@@ -448,6 +454,7 @@ private:
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
   static std::shared_ptr<BehaviorManager> behavior_manager_;
   bool preparation_finished_{true};
+
 
   /* add by North.D.K. 10.09*/
   // std::function<void()>

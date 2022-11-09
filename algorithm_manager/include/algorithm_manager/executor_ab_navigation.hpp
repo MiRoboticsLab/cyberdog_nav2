@@ -17,13 +17,16 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
 #include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
 {
@@ -34,6 +37,7 @@ class ExecutorAbNavigation : public ExecutorBase
 {
 public:
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
+  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   explicit ExecutorAbNavigation(std::string node_name);
   ~ExecutorAbNavigation();
@@ -85,6 +89,13 @@ private:
   void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
 
   /**
+   * @brief Handle executor_reset_nav command
+   *
+   * @param msg The executor request
+   */
+  void HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg);
+
+  /**
    * @brief Check `lifecycle_manager_navigation` and `lifecycle_manager_localization`
    * `real sense` sensor lidar status
    *
@@ -118,6 +129,28 @@ private:
    * @return false Return failure
    */
   bool SendGoal(const geometry_msgs::msg::PoseStamped & pose);
+
+  /**
+   * @brief Function to check if current goal should be cancelled
+   * @return bool True if current goal should be cancelled, false otherwise
+   */
+  bool ShouldCancelGoal();
+
+  /**
+   * @brief Check send async goal timeout
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool CheckTimeout();
+
+  /**
+   * @brief Function to check if the action server acknowledged a new goal
+   * @param elapsed Duration since the last goal was sent and future goal handle has not completed.
+   * After waiting for the future to complete, this value is incremented with the timeout value.
+   * @return boolean True if future_goal_handle_ returns SUCCESS, False otherwise
+   */
+  bool IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed);
 
   /**
    * @brief Normalized app given pose
@@ -157,6 +190,49 @@ private:
    */
   void Debug2String(const geometry_msgs::msg::PoseStamped & pose);
 
+  /**
+   * @brief To String
+   *
+   * @param status
+   */
+  void NavigationStatus2String(int8_t status);
+
+  /**
+   * @brief Release source and reset
+   *
+   */
+  void ReleaseSources();
+
+  /**
+   * @brief Check vision slam location
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool IsUseVisionLocation();
+
+  /**
+   * @brief Check lidar slam location
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool IsUseLidarLocation();
+
+  /**
+   * @brief Set the Location Type object
+   *
+   * @param outdoor true : vision
+   *                false: lidar
+   */
+  void SetLocationType(bool outdoor);
+
+  /**
+   * @brief Set `use_vision_slam_` and `use_lidar_slam_` default value
+   */
+  void ResetDefaultValue();
+  void ResetPreprocessingValue();
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
@@ -174,7 +250,8 @@ private:
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; \
+  rclcpp::Time time_goal_sent_;
 
   // Control localization_node lifecycle
   // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
@@ -183,10 +260,31 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Control `map server` lifecycle node
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};
+
+  // Control `map server` lifecycle node
   std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};
+
+  // Stop lidar and vision location module
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_nav_trigger_sub_{nullptr};
+
+  // nav trigger
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_sub_{nullptr};
+  std::atomic_bool navigation_reset_trigger_{false};
+
+  // Record lidar or vision flag
+  bool use_vision_slam_ {false};
+  bool use_lidar_slam_ {false};
+
+  // Preprocessing flag
+  bool connect_server_finished_ {false};
+  bool start_lifecycle_depend_finished_ {false};
+  bool start_velocity_smoother_finished_ {false};
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

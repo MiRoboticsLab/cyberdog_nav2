@@ -22,6 +22,7 @@
 #include "protocol/srv/body_region.hpp"
 #include "protocol/srv/algo_manager.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
+#include "protocol/msg/tracking_status.hpp"
 
 namespace cyberdog
 {
@@ -35,6 +36,7 @@ public:
     rclcpp_action::ClientGoalHandle<mcr_msgs::action::TargetTracking>;
   using BodyRegionT = protocol::srv::BodyRegion;
   using Navigation = protocol::action::Navigation;
+  using TrackingStatusT = protocol::msg::TrackingStatus;
 
   explicit ExecutorVisionTracking(std::string node_name);
   void Start(const AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -55,7 +57,10 @@ public:
     const sensor_msgs::msg::RegionOfInterest & roi);
 
   bool CallVisionTrackAlgo(bool object_tracking);
-  void OnCancel();
+  void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
+  void VisionManagerStatusCallback(const TrackingStatusT::SharedPtr msg);
+  bool OnlyCancelNavStack();
+  bool GetParams();
 
 private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
@@ -90,15 +95,21 @@ private:
 
   rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
     target_tracking_action_client_;
-
+  rclcpp::Subscription<TrackingStatusT>::SharedPtr vision_manager_status_sub_;
   mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
 
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
-
+  std::mutex target_tracking_server_mutex_;
+  std::condition_variable target_tracking_server_cv_;
+  std::mutex start_stop_mutex_;
   int32_t vision_action_client_feedback_;
   bool start_vision_tracking_;
-
+  bool vision_manager_tracking_{false};
+  bool cancel_tracking_result_{true};
   rclcpp::TimerBase::SharedPtr feedback_timer_;
+  float tracking_keep_distance_ = 1.0;
+  int tracking_relative_pos_ = 1;
+  toml::value params_toml_;
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
 }  // namespace cyberdog

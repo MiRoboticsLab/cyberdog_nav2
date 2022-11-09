@@ -290,16 +290,23 @@ void LabelStore::Read(
   }
 
   rapidjson::Document document(rapidjson::kObjectType);
-  common::CyberdogJson::ReadJsonFromFile(label_filename, document);
+  bool success = common::CyberdogJson::ReadJsonFromFile(label_filename, document);
+  if (!success) {
+    ERROR("Load label json file failed.");
+    return;
+  }
 
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
-    if (it->name.GetString() == "map_name" || it->value.IsString()) {
-      continue;
+    std::string key = it->name.GetString();
+    INFO("key = %s", key.c_str());
+    if (key == "map_name" || it->value.IsString()) {
+      std::string name = it->value.GetString();
+      INFO("map_name: %s", name.c_str());
     }
 
-    if (it->name.GetString() == "is_outdoor" && it->value.IsBool()) {
+    if (key == "is_outdoor") {
       is_outdoor = it->value.GetBool();
-      continue;
+      INFO("is_outdoor: %d", is_outdoor);
     }
 
     if (it->value.IsObject()) {

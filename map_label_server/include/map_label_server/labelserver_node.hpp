@@ -22,7 +22,7 @@
 #include "protocol/srv/set_map_label.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
-
+#include "std_msgs/msg/bool.hpp"
 #include "nav2_map_server/map_server.hpp"
 #include "nav2_map_server/map_io.hpp"
 #include "map_label_server/label_store.hpp"
@@ -101,6 +101,27 @@ public:
   std::string robot_map_name() const;
 
 private:
+  /**
+   * @brief Handle vision is mapping
+   *
+   * @param msg Request command
+   */
+  void HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+
+  /**
+   * @brief Handle lidar is mapping
+   *
+   * @param msg Request command
+   */
+  void HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+
+  /**
+   * @brief Set the Outdoor Flag object
+   *
+   * @param outdoor Is outdoor: vision or lidar
+   */
+  void SetOutdoorFlag(bool outdoor);
+
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
   rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
@@ -114,6 +135,12 @@ private:
 
   // map
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_pub_ {nullptr};
+
+  // outdoor
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_mapping_sub_{nullptr};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
+  bool use_lidar_create_map_ {false};
+  bool use_vision_create_map_ {false};
 };
 }  // namespace CYBERDOG_NAV
 #endif  // MAP_LABEL_SERVER__LABELSERVER_NODE_HPP_

@@ -41,6 +41,9 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   localization_client_ = std::make_unique<LifecycleController>("localization_node");
   mapping_client_ = std::make_unique<LifecycleController>("map_builder");
 
+  // mapping build type
+  lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
+
   // ontrol lidar mapping turn on
   // start_client_ = create_client<std_srvs::srv::SetBool>(
   //   "start_mapping", rmw_qos_profile_services_default);
@@ -273,18 +276,23 @@ bool ExecutorLaserMapping::IsDependsReady()
   //   return false;
   // }
 
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  // RealSense camera
+  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
-    return false;
-  }
+    // RealSense camera lifecycle(configure state)
+    success = LifecycleNodeManager::GetSingleton()->Configure(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
+    // RealSense camera lifecycle(activate state)
+    success = LifecycleNodeManager::GetSingleton()->Startup(
+      LifeCycleNodeType::RealSenseCameraSensor);
+    if (!success) {
+      return false;
+    }
   }
 
   // Laser mapping  lifecycle
@@ -340,8 +348,14 @@ bool ExecutorLaserMapping::StartBuildMapping()
 
   // Send request
   // return start_->invoke(request, response);
-  auto future_result = start_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = start_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
@@ -388,8 +402,18 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 
   // Send request
   // return stop_->invoke(request, response);
-  auto future_result = stop_->invoke(request, std::chrono::seconds(5s));
-  return future_result->success;
+  bool result = false;
+  try {
+    auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  if (result) {
+    PublishBuildMapType();
+  }
+  return result;
 }
 
 bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
@@ -494,8 +518,21 @@ bool ExecutorLaserMapping::VelocitySmoother()
   // velocity_smoother_->invoke(request, std::chrono::seconds(5s))
 
   // return velocity_smoother_->invoke(request, response);
-  auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-  return future_result->result;
+  bool result = false;
+  try {
+    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->result;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
+}
+
+void ExecutorLaserMapping::PublishBuildMapType()
+{
+  std_msgs::msg::Bool state;
+  state.data = true;
+  lidar_mapping_trigger_pub_->publish(state);
 }
 
 }  // namespace algorithm

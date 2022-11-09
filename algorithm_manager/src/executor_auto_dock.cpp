@@ -48,6 +48,7 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
 
 void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
+  (void)goal;
   INFO("Auto Dock starting");
   ReportPreparationStatus();
   // INFO("Starting LaserLocalization");
@@ -101,11 +102,12 @@ void ExecutorAutoDock::OnCancel()
     if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
+    StopReportPreparationThread();
+    task_cancle_callback_();
+    INFO("OnCancel completed");
   }
-  StopReportPreparationThread();
-  task_cancle_callback_();
-  INFO("OnCancel completed");
-  laser_charge_goal_handle_.reset();
+
+  // laser_charge_goal_handle_.reset();
 }
 // This section is for the stage2 client interface
 void ExecutorAutoDock::stage2_goal_response_callback(
@@ -135,18 +137,25 @@ void ExecutorAutoDock::stage2_result_callback(
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("stage2 Result SUCCEEDED.");
       // OnCancel();
-      if (!DeactivateDepsLifecycleNodes(50000)) {
-        ERROR("DeactivateDepsLifecycleNodes failed");
-      }
-      StopReportPreparationThread();
-      task_success_callback_();
+      // if (!DeactivateDepsLifecycleNodes(50000)) {
+      //   ERROR("DeactivateDepsLifecycleNodes failed");
+      // }
+      // StopReportPreparationThread();
+      // task_success_callback_();
       laser_charge_goal_handle_.reset();
+      stage3_send_goal();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage2 Goal was aborted");
       return;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("stage2 Goal was canceled");
+      if (!DeactivateDepsLifecycleNodes(50000)) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
+      StopReportPreparationThread();
+      task_cancle_callback_();
+      INFO("OnCancel completed");
       return;
     default:
       ERROR("stage2 Unknown result code");
@@ -199,6 +208,99 @@ void ExecutorAutoDock::stage2_send_goal()
   // timer callback
   laser_charge_goal_handle_ = future_goal_handle.get();
   if (!laser_charge_goal_handle_) {
+    ERROR("Goal was rejected by server");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return;
+  }
+}
+
+// This section is for the seat_adjust stage client interface
+void ExecutorAutoDock::stage3_goal_response_callback(GoalHandleSeatAdjust::SharedPtr goal_handle)
+{
+  if (!goal_handle) {
+    ERROR("stage3 Goal was rejected by server");
+  } else {
+    INFO("stage3 Goal accepted by server, waiting for result");
+  }
+}
+
+void ExecutorAutoDock::stage3_feedback_callback(
+  GoalHandleSeatAdjust::SharedPtr,
+  const std::shared_ptr<const SeatAdjustT::Feedback> feedback)
+{
+  INFO("stage3 feedback count: %d", feedback->count);
+}
+
+void ExecutorAutoDock::stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result)
+{
+  this->stage3_goal_done_ = true;
+  switch (result.code) {
+    case rclcpp_action::ResultCode::SUCCEEDED:
+      INFO("stage3 Result received.");
+      break;
+    case rclcpp_action::ResultCode::ABORTED:
+      ERROR("stage3 Goal was aborted");
+      return;
+    case rclcpp_action::ResultCode::CANCELED:
+      ERROR("stage3 Goal was canceled");
+      return;
+    default:
+      ERROR("stage3 Unknown result code");
+      return;
+  }
+}
+
+void ExecutorAutoDock::stage3_send_goal()
+{
+  using namespace std::placeholders;
+
+  this->stage3_goal_done_ = false;
+
+  if (!this->client_seat_adjust_ptr_) {
+    ERROR("Action client not initialized");
+  }
+
+  if (!this->client_seat_adjust_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
+    ERROR("Action server not available after waiting");
+    this->stage3_goal_done_ = true;
+    return;
+  }
+
+  auto goal_msg = SeatAdjustT::Goal();
+  goal_msg.start = goal_msg.SEATADJUST_GOAL_TYPE_START;
+
+  INFO("Sending goal");
+
+  auto send_goal_options = rclcpp_action::Client<SeatAdjustT>::SendGoalOptions();
+  send_goal_options.goal_response_callback =
+    std::bind(&ExecutorAutoDock::stage3_goal_response_callback, this, _1);
+  send_goal_options.feedback_callback =
+    std::bind(&ExecutorAutoDock::stage3_feedback_callback, this, _1, _2);
+  send_goal_options.result_callback =
+    std::bind(&ExecutorAutoDock::stage3_result_callback, this, _1);
+  auto future_goal_handle = this->client_seat_adjust_ptr_->async_send_goal(
+    goal_msg,
+    send_goal_options);
+  INFO("client_seat_adjust_ptr_ async_send_goal");
+  if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
+    ERROR("Cannot Get result client_seat_adjust_ptr_");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
+    }
+    task_abort_callback_();
+    return;
+  } else {
+    INFO("client_seat_adjust_ptr_  success");
+  }
+  // Get the goal handle and save so that we can check on completion in the
+  // timer callback
+  seat_adjust_goal_handle_ = future_goal_handle.get();
+  if (!seat_adjust_goal_handle_) {
     ERROR("Goal was rejected by server");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     if (!DeactivateDepsLifecycleNodes(50000)) {

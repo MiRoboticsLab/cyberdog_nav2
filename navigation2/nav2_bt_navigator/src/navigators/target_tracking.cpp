@@ -211,6 +211,8 @@ void
 TargetTrackingNavigator::onGoalPoseReceived(
   const geometry_msgs::msg::PoseStamped::SharedPtr pose)
 {
+  if(pose->header.frame_id == "")
+    return;
   latest_goal_ = *pose;
   latest_goal_.header.stamp = clock_->now();
 }

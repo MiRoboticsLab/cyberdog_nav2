@@ -13,68 +13,18 @@
 # limitations under the License.
 
 from launch import LaunchDescription
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    return LaunchDescription(
-        [
-            Node(package='seat_adjust_server', executable='seat_adjust_server'),
-            Node(
-                package='tf2_ros',
-                executable='static_transform_publisher',
-                arguments=[
-                    '0.259',
-                    '0.03',
-                    '0.102',
-                    '0',
-                    '-0.266',
-                    '0.296',
-                    'base_link',
-                    'left_head',
-                ],
-            ),
-            Node(
-                package='tf2_ros',
-                executable='static_transform_publisher',
-                arguments=[
-                    '0.259',
-                    '-0.03',
-                    '0.102',
-                    '0',
-                    '-0.266',
-                    '-0.296',
-                    'base_link',
-                    'right_head',
-                ],
-            ),
-            Node(
-                package='tf2_ros',
-                executable='static_transform_publisher',
-                arguments=[
-                    '-0.021',
-                    '0.042',
-                    '-0.051',
-                    '0',
-                    '0',
-                    '0.296',
-                    'base_link',
-                    'left_rear',
-                ],
-            ),
-            Node(
-                package='tf2_ros',
-                executable='static_transform_publisher',
-                arguments=[
-                    '-0.021',
-                    '-0.042',
-                    '-0.051',
-                    '0',
-                    '0',
-                    '-0.296',
-                    'base_link',
-                    'right_rear',
-                ],
-            ),
-        ]
-    )
+    namespace = LaunchConfiguration('namespace', default='')
+    return LaunchDescription([
+        Node(
+             package='seat_adjust_server',
+             executable='seat_adjust_server',
+             namespace=namespace,
+             name='seat_adjust_server',
+             output='screen'
+            )
+    ])
