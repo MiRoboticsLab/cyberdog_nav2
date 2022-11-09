@@ -63,7 +63,25 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
+  GetParams();
   std::thread{[this] {this->executor_->spin();}}.detach();
+}
+bool ExecutorVisionTracking::GetParams()
+{
+  auto local_share_dir = ament_index_cpp::get_package_share_directory("algorithm_manager");
+  auto path = local_share_dir + std::string("/config/VisionTracking.toml");
+
+  if (!cyberdog::common::CyberdogToml::ParseFile(path.c_str(), params_toml_)) {
+    ERROR("Params config file is not in toml format");
+    return false;
+  }
+
+  tracking_keep_distance_ = toml::find<float>(params_toml_, "tracking_keep_distance");
+  tracking_relative_pos_ = toml::find<int>(params_toml_, "tracking_relative_pos");
+  INFO(
+    "tracking_keep_distance_: %2f, tracking_relative_pos_: %d", tracking_keep_distance_,
+    tracking_relative_pos_);
+  return true;
 }
 
 void ExecutorVisionTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -270,8 +288,8 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   }
   INFO("is_action_server_ready success");
   // Send the goal pose
-  target_tracking_goal_.relative_pos = 1;
-  target_tracking_goal_.keep_distance = 1.1;
+  target_tracking_goal_.relative_pos = tracking_relative_pos_;
+  target_tracking_goal_.keep_distance = tracking_keep_distance_;
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
     mcr_msgs::action::TargetTracking>::SendGoalOptions();

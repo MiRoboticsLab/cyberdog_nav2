@@ -60,6 +60,7 @@ public:
   void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
   void VisionManagerStatusCallback(const TrackingStatusT::SharedPtr msg);
   bool OnlyCancelNavStack();
+  bool GetParams();
 
 private:
   void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
@@ -106,6 +107,9 @@ private:
   bool vision_manager_tracking_{false};
   bool cancel_tracking_result_{true};
   rclcpp::TimerBase::SharedPtr feedback_timer_;
+  float tracking_keep_distance_ = 1.0;
+  int tracking_relative_pos_ = 1;
+  toml::value params_toml_;
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
 }  // namespace cyberdog
