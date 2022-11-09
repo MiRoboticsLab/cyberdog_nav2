@@ -71,7 +71,7 @@ public:
         throw std::runtime_error(
                 service_name_ + " service client: interrupted while waiting for service");
       }
-      INFO("%s service client: waiting for service to appear..", service_name_.c_str());     
+      INFO("%s service client: waiting for service to appear..", service_name_.c_str());
     }
 
     INFO("%s service client: send async request", service_name_.c_str());
@@ -108,8 +108,8 @@ public:
     auto future_result = client_->async_send_request(request);
 
     if (callback_group_executor_.spin_until_future_complete(
-      future_result, std::chrono::milliseconds(timeout))==
-        rclcpp::FutureReturnCode::TIMEOUT)
+        future_result, std::chrono::milliseconds(timeout)) ==
+      rclcpp::FutureReturnCode::TIMEOUT)
     {
       ERROR("Wait %s result timeout", service_name_.c_str());
       return nullptr;

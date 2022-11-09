@@ -337,7 +337,7 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
   NavigationStatus2String(status);
 
   return status == action_msgs::msg::GoalStatus::STATUS_ACCEPTED ||
-          status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;
+         status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;
 }
 
 

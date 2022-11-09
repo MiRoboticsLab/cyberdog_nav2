@@ -250,7 +250,7 @@ private:
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};\
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; \
   rclcpp::Time time_goal_sent_;
 
   // Control localization_node lifecycle
