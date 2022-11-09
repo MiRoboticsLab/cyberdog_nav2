@@ -131,6 +131,28 @@ private:
   bool SendGoal(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
+   * @brief Function to check if current goal should be cancelled
+   * @return bool True if current goal should be cancelled, false otherwise
+   */
+  bool ShouldCancelGoal();
+
+  /**
+   * @brief Check send async goal timeout
+   *
+   * @return true Success
+   * @return false Failure
+   */
+  bool CheckTimeout();
+
+  /**
+   * @brief Function to check if the action server acknowledged a new goal
+   * @param elapsed Duration since the last goal was sent and future goal handle has not completed.
+   * After waiting for the future to complete, this value is incremented with the timeout value.
+   * @return boolean True if future_goal_handle_ returns SUCCESS, False otherwise
+   */
+  bool IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed);
+
+  /**
    * @brief Normalized app given pose
    *
    * @param pose
@@ -169,6 +191,13 @@ private:
   void Debug2String(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
+   * @brief To String
+   *
+   * @param status
+   */
+  void NavigationStatus2String(int8_t status);
+
+  /**
    * @brief Release source and reset
    *
    */
@@ -202,6 +231,7 @@ private:
    * @brief Set `use_vision_slam_` and `use_lidar_slam_` default value
    */
   void ResetDefaultValue();
+  void ResetPreprocessingValue();
 
   // feedback data
   ExecutorData executor_nav_ab_data_;
@@ -220,7 +250,8 @@ private:
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; \
+  rclcpp::Time time_goal_sent_;
 
   // Control localization_node lifecycle
   // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
@@ -249,6 +280,11 @@ private:
   // Record lidar or vision flag
   bool use_vision_slam_ {false};
   bool use_lidar_slam_ {false};
+
+  // Preprocessing flag
+  bool connect_server_finished_ {false};
+  bool start_lifecycle_depend_finished_ {false};
+  bool start_velocity_smoother_finished_ {false};
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog
