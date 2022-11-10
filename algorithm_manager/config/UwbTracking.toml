@@ -1,2 +1,2 @@
-stair_detect = false
+stair_detect = true
 static_detect = false
