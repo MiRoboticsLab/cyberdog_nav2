@@ -179,7 +179,7 @@ public:
       if (behavior_id_map_.empty()) {
         return;
       }
-      for (iter = behavior_id_map_.begin(); iter != behavior_id_map_.end(); iter++) {
+      for (iter = behavior_id_map_.begin(); iter != behavior_id_map_.end() && auto_tracking_start_; iter++) {
         if (iter->second.property == "motion") {
           req_motion->motion_id = iter->second.motion_id;
           req_motion->vel_des[0] = iter->second.vel_des[0];
@@ -205,24 +205,24 @@ public:
           auto future_motion = motion_result_client_->async_send_request(req_motion);
           auto future_audio = audio_play_client_->async_send_request(req_audio);
           auto future_led = led_execute_client_->async_send_request(req_led);
-          if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
-            std::future_status::timeout)
-          {
-            FATAL("Motion service failed");
-            return;
-          }
-          if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
-            std::future_status::timeout)
-          {
-            FATAL("Audio service failed");
-            return;
-          }
-          if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
-            std::future_status::timeout)
-          {
-            FATAL("Led service failed");
-            return;
-          }
+          // if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
+          //   std::future_status::timeout)
+          // {
+          //   FATAL("Motion service failed");
+          //   // return;
+          // }
+          // if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
+          //   std::future_status::timeout)
+          // {
+          //   FATAL("Audio service failed");
+          //   // return;
+          // }
+          // if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
+          //   std::future_status::timeout)
+          // {
+          //   FATAL("Led service failed");
+          //   // return;
+          // }
         } 
         else 
         {
@@ -239,36 +239,38 @@ public:
               req_led->target = iter->second.target;
               req_led->mode = iter->second.mode;
               req_led->effect = iter->second.effect;
-              auto future_motion = motion_result_client_->async_send_request(req_motion);
+              // auto future_motion = motion_result_client_->async_send_request(req_motion);
               auto future_audio = audio_play_client_->async_send_request(req_audio);
               auto future_led = led_execute_client_->async_send_request(req_led);
-              if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
-                std::future_status::timeout)
-              {
-                FATAL("Motion service failed");
-                return;
-              }
-              if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
-                std::future_status::timeout)
-              {
-                FATAL("Audio service failed");
-                return;
-              }
-              if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
-                std::future_status::timeout)
-              {
-                FATAL("Led service failed");
-                return;
-              }
+              // if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
+              //   std::future_status::timeout)
+              // {
+              //   FATAL("Motion service failed");
+              //   // return;
+              // }
+              // if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
+              //   std::future_status::timeout)
+              // {
+              //   FATAL("Audio service failed");
+              //   // return;
+              // }
+              // if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
+              //   std::future_status::timeout)
+              // {
+              //   FATAL("Led service failed");
+              //   // return;
+              // }
             }
             if (std::chrono::system_clock::now() >= task_time){
-              first_send = false;
 	            break;
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
           }
+          first_send = false;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(time_));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
+      auto_tracking_start_ = false;
     }
   }
   // bool WalkAround()
