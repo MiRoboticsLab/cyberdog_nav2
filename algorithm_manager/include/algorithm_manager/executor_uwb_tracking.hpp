@@ -53,6 +53,7 @@ private:
   std::shared_ptr<BehaviorManager> behavior_manager_;
   BehaviorManager::BehaviorStatus behavior_status_;
   bool cancel_tracking_result_{true};
+  bool stair_detect_{false}, static_detect_{false};
 };  // class ExecutorUwbTracking
 }  // namespace algorithm
 }  // namespace cyberdog

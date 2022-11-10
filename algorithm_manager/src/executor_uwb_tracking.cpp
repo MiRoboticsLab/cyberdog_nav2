@@ -33,6 +33,15 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
     action_client_node_, "tracking_target");
   GetBehaviorManager()->RegisterStateCallback(
     std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
+  std::string behavior_config = ament_index_cpp::get_package_share_directory(
+    "algorithm_manager") + "/config/UwbTracking.toml";
+  toml::value value;
+  if (!cyberdog::common::CyberdogToml::ParseFile(behavior_config, value)) {
+    FATAL("Cannot parse %s", behavior_config.c_str());
+    exit(-1);
+  }
+  GET_TOML_VALUE(value, "stair_detect", stair_detect_);
+  GET_TOML_VALUE(value, "static_detect", static_detect_);
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
 
@@ -216,7 +225,7 @@ void ExecutorUwbTracking::HandleGoalResponseCallback(
   TargetTrackingGoalHandle::SharedPtr goal_handle)
 {
   (void)goal_handle;
-  GetBehaviorManager()->Launch(true, false);
+  GetBehaviorManager()->Launch(stair_detect_, static_detect_);
   INFO("Goal accepted");
 }
 
