@@ -66,28 +66,30 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   last_relative_pos = goal->relative_pos;
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
-  ReportPreparationStatus();
+  // ReportPreparationStatus();
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
 
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
-  static bool first_run = true;
-  bool result = false;
-  if (first_run) {
-    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
-  } else {
-    result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
-  }
-  if (!result) {
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    DeactivateDepsLifecycleNodes();
-    task_abort_callback_();
-    return;
-  }
-  first_run = false;
+  // static bool first_run = true;
+  // bool result = false;
+  // if (first_run) {
+  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
+  // } else {
+  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
+  // }
+  // if (!result) {
+  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  //   DeactivateDepsLifecycleNodes();
+  //   task_abort_callback_();
+  //   return;
+  // }
+  // first_run = false;
   // TODO(Harvey): 当有Realsense的依赖时
   // TODO(Harvey): 当有其他没有继承Nav2Lifecycle的依赖节点时
   auto is_action_server_ready =
@@ -97,12 +99,14 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("TrackingTarget action server is not available.");
     OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
     DeactivateDepsLifecycleNodes();
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+  // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
   // Send the goal pose
   auto send_goal_options =
     rclcpp_action::Client<McrTargetTracking>::SendGoalOptions();
@@ -185,25 +189,27 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
 void ExecutorUwbTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status)
 {
   behavior_status_ = status;
+  int32_t feedback_code = -1;
   switch (behavior_status_) {
     case BehaviorManager::BehaviorStatus::kStairJumping:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_STAIRJUMPING;
       break;
 
     case BehaviorManager::BehaviorStatus::kAutoTracking:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_AUTOTRACKING;
       break;
 
     case BehaviorManager::BehaviorStatus::kAbnorm:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_BEHAVIORABNORM;
 
     default:
       return;
   }
-  task_feedback_callback_(feedback_);
+  // task_feedback_callback_(feedback_);
+  UpdateFeedback(feedback_code);
 }
 
 
@@ -215,36 +221,39 @@ void ExecutorUwbTracking::HandleFeedbackCallback(
     return;
   }
   INFO_MILLSECONDS(1000, "Get TargetTracking Feedback: %d", feedback->exception_code);
+  int32_t feedback_code = -1;
   switch (feedback->exception_code) {
     case 0:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_NOEXCEPTION;
       break;
 
     case 1000:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_DETECOTOREXCEPTION;
       break;
 
     case 2000:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_TFEXCEPTION;
       break;
 
     case 3000:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_PLANNNEREXCEPTION;
       break;
 
     case 4000:
-      feedback_->feedback_code =
+      feedback_code =
         AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_CONTROLLEREXCEPTION;
       break;
 
     default:
-      break;
+      ERROR("Get unkown feedback %d from TargetTracking:", feedback->exception_code);
+      return;
   }
-  task_feedback_callback_(feedback_);
+  // task_feedback_callback_(feedback_);
+  UpdateFeedback(feedback_code);
 }
 
 void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult result)
