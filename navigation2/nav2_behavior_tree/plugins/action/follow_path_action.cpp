@@ -31,6 +31,7 @@ FollowPathAction::FollowPathAction(
 void FollowPathAction::on_tick()
 {
   getInput("path", goal_.path);
+  getInput("goal", goal_.goal);
   getInput("controller_id", goal_.controller_id);
   getInput("goal_checker_id", goal_.goal_checker_id);
   getInput("progress_checker_id", goal_.progress_checker_id);
@@ -51,6 +52,15 @@ void FollowPathAction::on_wait_for_result()
     if(exception_code == nav2_core::CONTROLLEREXECPTION){
       config().blackboard->set<int>("exception_code", nav2_core::NOEXCEPTION);
     }
+    goal_updated_ = true;
+  }
+  geometry_msgs::msg::PoseStamped new_goal;
+  getInput("goal", new_goal);
+
+  // Check if it is not same with the current one
+  if (goal_.goal != new_goal) {
+    // the action server on the next loop iteration
+    goal_.goal = new_goal;
     goal_updated_ = true;
   }
 

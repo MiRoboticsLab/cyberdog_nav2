@@ -1,5 +1,6 @@
 #goal definition
 nav_msgs/Path path
+geometry_msgs/PoseStamped goal
 string controller_id
 string goal_checker_id
 string progress_checker_id
