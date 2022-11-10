@@ -140,6 +140,7 @@ public:
   {
     std::thread{std::bind(&ExecutorBase::UpdatePreparationStatus, this)}.detach();
     feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
+    last_feedback_ = std::make_shared<AlgorithmMGR::Feedback>();
   }
   ~ExecutorBase()
   {
@@ -393,6 +394,17 @@ protected:
     preparation_finish_cv_.notify_one();
   }
 
+  void UpdateFeedback(int32_t feedback_code)
+  {
+    if (feedback_code == last_feedback_->feedback_code) {
+      return;
+    }
+    std::lock_guard<std::mutex> lk(feedback_mutex_);
+    last_feedback_->feedback_code = feedback_code;
+    feedback_->feedback_code = feedback_code;
+    task_feedback_callback_(feedback_);
+  }
+
   void SetFeedbackCode(uint32_t feedback)
   {
     feedback_->feedback_code = feedback;
@@ -440,6 +452,7 @@ protected:
   std::chrono::milliseconds server_timeout_{2000};
   rclcpp::Node::SharedPtr action_client_node_;
   AlgorithmMGR::Feedback::SharedPtr feedback_;
+  AlgorithmMGR::Feedback::SharedPtr last_feedback_;
   std::function<void(const AlgorithmMGR::Feedback::SharedPtr)> task_feedback_callback_;
   std::function<void(void)> task_success_callback_;
   std::function<void(void)> task_cancle_callback_;
@@ -449,6 +462,7 @@ protected:
 private:
   std::mutex preparation_count_mutex_;
   std::mutex preparation_finish_mutex_;
+  std::mutex feedback_mutex_;
   std::condition_variable preparation_count_cv_;
   std::condition_variable preparation_finish_cv_;
   std::vector<LifecycleNodeRef> lifecycle_activated_{};
