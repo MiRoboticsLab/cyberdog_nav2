@@ -212,6 +212,13 @@ void ExecutorUwbTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorSt
   UpdateFeedback(feedback_code);
 }
 
+void ExecutorUwbTracking::HandleGoalResponseCallback(
+  TargetTrackingGoalHandle::SharedPtr goal_handle)
+{
+  (void)goal_handle;
+  GetBehaviorManager()->Launch(true, false);
+  INFO("Goal accepted");
+}
 
 void ExecutorUwbTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,

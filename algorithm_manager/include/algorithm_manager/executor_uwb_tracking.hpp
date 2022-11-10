@@ -34,12 +34,7 @@ public:
   void Cancel() override;
 
 private:
-  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
-  {
-    (void)goal_handle;
-    GetBehaviorManager()->Launch(true, false);
-    INFO("Goal accepted");
-  }
+  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle);
   void HandleFeedbackCallback(
     TargetTrackingGoalHandle::SharedPtr,
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
