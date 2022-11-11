@@ -34,12 +34,7 @@ public:
   void Cancel() override;
 
 private:
-  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
-  {
-    (void)goal_handle;
-    GetBehaviorManager()->Launch(true, false);
-    INFO("Goal accepted");
-  }
+  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle);
   void HandleFeedbackCallback(
     TargetTrackingGoalHandle::SharedPtr,
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
@@ -58,6 +53,7 @@ private:
   std::shared_ptr<BehaviorManager> behavior_manager_;
   BehaviorManager::BehaviorStatus behavior_status_;
   bool cancel_tracking_result_{true};
+  bool stair_detect_{false}, static_detect_{false};
 };  // class ExecutorUwbTracking
 }  // namespace algorithm
 }  // namespace cyberdog

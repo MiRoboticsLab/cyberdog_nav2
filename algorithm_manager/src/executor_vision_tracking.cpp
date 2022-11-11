@@ -129,6 +129,9 @@ void ExecutorVisionTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
       target_tracking_action_client_->async_cancel_goal(target_tracking_goal_handle_);
     if (target_tracking_server_cv_.wait_for(lk, 10s) == std::cv_status::timeout) {
       WARN("Cancle target_tracking_goal_handle_ timeout");
+      if (!DeactivateDepsLifecycleNodes(3000)) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
       cancel_tracking_result_ = false;
     } else {
       INFO("Cancle target_tracking_goal_handle_ success");
