@@ -128,7 +128,8 @@ private:
     state_callback_(status_);
   }
   bool DoNormallyTracking(bool trigger)
-  { if(trigger)
+  { 
+    if(trigger)
     {
     executor_auto_tracking_->Interupt();
     }
