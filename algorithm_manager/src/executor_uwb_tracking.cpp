@@ -47,6 +47,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
 
 void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
+  std::lock_guard<std::mutex> lk(task_mutex_);
   mcr_msgs::action::TargetTracking_Goal target_tracking_goal;
   target_tracking_goal.keep_distance = goal->keep_distance;
   static uint8_t last_relative_pos = AlgorithmMGR::Goal::TRACING_AUTO;
@@ -155,6 +156,7 @@ void ExecutorUwbTracking::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  std::lock_guard<std::mutex> lk(task_mutex_);
   (void)request;
   INFO("UWB Tracking will stop");
   OnCancel(response);
