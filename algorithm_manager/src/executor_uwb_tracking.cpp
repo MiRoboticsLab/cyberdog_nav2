@@ -31,7 +31,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
-  GetBehaviorManager()->RegisterStateCallback(
+  GetBehaviorManager(action_client_node_)->RegisterStateCallback(
     std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
   std::string behavior_config = ament_index_cpp::get_package_share_directory(
     "algorithm_manager") + "/config/UwbTracking.toml";

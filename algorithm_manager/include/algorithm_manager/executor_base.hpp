@@ -436,11 +436,11 @@ protected:
     preparation_finished_ = true;
   }
   std::shared_ptr<BehaviorManager>
-  GetBehaviorManager()
+  GetBehaviorManager(const rclcpp::Node::SharedPtr node = nullptr)
   {
     if (behavior_manager_ == nullptr) {
       behavior_manager_ = std::make_shared<BehaviorManager>(
-        static_cast<rclcpp::Node::SharedPtr>(this)
+        static_cast<rclcpp::Node::SharedPtr>(node)
       );
     }
     return behavior_manager_;
