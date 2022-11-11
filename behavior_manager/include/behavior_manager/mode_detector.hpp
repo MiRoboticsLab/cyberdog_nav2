@@ -92,8 +92,9 @@ public:
     last_static_ = false;
     stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
     // TODO(lijian): 目标静止检测相关的变量复位
-    target_first_get = false;
+    // target_first_get = false;
     pose_queue_.clear();
+    first_pop_ = false;
   }
 
 private:
@@ -116,7 +117,7 @@ private:
       return;
     }
     bool target_static = CheckTargetStatic(msg);
-    INFO("target_static=%d", target_static);
+    INFO("%s", target_static ? "Static" : "Moving");
     if (target_static == last_static_) {
       return;
     }
@@ -164,9 +165,10 @@ private:
     pose_x_.push_back(msg->pose.position.x);
     pose_y_.push_back(msg->pose.position.y);
     // INFO("back: %d, front: %d", timestamp_.back(), timestamp_.front());
-    if (timestamp_.back() - timestamp_.front() < 15) {
+    if (timestamp_.back() - timestamp_.front() < 15 && !first_pop_) {
       return false;
     }
+    first_pop_ = true;
     timestamp_.pop_front();
     pose_x_.pop_front();
     pose_y_.pop_front();
@@ -191,7 +193,8 @@ private:
   int8_t stair_detection_{0};
   bool stair_detect_{false}, static_detect_{false};
   bool last_static_{false};
-  bool target_first_get = false;
+  // bool target_first_get = false;
+  bool first_pop_{false};
 
 };  // class ModeDetector
 }  // namespace algorithm
