@@ -33,6 +33,7 @@
 #include "motion_action/motion_macros.hpp"
 #include "protocol/srv/audio_text_play.hpp"
 #include "protocol/msg/audio_play.hpp"
+#include "protocol/srv/led_execute.hpp"
 
 namespace cyberdog
 {
@@ -48,13 +49,14 @@ struct BehaviorIdMap
   std::vector<float> pos_des;
   std::vector<float> step_height;
   int32_t duration;
+  int32_t wait_time;
   std::string module_name;
   bool is_online;
-  uint play_id;
+  std::string text;
   std::string client;
-  int32_t target;
-  int32_t mode;
-  int32_t effect;
+  uint8_t target;
+  uint8_t mode;
+  uint8_t effect;
 };  // struct BehaviorIdMap
 
 class ExecutorAutoTracking
@@ -72,6 +74,17 @@ public:
     audio_play_client_ = node_->create_client<protocol::srv::AudioTextPlay>(
       "speech_text_play", rmw_qos_profile_services_default,
       callback_group_);
+    led_execute_client_ = node_->create_client<protocol::srv::LedExecute>(
+      "led_execute", rmw_qos_profile_services_default,
+      callback_group_);
+    std::string toml_file = ament_index_cpp::get_package_share_directory(
+      "behavior_manager") + "/config/parameter.toml";
+    toml::value config;
+    if (!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
+      FATAL("Cannot parse %s", toml_file.c_str());
+      exit(-1);
+    }
+    GET_TOML_VALUE(config, "time", time_);
     std::string behavior_id_map_config = ament_index_cpp::get_package_share_directory(
       "behavior_manager") + "/config/auto_tracking.toml";
     toml::value behavior_ids;
@@ -98,12 +111,18 @@ public:
         GET_TOML_VALUE(value, "pos_des", behavior_id_map.pos_des);
         GET_TOML_VALUE(value, "step_height", behavior_id_map.step_height);
         GET_TOML_VALUE(value, "duration", behavior_id_map.duration);
-      } else if (behavior_id_map.property == "audio") {
         GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
         GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
-        // GET_TOML_VALUE(value, "speech", behavior_id_map.speech);
-        GET_TOML_VALUE(value, "play_id", behavior_id_map.play_id);
+        GET_TOML_VALUE(value, "text", behavior_id_map.text);
+        GET_TOML_VALUE(value, "client", behavior_id_map.client);
+        GET_TOML_VALUE(value, "target", behavior_id_map.target);
+        GET_TOML_VALUE(value, "mode", behavior_id_map.mode);
+        GET_TOML_VALUE(value, "effect", behavior_id_map.effect);
       } else {
+        GET_TOML_VALUE(value, "wait_time", behavior_id_map.wait_time);
+        GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
+        GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
+        GET_TOML_VALUE(value, "text", behavior_id_map.text);
         GET_TOML_VALUE(value, "client", behavior_id_map.client);
         GET_TOML_VALUE(value, "target", behavior_id_map.target);
         GET_TOML_VALUE(value, "mode", behavior_id_map.mode);
@@ -155,7 +174,7 @@ public:
       req_motion->pos_des.resize(3);
       req_motion->step_height.resize(2);
       auto req_audio = std::make_shared<protocol::srv::AudioTextPlay::Request>();
-      // protocol::srv::LedExecute::Request::SharedPtr req_led;
+      auto req_led = std::make_shared<protocol::srv::LedExecute::Request>();
       if (behavior_id_map_.empty()) {
         return;
       }
@@ -174,43 +193,79 @@ public:
           req_motion->step_height[0] = iter->second.step_height[0];
           req_motion->step_height[1] = iter->second.step_height[1];
           req_motion->duration = iter->second.duration;
-          auto future_result = motion_result_client_->async_send_request(req_motion);
-          if (future_result.wait_for(std::chrono::milliseconds(10000)) ==
+          req_audio->module_name = iter->second.module_name;
+          req_audio->is_online = iter->second.is_online;
+          req_audio->text = iter->second.text;
+          INFO("req_audio->text=%s", req_audio->text.c_str());
+          req_led->client = iter->second.client;
+          req_led->target = iter->second.target;
+          req_led->mode = iter->second.mode;
+          req_led->effect = iter->second.effect;
+          auto future_motion = motion_result_client_->async_send_request(req_motion);
+          auto future_audio = audio_play_client_->async_send_request(req_audio);
+          auto future_led = led_execute_client_->async_send_request(req_led);
+          if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
             std::future_status::timeout)
           {
             FATAL("Motion service failed");
             return;
           }
-
-        } else {
-          req_audio->module_name = iter->second.module_name;
-          req_audio->is_online = iter->second.is_online;
-          // req_audio->speech = iter->second.speech;
-          req_audio->speech.play_id = iter->second.play_id;
-          auto future_result = audio_play_client_->async_send_request(req_audio);
-          if (future_result.wait_for(std::chrono::milliseconds(2000)) ==
+          if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
             std::future_status::timeout)
           {
             FATAL("Audio service failed");
             return;
           }
+          if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
+            std::future_status::timeout)
+          {
+            FATAL("Led service failed");
+            return;
+          }
+        } else {
+          auto base_time = std::chrono::system_clock::now();
+          auto task_time = base_time + std::chrono::seconds(20);
+          while (auto_tracking_start_) {
+            if (!first_send) {
+              first_send = true;
+              req_audio->module_name = iter->second.module_name;
+              req_audio->is_online = iter->second.is_online;
+              req_audio->text = iter->second.text;
+              INFO("req_audio->text=%s", req_audio->text.c_str());
+              req_led->client = iter->second.client;
+              req_led->target = iter->second.target;
+              req_led->mode = iter->second.mode;
+              req_led->effect = iter->second.effect;
+              auto future_motion = motion_result_client_->async_send_request(req_motion);
+              auto future_audio = audio_play_client_->async_send_request(req_audio);
+              auto future_led = led_execute_client_->async_send_request(req_led);
+              if (future_motion.wait_for(std::chrono::milliseconds(3000)) ==
+                std::future_status::timeout)
+              {
+                FATAL("Motion service failed");
+                return;
+              }
+              if (future_audio.wait_for(std::chrono::milliseconds(3000)) ==
+                std::future_status::timeout)
+              {
+                FATAL("Audio service failed");
+                return;
+              }
+              if (future_led.wait_for(std::chrono::milliseconds(3000)) ==
+                std::future_status::timeout)
+              {
+                FATAL("Led service failed");
+                return;
+              }
+            }
+            if (std::chrono::system_clock::now() >= task_time) {
+              first_send = false;
+              break;
+            }
+          }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      // break;
-      // else
-      // {
-      //   req_led->client = iter->second.client;
-      //   req_led->target = iter->second.target;
-      //   req_led->mode = iter->second.mode;
-      //   req_led->effect = iter->second.effect;
-      //   if(rclcpp::spin_until_future_complete(node_, future_result,
-      //   std::chrono::seconds(60)) != rclcpp::FutureReturnCode::SUCCESS)
-      //   {
-      //     FATAL("Service failed");
-      //     return;
-      //   }
-      // }
     }
   }
   // bool WalkAround()
@@ -222,15 +277,17 @@ public:
 private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_result_client_;
-  // rclcpp::Client<protocol::srv::AudioExecute>::SharedPtr audio_execute_client_;
   rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_;
-  // rclcpp::Client<protocol::srv::LedExecute>::SharedPtr led_execute_client_;
+  rclcpp::Client<protocol::srv::LedExecute>::SharedPtr led_execute_client_;
   std::mutex auto_tracking_start_mutex_;
   std::condition_variable auto_tracking_start_cv_;
   bool auto_tracking_start_{false};
   std::map<int32_t, BehaviorIdMap> behavior_id_map_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   std::thread tm;
+  int time_;
+  bool stop = false;
+  bool first_send = false;
 };  // class ExecutorAutoTracking
 }  // namespace algorithm
 }  // namespace cyberdog

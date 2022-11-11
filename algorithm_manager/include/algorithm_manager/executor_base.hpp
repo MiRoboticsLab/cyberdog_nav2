@@ -439,7 +439,9 @@ protected:
   GetBehaviorManager()
   {
     if (behavior_manager_ == nullptr) {
-      behavior_manager_ = std::make_shared<BehaviorManager>("behavior_manager");
+      behavior_manager_ = std::make_shared<BehaviorManager>(
+        static_cast<rclcpp::Node::SharedPtr>(this)
+      );
     }
     return behavior_manager_;
   }

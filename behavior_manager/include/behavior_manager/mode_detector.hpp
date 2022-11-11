@@ -27,6 +27,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_debug/backtrace.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -50,18 +51,23 @@ public:
   explicit ModeDetector(const rclcpp::Node::SharedPtr node)
   : node_(node)
   {
+    callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    rclcpp::SubscriptionOptions option;
+    option.callback_group = callback_group_;
     stair_detected_sub_ = node_->create_subscription<std_msgs::msg::Int8>(
       "elevation_mapping/stair_detected",
       rclcpp::SystemDefaultsQoS(),
       std::bind(
         &ModeDetector::HandleStairDetectionCallback,
-        this, std::placeholders::_1));
+        this, std::placeholders::_1),
+      option);
     target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       "tracking_pose",
       rclcpp::SystemDefaultsQoS(),
       std::bind(
         &ModeDetector::HandleTargetPoseCallback,
-        this, std::placeholders::_1));
+        this, std::placeholders::_1),
+      option);
     // std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
   ~ModeDetector() {}
@@ -86,6 +92,8 @@ public:
     last_static_ = false;
     stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
     // TODO(lijian): 目标静止检测相关的变量复位
+    target_first_get = false;
+    poseQueue.clear();
   }
 
 private:
@@ -108,6 +116,7 @@ private:
       return;
     }
     bool target_static = CheckTargetStatic(msg);
+    INFO("target_static=%d", target_static);
     if (target_static == last_static_) {
       return;
     }
@@ -136,7 +145,7 @@ private:
       poseQueue.pop_front();
       target_first_get = true;
     }
-    if (poseQueue.size() >= 150) {  //  确保刚超过规定秒数内的帧的数量
+    if (poseQueue.size() >= 250) {  //  确保刚超过规定秒数内的帧的数量
       target_first_timestamp = target_first.header.stamp.sec;
       float target_first_pose_x = target_first.pose.position.x;
       float target_first_pose_y = target_first.pose.position.y;
@@ -145,13 +154,15 @@ private:
         target_current_timestamp = target_current.header.stamp.sec;
         float target_current_pose_x = target_current.pose.position.x;
         float target_current_pose_y = target_current.pose.position.y;
-        if (target_current_timestamp - target_first_timestamp < 5) {
+        if (target_current_timestamp - target_first_timestamp < 10) {
           if (abs(target_first_pose_x - target_current_pose_x) > 0.3 ||
             abs(target_first_pose_y - target_current_pose_y) > 0.3)
           {
             target_first_get = false;
-            for (auto j = poseQueue.begin(); j < i; j++) {
-              poseQueue.pop_front();
+            if (i != poseQueue.begin()) {
+              for (auto j = poseQueue.begin(); j < i; j++) {
+                poseQueue.pop_front();
+              }
             }
             return false;
           }
@@ -164,6 +175,7 @@ private:
     return false;
   }
   rclcpp::Node::SharedPtr node_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
   geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;

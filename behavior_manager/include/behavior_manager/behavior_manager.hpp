@@ -46,9 +46,9 @@ public:
     kStairJumping,
     kAbnorm
   };
-  explicit BehaviorManager(const std::string & node_name)
+  explicit BehaviorManager(const rclcpp::Node::SharedPtr node)
+  : node_(node)
   {
-    node_ = std::make_shared<rclcpp::Node>(node_name);
     callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     mode_detector_ = std::make_shared<ModeDetector>(node_);
     mode_detector_->Init(
@@ -73,9 +73,9 @@ public:
     status_map_.emplace(BehaviorStatus::kNormTracking, "NormTracking");
     status_map_.emplace(BehaviorStatus::kStairJumping, "StairJumping");
     status_map_.emplace(BehaviorStatus::kAbnorm, "Abnorm");
-    ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-    ros_executor_->add_node(node_);
-    std::thread{[this]() {ros_executor_->spin();}}.detach();
+    // ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    // ros_executor_->add_node(node_);
+    // std::thread{[this]() {ros_executor_->spin();}}.detach();
   }
   void RegisterStateCallback(std::function<void(BehaviorStatus)> state_callback)
   {
@@ -129,6 +129,9 @@ private:
   }
   bool DoNormallyTracking(bool trigger)
   {
+    if (trigger) {
+      executor_auto_tracking_->Interupt();
+    }
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     request->data = trigger;
     auto future = tracking_switch_client_->async_send_request(request);
