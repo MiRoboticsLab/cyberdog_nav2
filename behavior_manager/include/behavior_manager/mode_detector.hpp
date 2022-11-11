@@ -159,9 +159,9 @@ private:
             abs(target_first_pose_y - target_current_pose_y) > 0.3)
           {
             target_first_get = false;
-            if(i != poseQueue.begin()){
+            if (i != poseQueue.begin()) {
               for (auto j = poseQueue.begin(); j < i; j++) {
-              poseQueue.pop_front();
+                poseQueue.pop_front();
               }
             }
             return false;

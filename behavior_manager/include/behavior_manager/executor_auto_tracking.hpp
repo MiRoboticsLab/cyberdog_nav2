@@ -80,7 +80,7 @@ public:
     std::string toml_file = ament_index_cpp::get_package_share_directory(
       "behavior_manager") + "/config/parameter.toml";
     toml::value config;
-    if(!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
+    if (!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
       FATAL("Cannot parse %s", toml_file.c_str());
       exit(-1);
     }
@@ -118,8 +118,7 @@ public:
         GET_TOML_VALUE(value, "target", behavior_id_map.target);
         GET_TOML_VALUE(value, "mode", behavior_id_map.mode);
         GET_TOML_VALUE(value, "effect", behavior_id_map.effect);
-      }
-      else{
+      } else {
         GET_TOML_VALUE(value, "wait_time", behavior_id_map.wait_time);
         GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
         GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
@@ -223,13 +222,11 @@ public:
             FATAL("Led service failed");
             return;
           }
-        } 
-        else 
-        {
+        } else {
           auto base_time = std::chrono::system_clock::now();
-          auto task_time = base_time +std::chrono::seconds(20);
-          while(auto_tracking_start_){
-            if(!first_send){
+          auto task_time = base_time + std::chrono::seconds(20);
+          while (auto_tracking_start_) {
+            if (!first_send) {
               first_send = true;
               req_audio->module_name = iter->second.module_name;
               req_audio->is_online = iter->second.is_online;
@@ -261,9 +258,9 @@ public:
                 return;
               }
             }
-            if (std::chrono::system_clock::now() >= task_time){
+            if (std::chrono::system_clock::now() >= task_time) {
               first_send = false;
-	            break;
+              break;
             }
           }
         }
