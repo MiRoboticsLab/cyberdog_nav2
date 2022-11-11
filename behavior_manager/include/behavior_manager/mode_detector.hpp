@@ -93,7 +93,7 @@ public:
     stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
     // TODO(lijian): 目标静止检测相关的变量复位
     target_first_get = false;
-    poseQueue.clear();
+    pose_queue_.clear();
   }
 
 private:
@@ -139,40 +139,38 @@ private:
    */
   bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
-    poseQueue.push_back(*msg);
-    if (!target_first_get) {
-      target_first = poseQueue.front();
-      poseQueue.pop_front();
-      target_first_get = true;
+    if (!EnQueue(msg)) 
+    {
+      INFO("Pose not enough");
+      return false;
     }
-    if (poseQueue.size() >= 250) {  //  确保刚超过规定秒数内的帧的数量
-      target_first_timestamp = target_first.header.stamp.sec;
-      float target_first_pose_x = target_first.pose.position.x;
-      float target_first_pose_y = target_first.pose.position.y;
-      for (auto i = poseQueue.begin(); i < poseQueue.end(); i++) {
-        target_current = *i;
-        target_current_timestamp = target_current.header.stamp.sec;
-        float target_current_pose_x = target_current.pose.position.x;
-        float target_current_pose_y = target_current.pose.position.y;
-        if (target_current_timestamp - target_first_timestamp < 10) {
-          if (abs(target_first_pose_x - target_current_pose_x) > 0.3 ||
-            abs(target_first_pose_y - target_current_pose_y) > 0.3)
-          {
-            target_first_get = false;
-            if (i != poseQueue.begin()) {
-              for (auto j = poseQueue.begin(); j < i; j++) {
-                poseQueue.pop_front();
-              }
-            }
-            return false;
-          }
-        } else {
-          target_first_get = false;
-          return true;
-        }
-      }
+    auto max_x = *std::max_element(pose_x_.begin(), pose_x_.end());
+    auto min_x = *std::min_element(pose_x_.begin(), pose_x_.end());
+    auto diff_x = max_x - min_x;
+    auto max_y = *std::max_element(pose_y_.begin(), pose_y_.end());
+    auto min_y = *std::min_element(pose_y_.begin(), pose_y_.end());
+    auto diff_y = max_y - min_y;
+
+    INFO("diff_x: %f, diff_y: %f", diff_x, diff_y);
+    if (diff_x > 0.3 || diff_y > 0.3) {
+      return false;
+    } else {
+      return true;
     }
-    return false;
+  }
+  bool EnQueue(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    timestamp_.push_back(msg->header.stamp.sec);
+    pose_x_.push_back(msg->pose.position.x);
+    pose_y_.push_back(msg->pose.position.y);
+    // INFO("back: %d, front: %d", timestamp_.back(), timestamp_.front());
+    if (timestamp_.back() - timestamp_.front() < 15) {
+      return false;
+    }
+    timestamp_.pop_front();
+    pose_x_.pop_front();
+    pose_y_.pop_front();
+    return true;
   }
   rclcpp::Node::SharedPtr node_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
@@ -183,15 +181,18 @@ private:
   std::function<void(bool)> do_stair_jump_func_;
   std::function<void()> do_auto_tracking_func_;
   std::function<void(bool)> do_normal_tracking_func_;
+  std::deque<geometry_msgs::msg::PoseStamped> pose_queue_;
+  std::deque<int> timestamp_;
+  std::deque<double> pose_x_, pose_y_;
+  geometry_msgs::msg::PoseStamped target_first;
+  geometry_msgs::msg::PoseStamped target_current;
+  double target_first_timestamp = -1;
+  double target_current_timestamp = -1;
   int8_t stair_detection_{0};
   bool stair_detect_{false}, static_detect_{false};
   bool last_static_{false};
   bool target_first_get = false;
-  double target_first_timestamp = -1;
-  double target_current_timestamp = -1;
-  std::deque<geometry_msgs::msg::PoseStamped> poseQueue;
-  geometry_msgs::msg::PoseStamped target_first;
-  geometry_msgs::msg::PoseStamped target_current;
+
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog
