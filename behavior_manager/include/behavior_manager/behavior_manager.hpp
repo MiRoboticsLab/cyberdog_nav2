@@ -128,9 +128,9 @@ private:
     state_callback_(status_);
   }
   bool DoNormallyTracking(bool trigger)
-  { if(trigger)
-    {
-    executor_auto_tracking_->Interupt();
+  {
+    if (trigger) {
+      executor_auto_tracking_->Interupt();
     }
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     request->data = trigger;

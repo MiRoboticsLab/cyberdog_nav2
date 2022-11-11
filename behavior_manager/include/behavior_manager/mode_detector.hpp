@@ -115,18 +115,32 @@ private:
     if (!static_detect_) {
       return;
     }
-    bool target_static = CheckTargetStatic(msg);
-    INFO("target_static=%d", target_static);
-    if (target_static == last_static_) {
-      return;
+    poseQueue.push_back(*msg);
+    if (!target_first_get) {
+      target_first = poseQueue.front();
+      poseQueue.pop_front();
+      target_first_get = true;
+      target_first_timestamp = target_first.header.stamp.sec;
+      target_first_pose_x = target_first.pose.position.x;
+      target_first_pose_y = target_first.pose.position.y;
     }
-    last_static_ = target_static;
-    if (target_static) {
-      INFO("Target Checked Static");
-      do_auto_tracking_func_();
+    target_current = poseQueue.back();
+    target_current_timestamp = target_current.header.stamp.sec;
+    if (target_current_timestamp - target_first_timestamp < 10) {
+      return;
     } else {
-      INFO("Target Checked Moving");
-      do_normal_tracking_func_(true);
+      bool target_static = CheckTargetStatic();
+      if (target_static == last_static_) {
+        return;
+      }
+      last_static_ = target_static;
+      if (target_static) {
+        INFO("Target Checked Static");
+        do_auto_tracking_func_();
+      } else {
+        INFO("Target Checked Moving");
+        do_normal_tracking_func_(true);
+      }
     }
   }
   /**
@@ -137,43 +151,26 @@ private:
    * @return true
    * @return false
    */
-  bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  bool CheckTargetStatic()
   {
-    poseQueue.push_back(*msg);
-    if (!target_first_get) {
-      target_first = poseQueue.front();
-      poseQueue.pop_front();
-      target_first_get = true;
-    }
-    if (poseQueue.size() >= 250) {  //  确保刚超过规定秒数内的帧的数量
-      target_first_timestamp = target_first.header.stamp.sec;
-      float target_first_pose_x = target_first.pose.position.x;
-      float target_first_pose_y = target_first.pose.position.y;
-      for (auto i = poseQueue.begin(); i < poseQueue.end(); i++) {
-        target_current = *i;
-        target_current_timestamp = target_current.header.stamp.sec;
-        float target_current_pose_x = target_current.pose.position.x;
-        float target_current_pose_y = target_current.pose.position.y;
-        if (target_current_timestamp - target_first_timestamp < 10) {
-          if (abs(target_first_pose_x - target_current_pose_x) > 0.3 ||
-            abs(target_first_pose_y - target_current_pose_y) > 0.3)
-          {
-            target_first_get = false;
-            if(i != poseQueue.begin()){
-              for (auto j = poseQueue.begin(); j < i; j++) {
-              poseQueue.pop_front();
-              }
-            }
-            return false;
-          }
-        } else {
-          target_first_get = false;
-          return true;
-        }
+    float target_current_pose_x = target_current.pose.position.x;
+    float target_current_pose_y = target_current.pose.position.y;
+    for (auto i = poseQueue.begin(); i < poseQueue.end(); i++) {
+      target_duration = *i;
+      target_duration_timestamp = target_duration.header.stamp.sec;
+      float target_duration_pose_x = target_duration.pose.position.x;
+      float target_duration_pose_y = target_duration.pose.position.y;
+      if (abs(target_current_pose_x - target_duration_pose_x) > 0.2 ||
+        abs(target_current_pose_y - target_duration_pose_y) > 0.2)
+      {
+        target_first_get = false;
+        return false;
       }
     }
-    return false;
+    target_first_get = false;
+    return true;
   }
+
   rclcpp::Node::SharedPtr node_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
@@ -189,9 +186,13 @@ private:
   bool target_first_get = false;
   double target_first_timestamp = -1;
   double target_current_timestamp = -1;
+  double target_duration_timestamp = -1;
   std::deque<geometry_msgs::msg::PoseStamped> poseQueue;
   geometry_msgs::msg::PoseStamped target_first;
   geometry_msgs::msg::PoseStamped target_current;
+  geometry_msgs::msg::PoseStamped target_duration;
+  float target_first_pose_x;
+  float target_first_pose_y;
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog

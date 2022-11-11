@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
   LOGGER_MAIN_INSTANCE("BehaviorManager");
   cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
-  auto executor =  std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   auto node = std::make_shared<rclcpp::Node>("behavior_manager_test");
   executor->add_node(node);
   auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>(node);
