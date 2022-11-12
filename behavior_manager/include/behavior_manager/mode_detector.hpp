@@ -55,6 +55,20 @@ public:
   explicit ModeDetector(const rclcpp::Node::SharedPtr node)
   : node_(node)
   {
+    std::string toml_file = ament_index_cpp::get_package_share_directory(
+      "behavior_manager") + "/config/detect.toml";
+    toml::value config;
+    if (!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
+      FATAL("Cannot parse %s", toml_file.c_str());
+      exit(-1);
+    }
+    GET_TOML_VALUE(config, "diff_x_threashold", diff_x_threashold_);
+    GET_TOML_VALUE(config, "diff_y_threashold", diff_y_threashold_);
+    GET_TOML_VALUE(config, "detect_duration", detect_duration_);
+    GET_TOML_VALUE(config, "pose_topic_name", pose_topic_name_);
+    INFO("diff_x threashold: %f, diff_y threashold: %f", diff_x_threashold_, diff_y_threashold_);
+    INFO("detect_duration: %d", detect_duration_);
+    INFO("pose_topic_name: %s", pose_topic_name_.c_str());
     callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions option;
     option.callback_group = callback_group_;
@@ -66,7 +80,7 @@ public:
         this, std::placeholders::_1),
       option);
     target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "tracking_pose",
+      pose_topic_name_,
       rclcpp::SystemDefaultsQoS(),
       std::bind(
         &ModeDetector::HandleTargetPoseCallback,
@@ -84,18 +98,6 @@ public:
     do_stair_jump_func_ = do_stair_jump_func;
     do_auto_tracking_func_ = do_auto_tracking_func;
     do_normal_tracking_func_ = do_normal_tracking_func;
-    std::string toml_file = ament_index_cpp::get_package_share_directory(
-      "behavior_manager") + "/config/detect.toml";
-    toml::value config;
-    if (!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
-      FATAL("Cannot parse %s", toml_file.c_str());
-      exit(-1);
-    }
-    GET_TOML_VALUE(config, "diff_x_threashold", diff_x_threashold_);
-    GET_TOML_VALUE(config, "diff_y_threashold", diff_y_threashold_);
-    GET_TOML_VALUE(config, "detect_duration", detect_duration_);
-    INFO("diff_x threashold: %f, diff_y threashold: %f", diff_x_threashold_, diff_y_threashold_);
-    INFO("detect_duration: %d", detect_duration_);
     return true;
   }
   void Launch(bool stair_detect = true, bool static_detect = false)
@@ -206,6 +208,7 @@ private:
   std::deque<double> pose_x_, pose_y_;
   geometry_msgs::msg::PoseStamped target_first;
   geometry_msgs::msg::PoseStamped target_current;
+  std::string pose_topic_name_;
   double target_first_timestamp = -1;
   double target_current_timestamp = -1;
   float diff_x_threashold_{0}, diff_y_threashold_{0};
