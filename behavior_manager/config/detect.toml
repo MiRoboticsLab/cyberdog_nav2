@@ -1,0 +1,3 @@
+diff_x_threashold = 0.4
+diff_y_threashold = 0.4
+detect_duration = 15

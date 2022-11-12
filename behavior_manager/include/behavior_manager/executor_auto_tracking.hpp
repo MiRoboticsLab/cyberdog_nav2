@@ -269,7 +269,7 @@ public:
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      auto_tracking_start_ = false;
+      // auto_tracking_start_ = false;
     }
   }
   // bool WalkAround()

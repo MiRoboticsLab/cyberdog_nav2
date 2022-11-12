@@ -27,6 +27,9 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_debug/backtrace.hpp"
+#include "motion_action/motion_macros.hpp"
+#include "ament_index_cpp/get_package_share_directory.hpp"
+#include "cyberdog_common/cyberdog_toml.hpp"
 
 namespace cyberdog
 {
@@ -80,6 +83,18 @@ public:
     do_stair_jump_func_ = do_stair_jump_func;
     do_auto_tracking_func_ = do_auto_tracking_func;
     do_normal_tracking_func_ = do_normal_tracking_func;
+    std::string toml_file = ament_index_cpp::get_package_share_directory(
+      "behavior_manager") + "/config/detect.toml";
+    toml::value config;
+    if (!cyberdog::common::CyberdogToml::ParseFile(toml_file, config)) {
+      FATAL("Cannot parse %s", toml_file.c_str());
+      exit(-1);
+    }
+    GET_TOML_VALUE(config, "diff_x_threashold", diff_x_threashold_);
+    GET_TOML_VALUE(config, "diff_y_threashold", diff_y_threashold_);
+    GET_TOML_VALUE(config, "detect_duration", detect_duration_);
+    INFO("diff_x threashold: %f, diff_y threashold: %f", diff_x_threashold_, diff_y_threashold_);
+    INFO("detect_duration: %d", detect_duration_);
     return true;
   }
   void Launch(bool stair_detect = true, bool static_detect = false)
@@ -93,7 +108,10 @@ public:
     stair_detection_ = static_cast<int8_t>(StairDetection::kNothing);
     // TODO(lijian): 目标静止检测相关的变量复位
     // target_first_get = false;
-    pose_queue_.clear();
+    // pose_queue_.clear();
+    timestamp_.clear();
+    pose_x_.clear();
+    pose_y_.clear();
     first_pop_ = false;
   }
 
@@ -153,7 +171,7 @@ private:
     auto diff_y = max_y - min_y;
 
     INFO("diff_x: %f, diff_y: %f", diff_x, diff_y);
-    if (diff_x > 0.3 || diff_y > 0.3) {
+    if (diff_x > diff_x_threashold_ || diff_y > diff_y_threashold_) {
       return false;
     } else {
       return true;
@@ -165,7 +183,7 @@ private:
     pose_x_.push_back(msg->pose.position.x);
     pose_y_.push_back(msg->pose.position.y);
     // INFO("back: %d, front: %d", timestamp_.back(), timestamp_.front());
-    if (timestamp_.back() - timestamp_.front() < 15 && !first_pop_) {
+    if (timestamp_.back() - timestamp_.front() < detect_duration_ && !first_pop_) {
       return false;
     }
     first_pop_ = true;
@@ -183,13 +201,15 @@ private:
   std::function<void(bool)> do_stair_jump_func_;
   std::function<void()> do_auto_tracking_func_;
   std::function<void(bool)> do_normal_tracking_func_;
-  std::deque<geometry_msgs::msg::PoseStamped> pose_queue_;
+  // std::deque<geometry_msgs::msg::PoseStamped> pose_queue_;
   std::deque<int> timestamp_;
   std::deque<double> pose_x_, pose_y_;
   geometry_msgs::msg::PoseStamped target_first;
   geometry_msgs::msg::PoseStamped target_current;
   double target_first_timestamp = -1;
   double target_current_timestamp = -1;
+  float diff_x_threashold_{0}, diff_y_threashold_{0};
+  int detect_duration_{0};
   int8_t stair_detection_{0};
   bool stair_detect_{false}, static_detect_{false};
   bool last_static_{false};
