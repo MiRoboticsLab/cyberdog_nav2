@@ -19,6 +19,7 @@
 #include <string>
 #include <deque>
 #include <unordered_map>
+#include <algorithm>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int8.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -158,8 +159,7 @@ private:
    */
   bool CheckTargetStatic(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
-    if (!EnQueue(msg)) 
-    {
+    if (!EnQueue(msg)) {
       INFO("Pose not enough");
       return false;
     }
@@ -215,7 +215,6 @@ private:
   bool last_static_{false};
   // bool target_first_get = false;
   bool first_pop_{false};
-
 };  // class ModeDetector
 }  // namespace algorithm
 }  // namespace cyberdog

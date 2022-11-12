@@ -178,7 +178,9 @@ public:
       if (behavior_id_map_.empty()) {
         return;
       }
-      for (iter = behavior_id_map_.begin(); iter != behavior_id_map_.end() && auto_tracking_start_; iter++) {
+      for (iter = behavior_id_map_.begin(); iter != behavior_id_map_.end() && auto_tracking_start_;
+        iter++)
+      {
         if (iter->second.property == "motion") {
           req_motion->motion_id = iter->second.motion_id;
           req_motion->vel_des[0] = iter->second.vel_des[0];
@@ -222,9 +224,7 @@ public:
           //   FATAL("Led service failed");
           //   // return;
           // }
-        } 
-        else 
-        {
+        } else {
           auto base_time = std::chrono::system_clock::now();
           auto task_time = base_time + std::chrono::seconds(20);
           while (auto_tracking_start_) {
@@ -260,8 +260,8 @@ public:
               //   // return;
               // }
             }
-            if (std::chrono::system_clock::now() >= task_time){
-	            break;
+            if (std::chrono::system_clock::now() >= task_time) {
+              break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
           }
