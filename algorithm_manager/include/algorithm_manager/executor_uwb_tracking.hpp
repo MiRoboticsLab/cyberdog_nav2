@@ -52,6 +52,7 @@ private:
   std::condition_variable target_tracking_server_cv_;
   std::shared_ptr<BehaviorManager> behavior_manager_;
   BehaviorManager::BehaviorStatus behavior_status_;
+  std::mutex task_mutex_;
   bool cancel_tracking_result_{true};
   bool stair_detect_{false}, static_detect_{false};
 };  // class ExecutorUwbTracking

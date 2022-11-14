@@ -29,10 +29,8 @@ int main(int argc, char ** argv)
   LOGGER_MAIN_INSTANCE("BehaviorManager");
   cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
-  auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   auto node = std::make_shared<rclcpp::Node>("behavior_manager_test");
-  executor->add_node(node);
-  auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>(node);
+  auto atm = std::make_shared<cyberdog::algorithm::BehaviorManager>("behavior_manager");
   atm->RegisterStateCallback(UpdateBehaviorStatus);
   auto reset_bm_srv = node->create_service<std_srvs::srv::SetBool>(
     "launch_bm",
@@ -46,5 +44,5 @@ int main(int argc, char ** argv)
       }
       res->success = true;
     });
-  executor->spin();
+  rclcpp::spin(node);
 }
