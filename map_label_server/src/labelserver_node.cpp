@@ -97,7 +97,7 @@ void LabelServer::handle_get_label(
   std::unique_lock<std::mutex> ulk(mut);
   std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
 
-  INFO("map_name : %s", map_name.c_str());
+  INFO("map_name : %s", request->map_name.c_str());
 
   std::string map_filename = request->map_name + ".pgm";
   if (!map_label_store_ptr_->IsExist(map_filename)) {
@@ -379,11 +379,10 @@ void LabelServer::SetOutdoorFlag(bool outdoor)
 {
   const std::string map_name = "map";
   std::string label_filename = map_label_store_ptr_->map_label_directory() + "map.json";
-
   rapidjson::Document doc(rapidjson::kObjectType);
-  map_label_store_ptr_->SetMapName(map_name, map_name, doc);
   map_label_store_ptr_->SetOutdoor(outdoor, doc);
   map_label_store_ptr_->Write(label_filename, doc);
+  INFO("Label server set outdoor : %d", outdoor);
 }
 
 }  // namespace CYBERDOG_NAV

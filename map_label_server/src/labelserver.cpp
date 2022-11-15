@@ -17,10 +17,12 @@
 
 #include "map_label_server/labelserver_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "cyberdog_debug/backtrace.hpp"
 
 int main(int argc, char ** argv)
 {
   LOGGER_MAIN_INSTANCE("LabelServer");
+  cyberdog::debug::register_signal();
   rclcpp::init(argc, argv);
   auto node = std::make_shared<CYBERDOG_NAV::LabelServer>();
   rclcpp::executors::MultiThreadedExecutor exec_;
