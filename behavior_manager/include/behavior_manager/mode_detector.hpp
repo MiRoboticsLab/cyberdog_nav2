@@ -69,23 +69,18 @@ public:
     INFO("diff_x threashold: %f, diff_y threashold: %f", diff_x_threashold_, diff_y_threashold_);
     INFO("detect_duration: %d", detect_duration_);
     INFO("pose_topic_name: %s", pose_topic_name_.c_str());
-    callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    rclcpp::SubscriptionOptions option;
-    option.callback_group = callback_group_;
     stair_detected_sub_ = node_->create_subscription<std_msgs::msg::Int8>(
       "elevation_mapping/stair_detected",
       rclcpp::SystemDefaultsQoS(),
       std::bind(
         &ModeDetector::HandleStairDetectionCallback,
-        this, std::placeholders::_1),
-      option);
+        this, std::placeholders::_1));
     target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       pose_topic_name_,
       rclcpp::SystemDefaultsQoS(),
       std::bind(
         &ModeDetector::HandleTargetPoseCallback,
-        this, std::placeholders::_1),
-      option);
+        this, std::placeholders::_1));
     // std::thread{[this] {rclcpp::spin(node_);}}.detach();
   }
   ~ModeDetector() {}
@@ -195,7 +190,6 @@ private:
     return true;
   }
   rclcpp::Node::SharedPtr node_;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr stair_detected_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_sub_;
   geometry_msgs::msg::PoseStamped::SharedPtr current_pose_;
