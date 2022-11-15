@@ -35,6 +35,17 @@ void ComputePathToPoseAction::on_tick()
   if (getInput("start", goal_.start)) {
     goal_.use_start = true;
   }
+  goal_updated_ = true;
+}
+
+void ComputePathToPoseAction::on_wait_for_result()
+{
+  geometry_msgs::msg::PoseStamped goal; 
+  getInput("goal", goal);
+  if (goal_.goal != goal) {
+    goal_.goal = goal;
+    goal_updated_ = true;
+  }
 }
 
 BT::NodeStatus ComputePathToPoseAction::on_success()
