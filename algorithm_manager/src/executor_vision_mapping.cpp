@@ -121,8 +121,9 @@ void ExecutorVisionMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -131,9 +132,10 @@ void ExecutorVisionMapping::Stop(
   success = StopBuildMapping(request->map_name);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -144,8 +146,9 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -156,29 +159,39 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
+  INFO("-----> 0 <-------");
   // mivins lifecycle
   success = mapping_client_->Pause();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
-  INFO("[Vision Mapping] Vision Mapping stoped success");
-  ReportPreparationFinished(
-    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  // INFO("-----> 1 <-------");
+  // StopReportPreparationThread();
+  // INFO("-----> 2 <-------");
+  // ReportPreparationFinished(
+  //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  // INFO("-----> 3 <-------");
 
-  StopReportPreparationThread();
-  task_success_callback_();
+  INFO("-----> 1 <-------");
+  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  INFO("-----> 2 <-------");
+  task_cancle_callback_();
+  INFO("-----> 3 <-------");
+  INFO("[Vision Mapping] Vision Mapping stoped success");
 }
 
 void ExecutorVisionMapping::Cancel()
@@ -291,6 +304,10 @@ bool ExecutorVisionMapping::StartBuildMapping()
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
+
+  if (result) {
+    PublishBuildMapType();
+  }
   return result;
 }
 
@@ -394,7 +411,7 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
+    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
