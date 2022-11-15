@@ -75,9 +75,18 @@ public:
       std::bind(
         &ModeDetector::HandleStairDetectionCallback,
         this, std::placeholders::_1));
+    rclcpp::SensorDataQoS sub_qos;
+    if (pose_topic_name_ == "tracking_pose") {
+      sub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+    } else if (pose_topic_name_ == "tracking_pose_transformed") {
+      sub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+    } else {
+      ERROR("Unknown Pose topic: %s", pose_topic_name_.c_str());
+      exit(-1);
+    }
     target_pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       pose_topic_name_,
-      rclcpp::SystemDefaultsQoS(),
+      sub_qos,
       std::bind(
         &ModeDetector::HandleTargetPoseCallback,
         this, std::placeholders::_1));

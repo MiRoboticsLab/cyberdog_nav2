@@ -1,4 +1,4 @@
-diff_x_threashold = 0.6
-diff_y_threashold = 0.6
-detect_duration = 10
-pose_topic_name = "tracking_pose" # tracking_pose_transformed
+diff_x_threashold = 0.5
+diff_y_threashold = 0.5
+detect_duration = 5
+pose_topic_name = "tracking_pose_transformed" # tracking_pose_transformed
