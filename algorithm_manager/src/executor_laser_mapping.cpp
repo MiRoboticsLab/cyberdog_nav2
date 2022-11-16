@@ -83,8 +83,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = CheckAvailable();
   if (!ready) {
     ERROR("[Laser Mapping] Laser Localization is running, Laser Mapping is not available.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -92,8 +93,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   ready = IsDependsReady();
   if (!ready) {
     ERROR("[Laser Mapping] Laser Mapping lifecycle depend start up failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -110,8 +112,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool success = StartBuildMapping();
   if (!success) {
     ERROR("[Laser Mapping] Start laser mapping failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -128,15 +131,17 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(
-    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  // ReportPreparationFinished(
+  //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Laser Mapping] Laser Mapping success.");
 }
 
@@ -167,8 +172,9 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -184,8 +190,9 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // ReportPreparationFinished(
+    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -199,10 +206,11 @@ void ExecutorLaserMapping::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
-  ReportPreparationFinished(
-    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("[Laser Mapping] Laser Mapping stoped success");
+  // ReportPreparationFinished(
+  //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   task_success_callback_();
+  INFO("[Laser Mapping] Laser Mapping stoped success");
 }
 
 void ExecutorLaserMapping::Cancel()
@@ -439,7 +447,7 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
 
   // Send request
   auto future = realtime_pose_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+  if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
     ERROR("[Laser Mapping] Connect position checker service timeout");
     return false;
   }

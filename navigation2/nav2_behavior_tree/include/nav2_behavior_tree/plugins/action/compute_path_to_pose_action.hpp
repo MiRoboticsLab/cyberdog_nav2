@@ -51,6 +51,7 @@ public:
    */
   BT::NodeStatus on_success() override;
 
+  void on_wait_for_result() override;
   /**
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing basic ports along with node-specific ports
