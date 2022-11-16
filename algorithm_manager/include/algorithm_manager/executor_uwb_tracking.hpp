@@ -41,13 +41,15 @@ private:
   void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
   void OnCancel(StopTaskSrv::Response::SharedPtr response = nullptr);
   void UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status);
-  // bool ActivateDepsLifecycleNodes();
-  // bool DeactivateDepsLifecycleNodes();
+  void ResetAllDeps();
+  void ResetLifecycles();
   ExecutorData executor_uwb_tracking_data_;
   rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
     target_tracking_action_client_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stair_monitor_client_;
   mcr_msgs::action::TargetTracking::Goal target_tracking_goal_;
   TargetTrackingGoalHandle::SharedPtr target_tracking_goal_handle_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
   std::mutex target_tracking_server_mutex_;
   std::condition_variable target_tracking_server_cv_;
   std::shared_ptr<BehaviorManager> behavior_manager_;
