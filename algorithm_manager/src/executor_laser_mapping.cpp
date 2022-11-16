@@ -463,17 +463,17 @@ bool ExecutorLaserMapping::CheckAvailable()
   //   return true;
   // }
 
-  INFO("Check Laser localization is activating.");
+  INFO("Check Laser localization is activating ?");
   if (!localization_client_->IsActivate()) {
     INFO("[Laser Mapping] Laser localization lifecycle is not activate state.");
     return true;
   }
 
-  bool success = DisenableLocalization();
-  if (!success) {
-    ERROR("Disenable Localization when laser mapping.");
-    return false;
-  }
+  // bool success = DisenableLocalization();
+  // if (!success) {
+  //   ERROR("Disenable Localization when laser mapping.");
+  //   return false;
+  // }
 
   if (!localization_client_->Pause()) {
     return false;

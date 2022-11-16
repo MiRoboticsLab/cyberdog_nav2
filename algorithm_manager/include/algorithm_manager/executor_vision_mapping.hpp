@@ -23,6 +23,8 @@
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -33,6 +35,7 @@ class ExecutorVisionMapping : public ExecutorBase
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
+  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -78,6 +81,14 @@ private:
   bool EnableReportRealtimePose(bool enable);
 
   /**
+   * @brief Check curent map building available
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool CheckBuildMappingAvailable();
+
+  /**
    * @brief When robot mapping it's should walk smoother
    *
    * @return true Return success
@@ -107,6 +118,9 @@ private:
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
+
+  // Get vision build map available result
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};
 
   // vision mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};

@@ -204,6 +204,14 @@ private:
   void ReleaseSources();
 
   /**
+   * @brief Check curent map file available
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool CheckMapAvailable(const std::string & map_name = "map.pgm");
+
+  /**
    * @brief Check vision slam location
    *
    * @return true Return success
