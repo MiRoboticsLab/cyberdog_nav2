@@ -30,6 +30,7 @@ find_package(mcr_msgs REQUIRED)
 find_package(visualization REQUIRED)
 find_package(cyberdog_visions_interfaces REQUIRED)
 find_package(behavior_manager REQUIRED)
+find_package(filesystem REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -58,6 +59,7 @@ set(dependencies
   visualization
   cyberdog_visions_interfaces
   behavior_manager
+  filesystem
 )
 
 set(sources

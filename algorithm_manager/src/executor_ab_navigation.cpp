@@ -15,7 +15,9 @@
 #include <memory>
 #include <vector>
 #include <string>
+
 #include "algorithm_manager/executor_ab_navigation.hpp"
+#include "filesystem/filesystem.hpp"
 
 namespace cyberdog
 {
@@ -64,6 +66,15 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("AB navigation started");
   ReportPreparationStatus();
+
+  // Check current map exits
+  bool exist = CheckMapAvailable();
+  if (!exist) {
+    ERROR("AB navigation can't start up, because current robot's map not exist");
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    task_cancle_callback_();
+    return;
+  }
 
   // Set vision and lidar flag
   SetLocationType(goal->outdoor);
@@ -470,6 +481,16 @@ void ExecutorAbNavigation::ReleaseSources()
   //   stop_lidar_trigger_pub_->publish(*command);
   // }
   ResetDefaultValue();
+}
+
+bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
+{
+  std::string map_filename = "/home/mi/mapping/" + map_name;
+  if (!filesystem::exists(map_filename)) {
+    ERROR("Navigation's map file is not exist.");
+    return false;
+  }
+  return true;
 }
 
 bool ExecutorAbNavigation::IsUseVisionLocation()
