@@ -81,18 +81,22 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   static uint8_t last_relative_pos = AlgorithmMGR::Goal::TRACING_AUTO;
   switch (goal->relative_pos) {
     case AlgorithmMGR::Goal::TRACING_AUTO:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::AUTO;
       break;
 
     case AlgorithmMGR::Goal::TRACING_LEFT:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::LEFT;
       break;
 
     case AlgorithmMGR::Goal::TRACING_RIGHT:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::RIGHT;
       break;
 
     case AlgorithmMGR::Goal::TRACING_BEHIND:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::BEHIND;
       break;
 
@@ -101,7 +105,6 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       target_tracking_goal.relative_pos = last_relative_pos;
       break;
   }
-  last_relative_pos = goal->relative_pos;
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   // ReportPreparationStatus();
