@@ -28,9 +28,13 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   auto options = rclcpp::NodeOptions().arguments(
     {"--ros-args", "-r", std::string("__node:=") + get_name() + "_client", "--"});
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(action_client_node_);
   target_tracking_action_client_ =
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
+  stair_monitor_client_ = action_client_node_->create_client<std_srvs::srv::SetBool>(
+    "elevation_mapping_step_monitor");
   GetBehaviorManager()->RegisterStateCallback(
     std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
   std::string behavior_config = ament_index_cpp::get_package_share_directory(
@@ -42,7 +46,31 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   }
   GET_TOML_VALUE(value, "stair_detect", stair_detect_);
   GET_TOML_VALUE(value, "static_detect", static_detect_);
-  std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
+  std::thread{[this]() {executor_->spin();}}.detach();
+}
+
+void ExecutorUwbTracking::ResetLifecycles()
+{
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+  DeactivateDepsLifecycleNodes();
+}
+
+void ExecutorUwbTracking::ResetAllDeps()
+{
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = false;
+  auto future = stair_monitor_client_->async_send_request(request);
+  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    ERROR("Cannot get response from stair monitor service in 2s");
+    DeactivateDepsLifecycleNodes();
+    return;
+  }
+  if (future.get()->success) {
+    INFO("Success to disable stair monitor");
+  } else {
+    ERROR("Get error when disable stair monitor");
+  }
+  DeactivateDepsLifecycleNodes();
 }
 
 void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -53,18 +81,22 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   static uint8_t last_relative_pos = AlgorithmMGR::Goal::TRACING_AUTO;
   switch (goal->relative_pos) {
     case AlgorithmMGR::Goal::TRACING_AUTO:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::AUTO;
       break;
 
     case AlgorithmMGR::Goal::TRACING_LEFT:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::LEFT;
       break;
 
     case AlgorithmMGR::Goal::TRACING_RIGHT:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::RIGHT;
       break;
 
     case AlgorithmMGR::Goal::TRACING_BEHIND:
+      last_relative_pos = goal->relative_pos;
       target_tracking_goal.relative_pos = McrTargetTracking::Goal::BEHIND;
       break;
 
@@ -73,44 +105,41 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       target_tracking_goal.relative_pos = last_relative_pos;
       break;
   }
-  last_relative_pos = goal->relative_pos;
   INFO("UWB Tracking will start");
   // 在激活依赖节点前需要开始上报激活进度
   // ReportPreparationStatus();
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
 
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
-    // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
-  // static bool first_run = true;
-  // bool result = false;
-  // if (first_run) {
-  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp);
-  // } else {
-  //   result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kResume);
-  // }
-  // if (!result) {
-  //   ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-  //   DeactivateDepsLifecycleNodes();
-  //   task_abort_callback_();
-  //   return;
-  // }
-  // first_run = false;
-  // TODO(Harvey): 当有Realsense的依赖时
-  // TODO(Harvey): 当有其他没有继承Nav2Lifecycle的依赖节点时
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+  auto callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
+      if (future.get()->success) {
+        INFO("Success to enable stair monitor");
+      } else {
+        ERROR("Get error when enable stair monitor");
+        DeactivateDepsLifecycleNodes();
+        task_abort_callback_();
+        return;
+      }
+    };
+  auto future = stair_monitor_client_->async_send_request(request, callback);
+  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    ERROR("Cannot get response from stair monitor service in 2s");
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return;
+  }
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
     ERROR("TrackingTarget action server is not available.");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    DeactivateDepsLifecycleNodes();
-    // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ResetAllDeps();
     task_abort_callback_();
     return;
   }
@@ -136,16 +165,20 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     target_tracking_goal, send_goal_options);
   if (future_goal_handle.wait_for(server_timeout_) != std::future_status::ready) {
     ERROR("Send TrackingTarget goal failed");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    DeactivateDepsLifecycleNodes();
+    // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    // DeactivateDepsLifecycleNodes();
+    // task_abort_callback_();
+    ResetAllDeps();
     task_abort_callback_();
     return;
   }
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("TrackingTarget Goal was rejected by server");
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    DeactivateDepsLifecycleNodes();
+    // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+    // DeactivateDepsLifecycleNodes();
+    // task_abort_callback_();
+    ResetAllDeps();
     task_abort_callback_();
     return;
   }
@@ -181,12 +214,14 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
     } else {
       cancel_tracking_result_ = true;
     }
-  } else {
-    DeactivateDepsLifecycleNodes();
-    OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-    task_abort_callback_();
   }
-  StopReportPreparationThread();
+  // else {
+  //   // DeactivateDepsLifecycleNodes();
+  //   // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+  //   // task_abort_callback_();
+  // }
+  ResetAllDeps();
+  task_cancle_callback_();
   target_tracking_goal_handle_.reset();
   GetBehaviorManager()->Launch(false, false);
   GetBehaviorManager()->Reset();
@@ -295,9 +330,10 @@ void ExecutorUwbTracking::HandleResultCallback(const TargetTrackingGoalHandle::W
       break;
     case rclcpp_action::ResultCode::CANCELED:
       INFO("UWB Tracking reported canceled");
-      DeactivateDepsLifecycleNodes();
-      OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-      task_cancle_callback_();
+      // DeactivateDepsLifecycleNodes();
+      // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
+      // task_cancle_callback_();
+      // ResetAllDeps();
       target_tracking_server_cv_.notify_one();
       break;
     default:
