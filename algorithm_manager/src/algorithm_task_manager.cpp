@@ -52,7 +52,7 @@ bool AlgorithmTaskManager::Init()
       this, std::placeholders::_1),
     std::bind(
       &AlgorithmTaskManager::HandleAlgorithmManagerAccepted,
-      this, std::placeholders::_1), rcl_action_server_get_default_options(), callback_group_);
+      this, std::placeholders::_1), rcl_action_server_get_default_options());
   stop_algo_task_server_ = node_->create_service<protocol::srv::StopAlgoTask>(
     "stop_algo_task",
     std::bind(
@@ -221,7 +221,9 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
   SetTaskHandle(goal_handle);
-  activated_executor_->Start(goal_handle->get_goal());
+  std::thread{[this, goal_handle]() {
+      activated_executor_->Start(goal_handle->get_goal());
+    }}.detach();
 }
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
