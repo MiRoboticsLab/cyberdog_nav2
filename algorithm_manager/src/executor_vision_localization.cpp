@@ -164,8 +164,9 @@ void ExecutorVisionLocalization::Stop(
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    // task_abort_callback_();
-    // return;
+    task_abort_callback_();
+    ResetLifecycleDefaultValue();
+    return;
   }
 
   // Disenable report realtime robot pose
@@ -295,8 +296,6 @@ bool ExecutorVisionLocalization::IsDependsReady()
     if (!localization_lifecycle_->Startup()) {
       return false;
     }
-  } else {
-    INFO("RGB-D Camera Sensor is activate.");
   }
   return true;
 }
@@ -361,7 +360,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    auto future_result = start_client_->invoke(request, std::chrono::seconds(25s));
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
@@ -493,7 +492,7 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   bool result = false;
   try {
-    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5s));
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->code == 0;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
