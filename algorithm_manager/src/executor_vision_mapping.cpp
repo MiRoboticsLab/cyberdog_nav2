@@ -53,6 +53,16 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("[Vision Mapping] Vision Mapping started");
   ReportPreparationStatus();
 
+  // If current slam mapping in background, it's not available build mapping now
+  bool available = CheckBuildMappingAvailable();
+  if (!available) {
+    ERROR("[Vision Mapping] Vision Mapping can't start, due to miloc creating map data.");
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    task_cancle_callback_();
+    return;
+  }
+
+  // Check all sensors turn on
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
@@ -72,11 +82,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       "stop_vins_mapping", shared_from_this());
   }
 
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
-
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
@@ -85,11 +90,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
-  }
-
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
   }
 
   // Smoother walk
@@ -389,6 +389,11 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   // }
   // return future.get()->success;
 
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
+  }
+
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
@@ -419,8 +424,44 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   return result;
 }
 
+bool ExecutorVisionMapping::CheckBuildMappingAvailable()
+{
+  if (mapping_available_client_ == nullptr) {
+    mapping_available_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  while (!mapping_available_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  request->map_id = 1;
+
+  // Send request
+  // bool success = mapping_available_client_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = mapping_available_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->code != 300;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  return result;
+}
+
 bool ExecutorVisionMapping::VelocitySmoother()
 {
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
   while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("[Laser Mapping] Connect velocity adaptor service timeout");

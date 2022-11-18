@@ -15,7 +15,9 @@
 #include <memory>
 #include <vector>
 #include <string>
+
 #include "algorithm_manager/executor_ab_navigation.hpp"
+#include "filesystem/filesystem.hpp"
 
 namespace cyberdog
 {
@@ -64,6 +66,15 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("AB navigation started");
   ReportPreparationStatus();
+
+  // Check current map exits
+  bool exist = CheckMapAvailable();
+  if (!exist) {
+    ERROR("AB navigation can't start up, because current robot's map not exist");
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    task_cancle_callback_();
+    return;
+  }
 
   // Set vision and lidar flag
   SetLocationType(goal->outdoor);
@@ -131,12 +142,27 @@ void ExecutorAbNavigation::Stop(
   bool cancel = ShouldCancelGoal();
   if (!cancel) {
     WARN("Current robot can't stop, due to navigation status is not available.");
+    nav_goal_handle_.reset();
+    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    task_cancle_callback_();
     return;
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
   if (nav_goal_handle_ != nullptr) {
-    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+    auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+    if (!server_ready) {
+      ERROR("Navigation action server is not available.");
+      return;
+    }
+
+    // async_cancel_goal will throw exceptions::UnknownGoalHandleError()
+    try {
+      auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+    } catch (const std::exception & e) {
+      ERROR("%s", e.what());
+      return;
+    }
   } else {
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
@@ -212,6 +238,11 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
   if (msg->data) {
     ReleaseSources();
   }
+
+  // stop current navigation ab
+  auto request = std::make_shared<StopTaskSrv::Request>();
+  auto response = std::make_shared<StopTaskSrv::Response>();
+  Stop(request, response);
 }
 
 bool ExecutorAbNavigation::IsDependsReady()
@@ -470,6 +501,16 @@ void ExecutorAbNavigation::ReleaseSources()
   //   stop_lidar_trigger_pub_->publish(*command);
   // }
   ResetDefaultValue();
+}
+
+bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
+{
+  std::string map_filename = "/home/mi/mapping/" + map_name;
+  if (!filesystem::exists(map_filename)) {
+    ERROR("Navigation's map file is not exist.");
+    return false;
+  }
+  return true;
 }
 
 bool ExecutorAbNavigation::IsUseVisionLocation()
