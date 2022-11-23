@@ -23,7 +23,7 @@ namespace navigation
 {
 
 VelocityAdaptor::VelocityAdaptor()
-: Node("velocity_adaptor"), gait_motion_id(protocol::msg::MotionID::WALK_USERTROT),
+: Node("velocity_adaptor"), gait_motion_id(309),
   gait_step_height({0.05, 0.05}), gait_shape_value(0)
 {
   motion_vel_cmd_pub_ = this->create_publisher<::protocol::msg::MotionServoCmd>(
