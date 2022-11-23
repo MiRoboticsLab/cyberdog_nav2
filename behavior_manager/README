@@ -1,0 +1,3 @@
+电子皮肤跟随效果演示涉及的仓
+1. motion, demo-behavior-elec-skin, pkg: elec_skin, motion_action, motion_manager
+2. algorithm_manager包中, 在config/UwbTracking.toml中关闭台阶检测
