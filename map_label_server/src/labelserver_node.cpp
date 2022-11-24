@@ -102,6 +102,12 @@ void LabelServer::handle_get_label(
   std::string map_filename = request->map_name + ".pgm";
   if (!map_label_store_ptr_->IsExist(map_filename)) {
     WARN("Map not exist.");
+
+    // clear map data
+    response->label.map.data.clear();
+    response->label.map.info.resolution = 0.0f;
+    response->label.map.info.width = 0;
+    response->label.map.info.height = 0;
     response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
