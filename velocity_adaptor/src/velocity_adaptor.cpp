@@ -83,6 +83,7 @@ void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPt
   };
 
   ::protocol::msg::MotionServoCmd command;
+  command.cmd_source = 4;
   command.motion_id = gait_motion_id;
   command.vel_des = vel_des;
   command.value = gait_shape_value;
