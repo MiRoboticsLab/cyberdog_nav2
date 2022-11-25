@@ -198,8 +198,6 @@ public:
             node_->get_logger(),
             "Timed out while waiting for action server to acknowledge goal request for %s",
             action_name_.c_str());
-          if(future_goal_handle_)
-            future_goal_handle_.reset();
           return BT::NodeStatus::FAILURE;
         }
       }
@@ -224,8 +222,6 @@ public:
               node_->get_logger(),
               "Timed out while waiting for action server to acknowledge goal request for %s",
               action_name_.c_str());
-            if(future_goal_handle_)
-              future_goal_handle_.reset();
             return BT::NodeStatus::FAILURE;
           }
         }
