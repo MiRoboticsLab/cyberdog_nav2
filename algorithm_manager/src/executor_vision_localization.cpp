@@ -156,6 +156,7 @@ void ExecutorVisionLocalization::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  (void)request;
   INFO("Vision localization will stop");
   StopReportPreparationThread();
 

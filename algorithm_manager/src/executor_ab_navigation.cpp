@@ -416,17 +416,19 @@ bool ExecutorAbNavigation::ReinitializeAndCleanup()
 
 bool ExecutorAbNavigation::LifecycleNodesReinitialize()
 {
-  // bool success = nav_client_->pause();
-  // if (!success) {
-  //   ERROR("Reset navigation lifecycle nodes deactivate state failed.");
-  //   return false;
-  // }
+  bool success = nav_client_->pause();
+  if (!success) {
+    ERROR("Reset navigation lifecycle nodes deactivate state failed.");
+    return false;
+  }
 
   // bool success = localization_lifecycle_->Pause();
   // if (!success) {
   //   ERROR("Reset localization lifecycle node deactivate state failed.");
   //   return false;
   // }
+
+  map_server_lifecycle_->Pause();
   return true;
 }
 
@@ -500,6 +502,8 @@ void ExecutorAbNavigation::ReleaseSources()
   // } else if (IsUseLidarLocation()) {
   //   stop_lidar_trigger_pub_->publish(*command);
   // }
+
+  LifecycleNodesReinitialize();
   ResetDefaultValue();
 }
 

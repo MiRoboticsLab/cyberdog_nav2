@@ -294,7 +294,7 @@ void ExecutorPosesThroughNavigation::Debug2String(
   INFO("Robot poses though:");
   for (std::size_t index = 0; index < poses.size(); index++) {
     INFO(
-      "\t[pose %d] [%lf, %lf]",
+      "\t[pose %lu] [%lf, %lf]",
       index, poses[index].pose.position.x, poses[index].pose.position.y);
   }
 }

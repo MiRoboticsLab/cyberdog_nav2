@@ -80,6 +80,7 @@ private:
     GoalHandleNavigation::SharedPtr,
     const std::shared_ptr<const Navigation::Feedback> feedback)
   {
+    (void)feedback;
   }
 
   void result_callback(const GoalHandleNavigation::WrappedResult & result)

@@ -313,6 +313,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
 
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
+  (void)map_filename;
   // // Wait service
   // while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
   //   if (!rclcpp::ok()) {
