@@ -285,34 +285,40 @@ bool ExecutorLaserMapping::IsDependsReady()
   // }
 
   // RealSense camera
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
+  // bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
+  //   LifeCycleNodeType::RealSenseCameraSensor);
+  // if (!success) {
+  //   // RealSense camera lifecycle(configure state)
+  //   success = LifecycleNodeManager::GetSingleton()->Configure(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
 
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-  }
+  //   // RealSense camera lifecycle(activate state)
+  //   success = LifecycleNodeManager::GetSingleton()->Startup(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
+  // }
 
-  // Laser mapping  lifecycle
-  if (!mapping_client_->IsActivate()) {
-    bool ok = mapping_client_->Configure();
-    if (!ok) {
-      return false;
-    }
-    ok = mapping_client_->Startup();
-    if (!ok) {
-      return false;
-    }
+  // // Laser mapping  lifecycle
+  // if (!mapping_client_->IsActivate()) {
+  //   bool ok = mapping_client_->Configure();
+  //   if (!ok) {
+  //     return false;
+  //   }
+  //   ok = mapping_client_->Startup();
+  //   if (!ok) {
+  //     return false;
+  //   }
+  // }
+
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return false;
   }
 
   INFO("[Laser Mapping] Start all depends lifecycle nodes success.");

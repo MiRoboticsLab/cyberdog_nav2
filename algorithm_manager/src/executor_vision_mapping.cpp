@@ -201,60 +201,66 @@ void ExecutorVisionMapping::Cancel()
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
-  // RealSense camera
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RealSense camera set configure state failed.");
-      return false;
-    }
+  // // RealSense camera
+  // bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
+  //   LifeCycleNodeType::RealSenseCameraSensor);
+  // if (!success) {
+  //   // RealSense camera lifecycle(configure state)
+  //   success = LifecycleNodeManager::GetSingleton()->Configure(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     ERROR("[Vision Mapping] RealSense camera set configure state failed.");
+  //     return false;
+  //   }
 
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RealSense camera set activate state failed.");
-      return false;
-    }
-  }
-
-  // RGB-G camera
-  success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    // RGB-G camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
-      return false;
-    }
-
-    // RGB-G camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
-      return false;
-    }
-  }
-
-  // // Nav lifecycle
-  // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-  //   ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
-  //   return false;
+  //   // RealSense camera lifecycle(activate state)
+  //   success = LifecycleNodeManager::GetSingleton()->Startup(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     ERROR("[Vision Mapping] RealSense camera set activate state failed.");
+  //     return false;
+  //   }
   // }
 
-  if (!mapping_client_->IsActivate()) {
-    success = mapping_client_->Configure() && mapping_client_->Startup();
-    if (!success) {
-      ERROR("[Vision Mapping] lifecycle manager mivinsmapping set activate state failed.");
-      return false;
-    }
+  // // RGB-G camera
+  // success = LifecycleNodeManager::GetSingleton()->IsActivate(
+  //   LifeCycleNodeType::RGBCameraSensor);
+  // if (!success) {
+  //   // RGB-G camera lifecycle(configure state)
+  //   success = LifecycleNodeManager::GetSingleton()->Configure(
+  //     LifeCycleNodeType::RGBCameraSensor);
+  //   if (!success) {
+  //     ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
+  //     return false;
+  //   }
+
+  //   // RGB-G camera lifecycle(activate state)
+  //   success = LifecycleNodeManager::GetSingleton()->Startup(
+  //     LifeCycleNodeType::RGBCameraSensor);
+  //   if (!success) {
+  //     ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
+  //     return false;
+  //   }
+  // }
+
+  // // // Nav lifecycle
+  // // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
+  // //   ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
+  // //   return false;
+  // // }
+
+  // if (!mapping_client_->IsActivate()) {
+  //   success = mapping_client_->Configure() && mapping_client_->Startup();
+  //   if (!success) {
+  //     ERROR("[Vision Mapping] lifecycle manager mivinsmapping set activate state failed.");
+  //     return false;
+  //   }
+  // }
+
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return false;
   }
 
   INFO("[Vision Mapping] Start all depends lifecycle nodes success.");

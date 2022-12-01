@@ -209,29 +209,29 @@ void ExecutorLaserLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
+  // // RealSense camera lifecycle(configure state)
+  // bool success = LifecycleNodeManager::GetSingleton()->Configure(
+  //   LifeCycleNodeType::RealSenseCameraSensor);
+  // if (!success) {
+  //   return false;
+  // }
 
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
+  // // RealSense camera lifecycle(activate state)
+  // success = LifecycleNodeManager::GetSingleton()->Startup(
+  //   LifeCycleNodeType::RealSenseCameraSensor);
+  // if (!success) {
+  //   return false;
+  // }
 
-  // localization_node lifecycle(configure state)
-  if (!localization_lifecycle_->Configure()) {
-    return false;
-  }
+  // // localization_node lifecycle(configure state)
+  // if (!localization_lifecycle_->Configure()) {
+  //   return false;
+  // }
 
-  // localization_node lifecycle(activate state)
-  if (!localization_lifecycle_->Startup()) {
-    return false;
-  }
+  // // localization_node lifecycle(activate state)
+  // if (!localization_lifecycle_->Startup()) {
+  //   return false;
+  // }
 
   // if (localization_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
   //   bool startup = localization_client_->startup();
@@ -240,6 +240,12 @@ bool ExecutorLaserLocalization::IsDependsReady()
   //     return false;
   //   }
   // }
+
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return false;
+  }
 
 
   return true;

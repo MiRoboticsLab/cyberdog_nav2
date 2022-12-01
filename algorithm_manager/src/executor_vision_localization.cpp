@@ -246,58 +246,66 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
+  // bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
+  //   LifeCycleNodeType::RealSenseCameraSensor);
+  // if (!success) {
+  //   // RealSense camera lifecycle(configure state)
+  //   success = LifecycleNodeManager::GetSingleton()->Configure(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
 
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-  } else {
-    INFO("RealSense Camera Sensor is activate.");
+  //   // RealSense camera lifecycle(activate state)
+  //   success = LifecycleNodeManager::GetSingleton()->Startup(
+  //     LifeCycleNodeType::RealSenseCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
+  // } else {
+  //   INFO("RealSense Camera Sensor is activate.");
+  // }
+
+  // success = LifecycleNodeManager::GetSingleton()->IsActivate(
+  //   LifeCycleNodeType::RGBCameraSensor);
+  // if (!success) {
+  //   // RGB-D camera lifecycle(configure state)
+  //   success = LifecycleNodeManager::GetSingleton()->Configure(
+  //     LifeCycleNodeType::RGBCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
+
+  //   // RGB-D camera lifecycle(activate state)
+  //   success = LifecycleNodeManager::GetSingleton()->Startup(
+  //     LifeCycleNodeType::RGBCameraSensor);
+  //   if (!success) {
+  //     return false;
+  //   }
+  // } else {
+  //   INFO("RGB-D Camera Sensor is activate.");
+  // }
+
+  // success = localization_lifecycle_->IsActivate();
+  // if (!success) {
+  //   // localization_node lifecycle(configure state)
+  //   if (!localization_lifecycle_->Configure()) {
+  //     return false;
+  //   }
+
+  //   // localization_node lifecycle(activate state)
+  //   if (!localization_lifecycle_->Startup()) {
+  //     return false;
+  //   }
+  // }
+
+  
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return false;
   }
 
-  success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    // RGB-D camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      return false;
-    }
-
-    // RGB-D camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      return false;
-    }
-  } else {
-    INFO("RGB-D Camera Sensor is activate.");
-  }
-
-  success = localization_lifecycle_->IsActivate();
-  if (!success) {
-    // localization_node lifecycle(configure state)
-    if (!localization_lifecycle_->Configure()) {
-      return false;
-    }
-
-    // localization_node lifecycle(activate state)
-    if (!localization_lifecycle_->Startup()) {
-      return false;
-    }
-  }
   return true;
 }
 

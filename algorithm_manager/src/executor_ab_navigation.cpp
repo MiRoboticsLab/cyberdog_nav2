@@ -262,32 +262,39 @@ bool ExecutorAbNavigation::IsDependsReady()
   //   return false;
   // }
 
-  if (start_lifecycle_depend_finished_) {
-    INFO("Current all lifecycle are activate.");
-    return true;
+  // if (start_lifecycle_depend_finished_) {
+  //   INFO("Current all lifecycle are activate.");
+  //   return true;
+  // }
+
+  // if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //   if (!nav_client_->startup()) {
+  //     WARN("Navigation client lifecycle startup failed.");
+  //     return false;
+  //   }
+  // }
+
+  // // map server lifecycle configure  and deactivate
+  // if (!map_server_lifecycle_->IsActivate()) {
+  //   bool success = map_server_lifecycle_->Configure();
+  //   if (!success) {
+  //     ERROR("Configure map server lifecycle configure state failed.");
+  //     return false;
+  //   }
+
+  //   success = map_server_lifecycle_->Startup();
+  //   if (!success) {
+  //     ERROR("Configure map server lifecycle activate state failed.");
+  //     return false;
+  //   }
+  // }
+
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    task_abort_callback_();
+    return false;
   }
 
-  if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-    if (!nav_client_->startup()) {
-      WARN("Navigation client lifecycle startup failed.");
-      return false;
-    }
-  }
-
-  // map server lifecycle configure  and deactivate
-  if (!map_server_lifecycle_->IsActivate()) {
-    bool success = map_server_lifecycle_->Configure();
-    if (!success) {
-      ERROR("Configure map server lifecycle configure state failed.");
-      return false;
-    }
-
-    success = map_server_lifecycle_->Startup();
-    if (!success) {
-      ERROR("Configure map server lifecycle activate state failed.");
-      return false;
-    }
-  }
 
   start_lifecycle_depend_finished_ = true;
   return true;
