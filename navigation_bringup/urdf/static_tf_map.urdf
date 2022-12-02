@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<robot name="cyberdog">
+
+  <link name="map"/>
+  <link name="odom"/>
+  <link name="vodom"/>
+
+  <joint name="tf2_node_map_to_odom" type="fixed">
+    <parent link="map"/>
+    <child link="odom"/>
+    <origin xyz="0 0 0" rpy="0 0 -3.14159"/>
+  </joint>
+
+  <joint name="tf2_node_map_to_vodom" type="fixed">
+    <parent link="map"/>
+    <child link="vodom"/>
+    <origin xyz="0 0 0" rpy="0 0 -3.14159"/>
+  </joint>
+
+</robot>
