@@ -17,37 +17,37 @@
   <joint name="tf2_node_base_to_lidar" type="fixed">
     <parent link="base_link"/>
     <child link="laser_frame"/>
-    <origin xyz="0.179 0 0.0837" rpy="0 0 -3.14159"/>
+    <origin xyz="0.179 0 0.0837" rpy="0 0 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.288824 0.000 0.144322" rpy="0 -0.522 3.142"/>
+    <origin xyz="0.288824 0.000 0.144322" rpy="0 -0.524 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_tof_left_head" type="fixed">
     <parent link="base_link"/>
     <child link="left_head"/>
-    <origin xyz="0.259 0.03 0.102" rpy="0 -0.266 0.296"/>
+    <origin xyz="0.259 0.03 0.102" rpy="0.296 -0.266 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_tof_right_head" type="fixed">
     <parent link="base_link"/>
     <child link="right_head"/>
-    <origin xyz="0.259 -0.03 0.102" rpy="0 -0.266 -0.296"/>
+    <origin xyz="0.259 -0.03 0.102" rpy="-0.296 -0.266 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_tof_left_rear" type="fixed">
     <parent link="base_link"/>
     <child link="left_rear"/>
-    <origin xyz="-0.021 0.042 -0.051" rpy="0 0 0.296"/>
+    <origin xyz="-0.021 0.042 -0.051" rpy="0.296 0 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_tof_right_rear" type="fixed">
     <parent link="base_link"/>
     <child link="right_rear"/>
-    <origin xyz="-0.021 -0.042 -0.051" rpy="0 0 -0.296"/>
+    <origin xyz="-0.021 -0.042 -0.051" rpy="-0.296 0 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_uwb" type="fixed">
@@ -65,19 +65,19 @@
   <joint name="tf2_node_uwb_to_head_uwb" type="fixed">
     <parent link="uwb"/>
     <child link="head_uwb"/>
-    <origin xyz="0.17 0 0.164" rpy="3.14159 0 0"/>
+    <origin xyz="0.17 0 0.164" rpy="0 0 3.14159"/>
   </joint>
 
   <joint name="tf2_node_uwb_to_rear_uwb" type="fixed">
     <parent link="uwb"/>
     <child link="rear_uwb"/>
-    <origin xyz="-0.023 0.0845 -0.00325" rpy="1.5708 0 0"/>
+    <origin xyz="-0.023 0.0845 -0.00325" rpy="0 0 1.5708"/>
   </joint>
 
   <joint name="tf2_node_uwb_to_rear_tof" type="fixed">
     <parent link="uwb"/>
     <child link="rear_tof"/>
-    <origin xyz="-0.0235 -0.0845 -0.00325" rpy="-1.5708 0 0"/>
+    <origin xyz="-0.0235 -0.0845 -0.00325" rpy="0 0 -1.5708"/>
   </joint>
 
 </robot>
