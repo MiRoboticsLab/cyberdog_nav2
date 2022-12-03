@@ -40,7 +40,7 @@ def generate_launch_description():
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     node_lists = [
         # 'static_tf',
-        'state_publisher'
+        'state_publisher',
         'vision_manager',
         'camera_server',
         'tracking',
