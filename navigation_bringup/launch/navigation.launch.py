@@ -39,7 +39,8 @@ def generate_launch_description():
     nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup')
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     node_lists = [
-        'static_tf',
+        # 'static_tf',
+        'state_publisher'
         'vision_manager',
         'camera_server',
         'tracking',
