@@ -43,6 +43,7 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 
   // mapping build type
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
+  robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
 
   // ontrol lidar mapping turn on
   // start_client_ = create_client<std_srvs::srv::SetBool>(
@@ -158,6 +159,10 @@ void ExecutorLaserMapping::Stop(
     ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
     ReportPreparationFinished(
       AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+
+    // use topic stop robot realtime pose
+    EnableReportRealtimePose(false, true);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -175,6 +180,7 @@ void ExecutorLaserMapping::Stop(
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -193,6 +199,7 @@ void ExecutorLaserMapping::Stop(
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -301,6 +308,8 @@ bool ExecutorLaserMapping::IsDependsReady()
     if (!success) {
       return false;
     }
+
+    is_open_realsense_camera_ = success;
   }
 
   // Laser mapping  lifecycle
@@ -424,36 +433,43 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   return result;
 }
 
-bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable)
+bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
 {
-  // Wait service
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+  if (!use_topic) {
+    // Wait service
+    while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
+      if (!rclcpp::ok()) {
+        ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+        return false;
+      }
+    }
+
+    // Set request data
+    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
+    request->data = enable;
+
+    // Print enable and disenable message
+    if (enable) {
+      INFO("[Laser Mapping] Start report robot's realtime pose");
+    } else {
+      INFO("[Laser Mapping] Stop report robot's realtime pose.");
+    }
+
+    // Send request
+    auto future = realtime_pose_client_->async_send_request(request);
+    if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
+      ERROR("[Laser Mapping] Connect position checker service timeout");
       return false;
     }
-  }
 
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
-  request->data = enable;
-
-  // Print enable and disenable message
-  if (enable) {
-    INFO("[Laser Mapping] Start report robot's realtime pose");
+    start_report_realtime_pose_ = true;
+    return future.get()->success;
   } else {
-    INFO("[Laser Mapping] Stop report robot's realtime pose.");
+    std_msgs::msg::Bool enable_command;
+    enable_command.data = enable;
+    robot_pose_pub_->publish(enable_command);
   }
-
-  // Send request
-  auto future = realtime_pose_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
-    ERROR("[Laser Mapping] Connect position checker service timeout");
-    return false;
-  }
-
-  start_report_realtime_pose_ = true;
-  return future.get()->success;
+  return true;
 }
 
 bool ExecutorLaserMapping::CheckAvailable()
@@ -541,6 +557,16 @@ void ExecutorLaserMapping::PublishBuildMapType()
   std_msgs::msg::Bool state;
   state.data = true;
   lidar_mapping_trigger_pub_->publish(state);
+}
+
+bool ExecutorLaserMapping::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    return success;
+  }
+  return success;
 }
 
 }  // namespace algorithm

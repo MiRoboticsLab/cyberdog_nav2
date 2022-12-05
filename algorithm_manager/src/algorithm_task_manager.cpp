@@ -271,5 +271,51 @@ void AlgorithmTaskManager::TaskAborted()
   INFO("Manager TaskHandle reset bc aborted");
   ResetManagerStatus();
 }
+
+std::string ToString(const ManagerStatus & status)
+{
+  switch (status) {
+    case ManagerStatus::kUninitialized:
+      return "kUninitialized:100";
+      break;
+
+    case ManagerStatus::kIdle:
+      return "kIdle:101";
+      break;
+
+    case ManagerStatus::kLaunchingLifecycleNode:
+      return "kLaunchingLifecycleNode:102";
+      break;
+
+    case ManagerStatus::kExecutingLaserMapping:
+      return "kExecutingLaserMapping:5";
+      break;
+
+    case ManagerStatus::kExecutingLaserLocalization:
+      return "kExecutingLaserLocalization:7";
+      break;
+
+    case ManagerStatus::kExecutingAbNavigation:
+      return "kExecutingAbNavigation:1";
+      break;
+
+    case ManagerStatus::kExecutingAutoDock:
+      return "kExecutingAutoDock:9";
+      break;
+
+    case ManagerStatus::kExecutingUwbTracking:
+      return "kExecutingUwbTracking:11";
+      break;
+
+    case ManagerStatus::kShuttingDownUwbTracking:
+      return "kShuttingDownUwbTracking:12";
+      break;
+
+    default:
+      break;
+  }
+  return "Unknown";
+}
+
 }  // namespace algorithm
 }  // namespace cyberdog
