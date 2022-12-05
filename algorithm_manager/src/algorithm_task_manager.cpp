@@ -287,6 +287,10 @@ std::string ToString(const ManagerStatus & status)
       return "kLaunchingLifecycleNode:102";
       break;
 
+    case ManagerStatus::kStoppingTask:
+      return "kStoppingTask:103";
+      break;
+
     case ManagerStatus::kExecutingLaserMapping:
       return "kExecutingLaserMapping:5";
       break;

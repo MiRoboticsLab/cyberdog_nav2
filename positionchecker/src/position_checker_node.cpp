@@ -45,7 +45,8 @@ PositionChecker::PositionChecker()
       std::placeholders::_2, std::placeholders::_3));
 
   enable_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "pose_enable", 10, std::bind(&PositionChecker::HandleTriggerCallback, this, std::placeholders::_1));
+    "pose_enable", 10,
+    std::bind(&PositionChecker::HandleTriggerCallback, this, std::placeholders::_1));
 
   pos_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
     "dog_pose", rclcpp::SystemDefaultsQoS());
