@@ -63,6 +63,8 @@ ExecutorVisionTracking::ExecutorVisionTracking(std::string node_name)
     rclcpp_action::create_client<mcr_msgs::action::TargetTracking>(
     action_client_node_, "tracking_target");
   target_tracking_goal_ = mcr_msgs::action::TargetTracking::Goal();
+  GetBehaviorManager()->RegisterStateCallback(
+    std::bind(&ExecutorVisionTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
   GetParams();
   std::thread{[this] {this->executor_->spin();}}.detach();
 }
@@ -75,7 +77,8 @@ bool ExecutorVisionTracking::GetParams()
     ERROR("Params config file is not in toml format");
     return false;
   }
-
+  stair_detect_ = toml::find<bool>(params_toml_, "stair_detect");
+  static_detect_ = toml::find<bool>(params_toml_, "static_detect");
   tracking_keep_distance_ = toml::find<float>(params_toml_, "tracking_keep_distance");
   tracking_relative_pos_ = toml::find<int>(params_toml_, "tracking_relative_pos");
   INFO(
@@ -148,11 +151,40 @@ void ExecutorVisionTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
   task_cancle_callback_();
   start_vision_tracking_ = false;
   vision_manager_tracking_ = false;
+  GetBehaviorManager()->Launch(false, false);
+  GetBehaviorManager()->Reset();
   if (response == nullptr) {
     return;
   }
   response->result = cancel_tracking_result_ ?
     StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
+}
+
+void ExecutorVisionTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status)
+{
+  behavior_status_ = status;
+  int32_t feedback_code = -1;
+  switch (behavior_status_) {
+    case BehaviorManager::BehaviorStatus::kStairJumping:
+      feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_STAIRJUMPING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAutoTracking:
+      feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_AUTOTRACKING;
+      break;
+
+    case BehaviorManager::BehaviorStatus::kAbnorm:
+      feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_BEHAVIORABNORM;
+
+    default:
+      return;
+  }
+  (void) feedback_code;
+  // task_feedback_callback_(feedback_);
+  // UpdateFeedback(feedback_code);
 }
 
 bool ExecutorVisionTracking::OnlyCancelNavStack()
@@ -336,6 +368,15 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   }
   SetFeedbackCode(502);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
+}
+void ExecutorVisionTracking::HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
+{
+  if (!goal_handle) {
+    ERROR("Goal was rejected by server");
+  } else {
+    GetBehaviorManager()->Launch(stair_detect_, static_detect_);
+    INFO("Goal accepted");
+  }
 }
 void ExecutorVisionTracking::HandleFeedbackCallback(
   TargetTrackingGoalHandle::SharedPtr,
