@@ -207,8 +207,12 @@ private:
     INFO("distance: %f, threashold: %f", mean_x * mean_x + mean_y * mean_y, distance_ * distance_);
     if (diff_x > diff_x_threashold_ || diff_y > diff_y_threashold_) {
       return false;
-    } else if (mean_x * mean_x + mean_y * mean_y < distance_ * distance_){
-      return true;
+    } else {
+      if ((mean_x * mean_x + mean_y * mean_y) > distance_ * distance_){
+        return false;
+      } else {
+        return true;
+      }
     }
   }
   bool EnQueue(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
