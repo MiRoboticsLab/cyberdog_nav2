@@ -64,10 +64,12 @@ public:
     }
     GET_TOML_VALUE(config, "diff_x_threashold", diff_x_threashold_);
     GET_TOML_VALUE(config, "diff_y_threashold", diff_y_threashold_);
+    GET_TOML_VALUE(config, "distance", distance_);
     GET_TOML_VALUE(config, "detect_duration", detect_duration_);
     GET_TOML_VALUE(config, "pose_topic_name", pose_topic_name_);
     GET_TOML_VALUE(config, "filter_size", filter_size_);
     INFO("diff_x threashold: %f, diff_y threashold: %f", diff_x_threashold_, diff_y_threashold_);
+    INFO("distance: %f", distance_);
     INFO("detect_duration: %d", detect_duration_);
     INFO("pose_topic_name: %s", pose_topic_name_.c_str());
     INFO("filter_size: %d", filter_size_);
@@ -198,10 +200,14 @@ private:
     auto min_y = *std::min_element(pose_y_.begin(), pose_y_.end());
     auto diff_y = max_y - min_y;
 
+    auto mean_x = std::accumulate(pose_x_.begin(), pose_x_.end(), 0.0) / pose_x_.size();
+    auto mean_y = std::accumulate(pose_y_.begin(), pose_y_.end(), 0.0) / pose_y_.size();
+
     INFO("diff_x: %f, diff_y: %f", diff_x, diff_y);
+    INFO("distance: %f, threashold: %f", mean_x * mean_x + mean_y * mean_y, distance_ * distance_);
     if (diff_x > diff_x_threashold_ || diff_y > diff_y_threashold_) {
       return false;
-    } else {
+    } else if (mean_x * mean_x + mean_y * mean_y < distance_ * distance_){
       return true;
     }
   }
@@ -248,6 +254,7 @@ private:
   double target_first_timestamp = -1;
   double target_current_timestamp = -1;
   float diff_x_threashold_{0}, diff_y_threashold_{0};
+  float distance_{0};
   int detect_duration_{0};
   int filter_size_;
   int8_t stair_detection_{0};
