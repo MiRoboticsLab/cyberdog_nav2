@@ -1,2 +1,4 @@
 tracking_keep_distance = 1.5
 tracking_relative_pos = 1
+stair_detect = false
+static_detect = true

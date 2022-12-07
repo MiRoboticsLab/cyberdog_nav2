@@ -63,25 +63,12 @@ public:
   bool GetParams();
 
 private:
-  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle)
-  {
-    // (void)goal_handle;
-    if (!goal_handle) {
-      ERROR("Goal was rejected by server");
-      // ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-      // if (!DeactivateDepsLifecycleNodes()) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
-      // task_abort_callback_();
-    } else {
-      // target_tracking_goal_handle_ = goal_handle;
-      INFO("Goal accepted");
-    }
-  }
+  void HandleGoalResponseCallback(TargetTrackingGoalHandle::SharedPtr goal_handle);
   void HandleFeedbackCallback(
     TargetTrackingGoalHandle::SharedPtr,
     const std::shared_ptr<const McrTargetTracking::Feedback> feedback);
   void HandleResultCallback(const TargetTrackingGoalHandle::WrappedResult goal_handle);
+  void UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status);
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
   rclcpp::Node::SharedPtr client_node_;
@@ -109,6 +96,9 @@ private:
   rclcpp::TimerBase::SharedPtr feedback_timer_;
   float tracking_keep_distance_ = 1.0;
   int tracking_relative_pos_ = 1;
+  bool stair_detect_;
+  bool static_detect_;
+  BehaviorManager::BehaviorStatus behavior_status_;
   toml::value params_toml_;
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
