@@ -524,13 +524,12 @@ nav_2d_msgs::msg::Path2D DWBLocalPlanner::transformGlobalPlan(
     [&](const auto & global_plan_pose) {
       nav2_costmap_2d::Costmap2D * costmap = costmap_ros_->getCostmap();
       int x0, x1, y0, y1;
-      costmap->worldToMapNoBounds(robot_pose.pose.x, robot_pose.pose.y, x0, y0);
-      costmap->worldToMapNoBounds(global_plan_pose.x, global_plan_pose.y, x1, y1);
+      costmap->worldToMapEnforceBounds(robot_pose.pose.x, robot_pose.pose.y, x0, y0);
+      costmap->worldToMapEnforceBounds(global_plan_pose.x, global_plan_pose.y, x1, y1);
 
       if(getSquareDistance(robot_pose.pose, global_plan_pose) > sq_transform_end_threshold){
         return true;
       }
-
       for (nav2_util::LineIterator line(x0, y0, x1, y1); line.isValid(); line.advance()) {
         unsigned char cost = costmap->getCost(line.getX(), line.getY());
         // if the cell is in an obstacle the path is invalid or unknown
