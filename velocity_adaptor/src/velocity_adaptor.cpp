@@ -24,7 +24,8 @@ namespace navigation
 
 VelocityAdaptor::VelocityAdaptor()
 : Node("velocity_adaptor"), gait_motion_id(309),
-  gait_step_height({0.06, 0.06}), gait_shape_value(0)
+  gait_shape_value(0), gait_step_height({0.06, 0.06}), 
+  twist_history_duration_(rclcpp::Duration::from_seconds(0.5))
 {
   motion_vel_cmd_pub_ = this->create_publisher<::protocol::msg::MotionServoCmd>(
     "motion_servo_cmd", rclcpp::SystemDefaultsQoS());
@@ -38,6 +39,13 @@ VelocityAdaptor::VelocityAdaptor()
     std::bind(
       &VelocityAdaptor::VelocityAdaptorGaitCallback, this, std::placeholders::_1,
       std::placeholders::_2));
+  twist_cumulate_.linear.x = 0;
+  twist_cumulate_.linear.y = 0;
+  twist_cumulate_.linear.z = 0;
+  twist_cumulate_.angular.x = 0;
+  twist_cumulate_.angular.y = 0;
+  twist_cumulate_.angular.z = 0;      
+  stop_vel_occur_ = false;
 }
 
 VelocityAdaptor::~VelocityAdaptor()
@@ -68,19 +76,61 @@ void VelocityAdaptor::VelocityAdaptorGaitCallback(
 
 void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPtr msg)
 {
+  std::vector<float> vel_des;
   if (fabs(msg->linear.x) < 5e-3 &&
     fabs(msg->linear.y) < 5e-3 &&
     fabs(msg->angular.z) < 5e-3)
   {
-    return;
-  }
+    if(!stop_vel_occur_){
+      stop_vel_occur_ = true;
+      vel_des = std::vector<float> {
+        static_cast<float>(0.0),
+        static_cast<float>(0.0),
+        static_cast<float>(0.0)
+      };
+    }else{
+      return;
+    }
+  }else{
+    stop_vel_occur_ = false;
+    geometry_msgs::msg::TwistStamped twist_stamp;
+    auto current_time = now();
+    twist_stamp.header.stamp = current_time;
+    if (!twist_history_.empty()) {
+      auto front_time = rclcpp::Time(twist_history_.front().header.stamp);
 
-  // INFO("SetCommandVelocity");
-  std::vector<float> vel_des {
-    static_cast<float>(msg->linear.x),
-    static_cast<float>(msg->linear.y),
-    static_cast<float>(msg->angular.z)
-  };
+      while (current_time - front_time > twist_history_duration_) {
+        const auto & front_twist = twist_history_.front();
+        twist_cumulate_.linear.x -= front_twist.twist.linear.x;
+        twist_cumulate_.linear.y -= front_twist.twist.linear.y;
+        twist_cumulate_.angular.z -= front_twist.twist.angular.z;
+        twist_history_.pop_front();
+
+        if (twist_history_.empty()) {
+          break;
+        }
+
+        front_time = rclcpp::Time(twist_history_.front().header.stamp);
+      }
+    }
+    twist_stamp.twist.linear.x = msg->linear.x;
+    twist_stamp.twist.linear.y = msg->linear.y;
+    twist_stamp.twist.angular.z = msg->angular.z;
+
+    twist_history_.push_back(twist_stamp);
+    
+    const auto & back_twist = twist_history_.back();
+    twist_cumulate_.linear.x += back_twist.twist.linear.x;
+    twist_cumulate_.linear.y += back_twist.twist.linear.y;
+    twist_cumulate_.angular.z += back_twist.twist.angular.z; 
+
+    vel_des = std::vector<float> {
+      static_cast<float>(twist_cumulate_.linear.x / twist_history_.size()),
+      static_cast<float>(twist_cumulate_.linear.y / twist_history_.size()),
+      static_cast<float>(twist_cumulate_.angular.z / twist_history_.size())
+    }; 
+  
+  }
 
   ::protocol::msg::MotionServoCmd command;
   command.cmd_source = 4;
@@ -90,7 +140,6 @@ void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPt
   command.step_height = gait_step_height;
   motion_vel_cmd_pub_->publish(command);
 }
-
 
 }  // namespace navigation
 }  // namespace cyberdog
