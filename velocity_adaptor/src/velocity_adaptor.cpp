@@ -24,7 +24,7 @@ namespace navigation
 
 VelocityAdaptor::VelocityAdaptor()
 : Node("velocity_adaptor"), gait_motion_id(309),
-  gait_shape_value(0), gait_step_height({0.06, 0.06}), 
+  gait_shape_value(0), gait_step_height({0.06, 0.06}),
   twist_history_duration_(rclcpp::Duration::from_seconds(0.5))
 {
   motion_vel_cmd_pub_ = this->create_publisher<::protocol::msg::MotionServoCmd>(
@@ -44,7 +44,7 @@ VelocityAdaptor::VelocityAdaptor()
   twist_cumulate_.linear.z = 0;
   twist_cumulate_.angular.x = 0;
   twist_cumulate_.angular.y = 0;
-  twist_cumulate_.angular.z = 0;      
+  twist_cumulate_.angular.z = 0;
   stop_vel_occur_ = false;
 }
 
@@ -81,17 +81,17 @@ void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPt
     fabs(msg->linear.y) < 5e-3 &&
     fabs(msg->angular.z) < 5e-3)
   {
-    if(!stop_vel_occur_){
+    if (!stop_vel_occur_) {
       stop_vel_occur_ = true;
       vel_des = std::vector<float> {
         static_cast<float>(0.0),
         static_cast<float>(0.0),
         static_cast<float>(0.0)
       };
-    }else{
+    } else {
       return;
     }
-  }else{
+  } else {
     stop_vel_occur_ = false;
     geometry_msgs::msg::TwistStamped twist_stamp;
     auto current_time = now();
@@ -118,18 +118,18 @@ void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPt
     twist_stamp.twist.angular.z = msg->angular.z;
 
     twist_history_.push_back(twist_stamp);
-    
+
     const auto & back_twist = twist_history_.back();
     twist_cumulate_.linear.x += back_twist.twist.linear.x;
     twist_cumulate_.linear.y += back_twist.twist.linear.y;
-    twist_cumulate_.angular.z += back_twist.twist.angular.z; 
+    twist_cumulate_.angular.z += back_twist.twist.angular.z;
 
     vel_des = std::vector<float> {
       static_cast<float>(twist_cumulate_.linear.x / twist_history_.size()),
       static_cast<float>(twist_cumulate_.linear.y / twist_history_.size()),
       static_cast<float>(twist_cumulate_.angular.z / twist_history_.size())
-    }; 
-  
+    };
+
   }
 
   ::protocol::msg::MotionServoCmd command;
