@@ -83,7 +83,6 @@ private:
   geometry_msgs::msg::Twist twist_cumulate_;
   rclcpp::Duration twist_history_duration_;
   std::deque<geometry_msgs::msg::TwistStamped> twist_history_;
-
 };
 
 }  // namespace navigation

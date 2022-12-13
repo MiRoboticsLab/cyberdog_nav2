@@ -129,7 +129,6 @@ void VelocityAdaptor::PublishCommandVelocity(geometry_msgs::msg::Twist::SharedPt
       static_cast<float>(twist_cumulate_.linear.y / twist_history_.size()),
       static_cast<float>(twist_cumulate_.angular.z / twist_history_.size())
     };
-
   }
 
   ::protocol::msg::MotionServoCmd command;
