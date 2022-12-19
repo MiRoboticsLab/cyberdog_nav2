@@ -70,6 +70,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   (void)goal;
   INFO("Vision Localization started");
   ReportPreparationStatus();
+  Timer timer_;
+  timer_.Start();
 
   bool ready = IsDependsReady();
   if (!ready) {
@@ -149,6 +151,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // 结束激活进度的上报
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
+  INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -159,6 +162,8 @@ void ExecutorVisionLocalization::Stop(
   (void)request;
   INFO("Vision localization will stop");
   StopReportPreparationThread();
+  Timer timer_;
+  timer_.Start();
 
   // Disenable Relocalization
   bool success = DisenableRelocalization();
@@ -202,6 +207,7 @@ void ExecutorVisionLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Vision Localization stoped success");
+  INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   task_success_callback_();
 }

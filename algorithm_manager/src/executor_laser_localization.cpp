@@ -25,12 +25,19 @@ namespace algorithm
 {
 
 ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
-: ExecutorBase(node_name)
+: ExecutorBase(node_name),
+  location_status_(LocationStatus::Unknown)
 {
   localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
 
   // localization_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
   //   "lifecycle_manager_localization");
+
+  location_status_service_ = create_service<std_srvs::srv::SetBool>(
+    "slam_location_status",
+    std::bind(
+      &ExecutorLaserLocalization::HandleLocationServiceCallback, this, std::placeholders::_1,
+      std::placeholders::_2));
 
   // Subscription Lidar relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
@@ -77,6 +84,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Laser localization lifecycle depend start up failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
+    location_status_ = LocationStatus::FAILURE;
     return;
   }
 
@@ -86,6 +94,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Turn on relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
+    location_status_ = LocationStatus::FAILURE;
     return;
   }
 
@@ -95,6 +104,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Laser localization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
+    location_status_ = LocationStatus::FAILURE;
     return;
   }
 
@@ -103,6 +113,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Lidar relocalization failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
+    location_status_ = LocationStatus::FAILURE;
     return;
   }
 
@@ -112,11 +123,14 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Enable report realtime robot pose failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
+    location_status_ = LocationStatus::FAILURE;
     return;
   }
 
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+
+  location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
   task_success_callback_();
 }
@@ -164,6 +178,7 @@ void ExecutorLaserLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Laser localization stoped success");
+  location_status_ = LocationStatus::Unknown;
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   feedback_->feedback_code = 0;
   task_success_callback_();
@@ -172,6 +187,13 @@ void ExecutorLaserLocalization::Stop(
 void ExecutorLaserLocalization::Cancel()
 {
   INFO("Laser Localization canceled");
+}
+
+void ExecutorLaserLocalization::HandleLocationServiceCallback(
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  response->success = location_status_ == LocationStatus::SUCCESS ? true : false;
 }
 
 void ExecutorLaserLocalization::HandleRelocalizationCallback(

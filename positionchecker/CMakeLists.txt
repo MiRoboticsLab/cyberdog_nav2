@@ -25,10 +25,12 @@ set(dependencies
   geometry_msgs
   cyberdog_common
 )
+
 include_directories(include)
 add_library(${library_name}
   src/position_checker_node.cpp
 )
+
 ament_target_dependencies(${library_name}
   ${dependencies}
 )

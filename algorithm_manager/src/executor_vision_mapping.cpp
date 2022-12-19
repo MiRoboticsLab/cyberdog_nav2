@@ -49,6 +49,8 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 
 void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
+  Timer timer_;
+  timer_.Start();
   (void)goal;
   INFO("[Vision Mapping] Vision Mapping started");
   ReportPreparationStatus();
@@ -108,13 +110,17 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 结束激活进度的上报
   ReportPreparationFinished(
     AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  timer_.Pause();
   INFO("[Vision Mapping] Vision Mapping success.");
+  INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
 }
 
 void ExecutorVisionMapping::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  Timer timer_;
+  timer_.Start();
   INFO("[Vision Mapping] Vision Mapping will stop");
 
   // Disenable report realtime robot pose
@@ -186,12 +192,10 @@ void ExecutorVisionMapping::Stop(
   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   // INFO("-----> 3 <-------");
 
-  INFO("-----> 1 <-------");
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("-----> 2 <-------");
   task_cancle_callback_();
-  INFO("-----> 3 <-------");
   INFO("[Vision Mapping] Vision Mapping stoped success");
+  INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
 }
 
 void ExecutorVisionMapping::Cancel()
