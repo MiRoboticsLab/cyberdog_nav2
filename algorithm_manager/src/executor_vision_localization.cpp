@@ -107,6 +107,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!available) {
     ERROR("Vision build map file not available.");
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -135,18 +136,35 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
-  if (!success) {
-    ERROR("Enable report realtime robot pose failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  auto pose_thread = std::make_shared<std::thread>([&](){
+    int try_count = 0;
+    while (true) {
+      try_count++;
+      success = EnableReportRealtimePose(true);
+
+      if (success) {
+        INFO("Enable report realtime robot pose success.");
+        try_count = 0;
+        break;
+      }
+
+      if (try_count >= 3 && !success) {
+        ERROR("Enable report realtime robot pose failed.");
+        SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+        ResetLifecycleDefaultValue();
+        task_abort_callback_();
+        return;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  });
+  pose_thread->detach();
 
   // 结束激活进度的上报
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);

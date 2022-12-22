@@ -80,6 +80,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("[Laser Mapping] Laser Mapping started");
   ReportPreparationStatus();
 
+  Timer timer_;
+  timer_.Start();
+
   // Set Laser Localization in deactivate state
   bool ready = CheckAvailable();
   if (!ready) {
@@ -143,6 +146,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // ReportPreparationFinished(
   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping success.");
 }
 
@@ -152,6 +156,8 @@ void ExecutorLaserMapping::Stop(
 {
   INFO("[Laser Mapping] Laser Mapping will stop");
   StopReportPreparationThread();
+  Timer timer_;
+  timer_.Start();
 
   // Disenable report realtime robot pose
   bool success = EnableReportRealtimePose(false);
@@ -217,6 +223,7 @@ void ExecutorLaserMapping::Stop(
   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   task_success_callback_();
+  INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
 }
 

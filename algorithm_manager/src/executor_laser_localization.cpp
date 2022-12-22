@@ -79,6 +79,9 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   INFO("Laser Localization started");
   ReportPreparationStatus();
 
+  Timer timer_;
+  timer_.Start();
+
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
@@ -132,6 +135,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
+  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -141,6 +145,9 @@ void ExecutorLaserLocalization::Stop(
 {
   (void)request;
   INFO("Laser localization will stop");
+  Timer timer_;
+  timer_.Start();
+
   StopReportPreparationThread();
 
   // Disenable Relocalization
@@ -178,6 +185,7 @@ void ExecutorLaserLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Laser localization stoped success");
+  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   feedback_->feedback_code = 0;

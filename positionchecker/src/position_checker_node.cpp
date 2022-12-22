@@ -50,8 +50,6 @@ PositionChecker::PositionChecker()
 
   pos_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
     "dog_pose", rclcpp::SystemDefaultsQoS());
-
-  loop_thread_ = std::make_shared<std::thread>(&PositionChecker::loop, this);
 }
 
 PositionChecker::~PositionChecker() {}
@@ -68,7 +66,7 @@ void PositionChecker::loop()
 
     if (!nav2_util::getCurrentPose(
         pose_based_on_global_frame, *tf_buffer_,
-        "map", "base_link"))
+        "map", "base_link", 2.0))
     {
       WARN("Failed to obtain current pose based on map coordinate system.");
       std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -85,6 +83,7 @@ void PositionChecker::serviceCallback(
   const std::shared_ptr<SetBool::Request> request,
   std::shared_ptr<SetBool::Response> response)
 {
+  INFO("PositionChecker receive service call.");
   if (request->data == true && !looping_) {
     looping_ = true;
     INFO("Request start report robot's realtime pose.");
