@@ -34,7 +34,8 @@ class ExecutorLaserLocalization : public ExecutorBase
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
 
-  enum class LocationStatus {
+  enum class LocationStatus
+  {
     Unknown,
     SUCCESS,
     FAILURE
@@ -139,7 +140,7 @@ private:
   std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
-   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
