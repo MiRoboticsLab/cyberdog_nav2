@@ -19,12 +19,13 @@
 #include <memory>
 #include <string>
 #include <vector>
-
+#include <deque>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "protocol/msg/motion_servo_cmd.hpp"
 #include "protocol/msg/motion_servo_response.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
@@ -77,6 +78,11 @@ private:
   int32_t gait_shape_value;
   int32_t cmd_source;
   std::vector<float> gait_step_height;
+
+  bool stop_vel_occur_;
+  geometry_msgs::msg::Twist twist_cumulate_;
+  rclcpp::Duration twist_history_duration_;
+  std::deque<geometry_msgs::msg::TwistStamped> twist_history_;
 };
 
 }  // namespace navigation

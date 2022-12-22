@@ -57,18 +57,20 @@ void ExecutorUwbTracking::ResetLifecycles()
 
 void ExecutorUwbTracking::ResetAllDeps()
 {
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = false;
-  auto future = stair_monitor_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-    ERROR("Cannot get response from stair monitor service in 2s");
-    DeactivateDepsLifecycleNodes();
-    return;
-  }
-  if (future.get()->success) {
-    INFO("Success to disable stair monitor");
-  } else {
-    ERROR("Get error when disable stair monitor");
+  if (stair_detect_) {
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = false;
+    auto future = stair_monitor_client_->async_send_request(request);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response from stair monitor service in 2s");
+      DeactivateDepsLifecycleNodes();
+      return;
+    }
+    if (future.get()->success) {
+      INFO("Success to disable stair monitor");
+    } else {
+      ERROR("Get error when disable stair monitor");
+    }
   }
   DeactivateDepsLifecycleNodes();
 }
@@ -115,24 +117,26 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
-  auto callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
-      if (future.get()->success) {
-        INFO("Success to enable stair monitor");
-      } else {
-        ERROR("Get error when enable stair monitor");
-        DeactivateDepsLifecycleNodes();
-        task_abort_callback_();
-        return;
-      }
-    };
-  auto future = stair_monitor_client_->async_send_request(request, callback);
-  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-    ERROR("Cannot get response from stair monitor service in 2s");
-    DeactivateDepsLifecycleNodes();
-    task_abort_callback_();
-    return;
+  if (stair_detect_) {
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
+    auto callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
+        if (future.get()->success) {
+          INFO("Success to enable stair monitor");
+        } else {
+          ERROR("Get error when enable stair monitor");
+          DeactivateDepsLifecycleNodes();
+          task_abort_callback_();
+          return;
+        }
+      };
+    auto future = stair_monitor_client_->async_send_request(request, callback);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response from stair monitor service in 2s");
+      DeactivateDepsLifecycleNodes();
+      task_abort_callback_();
+      return;
+    }
   }
   auto is_action_server_ready =
     target_tracking_action_client_->wait_for_action_server(

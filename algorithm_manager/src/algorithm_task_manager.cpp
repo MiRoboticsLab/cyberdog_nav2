@@ -60,6 +60,13 @@ bool AlgorithmTaskManager::Init()
       std::placeholders::_1, std::placeholders::_2),
     rmw_qos_profile_services_default,
     callback_group_);
+  algo_task_status_server_ = node_->create_service<protocol::srv::AlgoTaskStatus>(
+    "algo_task_status",
+    std::bind(
+      &AlgorithmTaskManager::HandleTaskStatusCallback, this,
+      std::placeholders::_1, std::placeholders::_2),
+    rmw_qos_profile_services_default,
+    callback_group_);
   SetStatus(ManagerStatus::kIdle);
   return true;
 }
@@ -125,6 +132,13 @@ bool AlgorithmTaskManager::BuildExecutorMap()
     task_map_.clear();
   }
   return result;
+}
+
+void AlgorithmTaskManager::HandleTaskStatusCallback(
+  const protocol::srv::AlgoTaskStatus::Request::SharedPtr,
+  protocol::srv::AlgoTaskStatus::Response::SharedPtr response)
+{
+  response->status = static_cast<uint8_t>(GetStatus());
 }
 
 void AlgorithmTaskManager::HandleStopTaskCallback(

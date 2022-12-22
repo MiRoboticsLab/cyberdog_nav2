@@ -1,3 +1,5 @@
-diff_x_threashold = 0.4
-diff_y_threashold = 0.4
-detect_duration = 15
+diff_x_threashold = 0.5
+diff_y_threashold = 0.5
+detect_duration = 5
+filter_size = 5
+pose_topic_name = "tracking_pose_transformed" # tracking_pose_transformed

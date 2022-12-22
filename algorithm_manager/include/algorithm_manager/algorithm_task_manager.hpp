@@ -24,6 +24,7 @@
 #include "algorithm_manager/executor_base.hpp"
 #include "cyberdog_debug/backtrace.hpp"
 #include "protocol/srv/stop_algo_task.hpp"
+#include "protocol/srv/algo_task_status.hpp"
 #include "motion_action/motion_macros.hpp"
 namespace cyberdog
 {
@@ -135,11 +136,15 @@ private:
   void HandleStopTaskCallback(
     const protocol::srv::StopAlgoTask::Request::SharedPtr request,
     protocol::srv::StopAlgoTask::Response::SharedPtr response);
+  void HandleTaskStatusCallback(
+    const protocol::srv::AlgoTaskStatus::Request::SharedPtr request,
+    protocol::srv::AlgoTaskStatus::Response::SharedPtr response);
 
 private:
   rclcpp::Node::SharedPtr node_{nullptr};
   rclcpp_action::Server<AlgorithmMGR>::SharedPtr start_algo_task_server_{nullptr};
   rclcpp::Service<protocol::srv::StopAlgoTask>::SharedPtr stop_algo_task_server_{nullptr};
+  rclcpp::Service<protocol::srv::AlgoTaskStatus>::SharedPtr algo_task_status_server_{nullptr};
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_{nullptr};
   std::shared_ptr<ExecutorBase> activated_executor_{nullptr};
