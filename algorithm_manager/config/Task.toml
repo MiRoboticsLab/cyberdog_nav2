@@ -39,7 +39,7 @@ TaskName = "NavAB"
 Id = 1
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator", "map_server"]
 
 [[task]]
 TaskName = "PosesThrough"

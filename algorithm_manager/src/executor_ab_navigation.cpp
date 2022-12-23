@@ -44,10 +44,10 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
       std::placeholders::_1));
 
   // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
-  map_server_lifecycle_ = std::make_shared<LifecycleController>("map_server");
+  // map_server_lifecycle_ = std::make_shared<LifecycleController>("map_server");
 
-  nav_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
-    "lifecycle_manager_navigation");
+  // nav_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
+  //   "lifecycle_manager_navigation");
 
   // spin
   std::thread{[this]() {
@@ -66,6 +66,9 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("AB navigation started");
   ReportPreparationStatus();
+
+  Timer timer_;
+  timer_.Start();
 
   // Check current map exits
   bool exist = CheckMapAvailable();
@@ -88,11 +91,14 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
+  INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+
   // Check action client connect server
   bool connect = IsConnectServer();
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -102,6 +108,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -122,7 +129,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Send navigation AB point send target goal request failed.");
     // Reset lifecycle nodes
     // LifecycleNodesReinitialize();
-
+    DeactivateDepsLifecycleNodes();
     ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     return;
@@ -131,6 +138,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 结束激活进度的上报
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("Navigation AB point send target goal request success.");
+  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Stop(
@@ -138,6 +146,9 @@ void ExecutorAbNavigation::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
+  Timer timer_;
+  timer_.Start();
+
   INFO("Navigation AB will stop");
   bool cancel = ShouldCancelGoal();
   if (!cancel) {
@@ -174,6 +185,7 @@ void ExecutorAbNavigation::Stop(
   response->result = StopTaskSrv::Response::SUCCESS;
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("Navigation AB Stoped success");
+  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_cancle_callback_();
 }
 
@@ -248,9 +260,10 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
 bool ExecutorAbNavigation::IsDependsReady()
 {
   // Nav lifecycle
-  // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
-  //   return false;
-  // }
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    return false;
+  }
 
   // bool success = LifecycleNodesConfigure();
   // if (!success) {
@@ -262,34 +275,37 @@ bool ExecutorAbNavigation::IsDependsReady()
   //   return false;
   // }
 
-  if (start_lifecycle_depend_finished_) {
-    INFO("Current all lifecycle are activate.");
-    return true;
-  }
+  // if (start_lifecycle_depend_finished_) {
+  //   INFO("Current all lifecycle are activate.");
+  //   return true;
+  // }
 
-  if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
-    if (!nav_client_->startup()) {
-      WARN("Navigation client lifecycle startup failed.");
-      return false;
-    }
-  }
+  // INFO("Call function IsDependsReady(): judge bt_navigator is activate.");
+  // if (nav_client_->is_active() != nav2_lifecycle_manager::SystemStatus::ACTIVE) {
+  //   if (!nav_client_->startup()) {
+  //     WARN("Navigation client lifecycle startup failed.");
+  //     return false;
+  //   }
+  // }
 
-  // map server lifecycle configure  and deactivate
-  if (!map_server_lifecycle_->IsActivate()) {
-    bool success = map_server_lifecycle_->Configure();
-    if (!success) {
-      ERROR("Configure map server lifecycle configure state failed.");
-      return false;
-    }
+  // INFO("Call function IsDependsReady(): judge map_server_lifecycle_ is activate.");
+  // // map server lifecycle configure  and deactivate
+  // if (!map_server_lifecycle_->IsActivate()) {
+  //   bool success = map_server_lifecycle_->Configure();
+  //   if (!success) {
+  //     ERROR("Configure map server lifecycle configure state failed.");
+  //     return false;
+  //   }
 
-    success = map_server_lifecycle_->Startup();
-    if (!success) {
-      ERROR("Configure map server lifecycle activate state failed.");
-      return false;
-    }
-  }
+  //   success = map_server_lifecycle_->Startup();
+  //   if (!success) {
+  //     ERROR("Configure map server lifecycle activate state failed.");
+  //     return false;
+  //   }
+  // }
 
-  start_lifecycle_depend_finished_ = true;
+  // start_lifecycle_depend_finished_ = true;
+  INFO("Call function IsDependsReady() finished.");
   return true;
 }
 
@@ -422,11 +438,13 @@ bool ExecutorAbNavigation::LifecycleNodesReinitialize()
   //   return false;
   // }
 
-  // bool success = localization_lifecycle_->Pause();
-  // if (!success) {
-  //   ERROR("Reset localization lifecycle node deactivate state failed.");
-  //   return false;
-  // }
+  // // bool success = localization_lifecycle_->Pause();
+  // // if (!success) {
+  // //   ERROR("Reset localization lifecycle node deactivate state failed.");
+  // //   return false;
+  // // }
+
+  // map_server_lifecycle_->Pause();
   return true;
 }
 
@@ -500,6 +518,8 @@ void ExecutorAbNavigation::ReleaseSources()
   // } else if (IsUseLidarLocation()) {
   //   stop_lidar_trigger_pub_->publish(*command);
   // }
+
+  LifecycleNodesReinitialize();
   ResetDefaultValue();
 }
 

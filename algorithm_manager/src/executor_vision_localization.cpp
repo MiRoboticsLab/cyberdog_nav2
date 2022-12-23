@@ -70,6 +70,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   (void)goal;
   INFO("Vision Localization started");
   ReportPreparationStatus();
+  Timer timer_;
+  timer_.Start();
 
   bool ready = IsDependsReady();
   if (!ready) {
@@ -105,6 +107,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!available) {
     ERROR("Vision build map file not available.");
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -133,22 +136,41 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
     SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
-  if (!success) {
-    ERROR("Enable report realtime robot pose failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  auto pose_thread = std::make_shared<std::thread>(
+    [&]() {
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        success = EnableReportRealtimePose(true);
+
+        if (success) {
+          INFO("Enable report realtime robot pose success.");
+          try_count = 0;
+          break;
+        }
+
+        if (try_count >= 3 && !success) {
+          ERROR("Enable report realtime robot pose failed.");
+          SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+          ResetLifecycleDefaultValue();
+          task_abort_callback_();
+          return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      }
+    });
+  pose_thread->detach();
 
   // 结束激活进度的上报
   SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
+  INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -156,8 +178,11 @@ void ExecutorVisionLocalization::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  (void)request;
   INFO("Vision localization will stop");
   StopReportPreparationThread();
+  Timer timer_;
+  timer_.Start();
 
   // Disenable Relocalization
   bool success = DisenableRelocalization();
@@ -201,6 +226,7 @@ void ExecutorVisionLocalization::Stop(
     StopTaskSrv::Response::FAILED;
 
   INFO("Vision Localization stoped success");
+  INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   task_success_callback_();
 }

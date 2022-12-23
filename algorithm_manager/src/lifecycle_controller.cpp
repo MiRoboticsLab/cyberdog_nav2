@@ -35,19 +35,16 @@ LifecycleController::~LifecycleController()
 
 bool LifecycleController::IsConfigure()
 {
-  INFO("Check current state == IsConfigure");
   return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
 bool LifecycleController::IsActivate()
 {
-  INFO("Check current state == IsActivate");
   return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
 }
 
 bool LifecycleController::IsDeactivate()
 {
-  INFO("Check current state == IsDeactivate()");
   return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 

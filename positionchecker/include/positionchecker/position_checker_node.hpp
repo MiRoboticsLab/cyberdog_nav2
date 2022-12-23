@@ -24,6 +24,7 @@
 #include "nav2_util/robot_utils.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
@@ -38,6 +39,8 @@ public:
   ~PositionChecker();
 
 private:
+  void HandleTriggerCallback(const std_msgs::msg::Bool::SharedPtr msg);
+
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   void loop();
@@ -49,6 +52,7 @@ private:
     const std::shared_ptr<SetBool::Request> request,
     std::shared_ptr<SetBool::Response> response);
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pos_pub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enable_sub_ {nullptr};
 };
 }  // namespace CYBERDOG_NAV
 

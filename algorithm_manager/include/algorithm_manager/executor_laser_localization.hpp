@@ -22,6 +22,7 @@
 #include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "algorithm_manager/timer.hpp"
 
 namespace cyberdog
 {
@@ -32,6 +33,13 @@ class ExecutorLaserLocalization : public ExecutorBase
 {
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
+
+  enum class LocationStatus
+  {
+    Unknown,
+    SUCCESS,
+    FAILURE
+  };
 
   /**
    * @brief Construct a new Executor Laser Localization object
@@ -63,6 +71,12 @@ public:
   void Cancel() override;
 
 private:
+  /**
+   * Handle location request status
+   */
+  void HandleLocationServiceCallback(
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
   /**
    * @brief Handle lidar relocalization result
    *
@@ -126,6 +140,7 @@ private:
   std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
 
   // service client
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
@@ -139,6 +154,9 @@ private:
   // Record relocalization result
   bool relocalization_success_ {false};
   bool relocalization_failure_ {false};
+
+  //  LocationStatus location_status_;
+  LocationStatus location_status_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

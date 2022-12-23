@@ -78,6 +78,7 @@ set(sources
   src/executor_vision_tracking.cpp
   src/lifecycle_node_manager.cpp
   src/lifecycle_controller.cpp
+  src/timer.cpp
 )
 
 add_executable(${PROJECT_NAME} ${sources})

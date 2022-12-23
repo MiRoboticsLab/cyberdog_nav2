@@ -47,6 +47,8 @@ enum class ManagerStatus : uint8_t
   kShuttingDownUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING,
 };
 
+std::string ToString(const ManagerStatus & status);
+
 struct TaskRef
 {
   std::shared_ptr<ExecutorBase> executor;
@@ -73,7 +75,7 @@ private:
   bool CheckStatusValid()
   {
     auto status = GetStatus();
-    INFO("Current status: %d", (int)status);
+    INFO("Current status: %s", ToString(status).c_str());
     return status == ManagerStatus::kIdle;
   }
 

@@ -27,6 +27,7 @@
 #include "algorithm_manager/lifecycle_controller.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "algorithm_manager/timer.hpp"
 
 namespace cyberdog
 {

@@ -24,11 +24,13 @@
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/service_client.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
+#include "algorithm_manager/timer.hpp"
 
 namespace cyberdog
 {
 namespace algorithm
 {
+
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
@@ -89,7 +91,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool EnableReportRealtimePose(bool enable);
+  bool EnableReportRealtimePose(bool enable, bool use_topic = false);
 
   /**
    * @brief Check localization lifecycle node not activate state
@@ -120,6 +122,14 @@ private:
    */
   void PublishBuildMapType();
 
+  /**
+   * @brief Set all lifecycle default state
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool ResetLifecycleDefaultValue();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -149,6 +159,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};
 
   // realtime robot pose
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr robot_pose_pub_{nullptr};
   bool start_report_realtime_pose_ {false};
 
   // timeout parameters
@@ -157,6 +168,9 @@ private:
   int mapping_stop_service_timeout_;
   int pose_report_service_timeout_;
   int velocity_smoother_service_timeout_;
+
+  // record this sensor is open
+  bool is_open_realsense_camera_ {false};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

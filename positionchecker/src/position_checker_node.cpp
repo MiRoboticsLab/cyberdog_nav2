@@ -43,6 +43,11 @@ PositionChecker::PositionChecker()
     std::bind(
       &PositionChecker::serviceCallback, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3));
+
+  enable_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "pose_enable", 10,
+    std::bind(&PositionChecker::HandleTriggerCallback, this, std::placeholders::_1));
+
   pos_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
     "dog_pose", rclcpp::SystemDefaultsQoS());
 }
@@ -61,7 +66,7 @@ void PositionChecker::loop()
 
     if (!nav2_util::getCurrentPose(
         pose_based_on_global_frame, *tf_buffer_,
-        "map", "base_link"))
+        "map", "base_link", 2.0))
     {
       WARN("Failed to obtain current pose based on map coordinate system.");
       std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -78,11 +83,8 @@ void PositionChecker::serviceCallback(
   const std::shared_ptr<SetBool::Request> request,
   std::shared_ptr<SetBool::Response> response)
 {
+  INFO("PositionChecker receive service call.");
   if (request->data == true && !looping_) {
-    // if (tf_listener_ == nullptr) {
-    //   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-    // }
-
     looping_ = true;
     INFO("Request start report robot's realtime pose.");
     loop_thread_ = std::make_shared<std::thread>(&PositionChecker::loop, this);
@@ -92,6 +94,11 @@ void PositionChecker::serviceCallback(
     loop_thread_->join();
   }
   response->success = true;
+}
+
+void PositionChecker::HandleTriggerCallback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  looping_ = msg->data;
 }
 
 }  // namespace CYBERDOG_NAV

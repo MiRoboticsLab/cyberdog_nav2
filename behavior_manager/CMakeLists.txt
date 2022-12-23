@@ -24,7 +24,9 @@ find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(cyberdog_debug REQUIRED)
+find_package(cyberdog_system REQUIRED)
 find_package(mcr_msgs REQUIRED)
+find_package(motion_action REQUIRED)
 find_package(motion_manager REQUIRED)
 # find_package(visualization REQUIRED)
 
@@ -49,6 +51,8 @@ set(dependencies
   rclcpp_action
   rclcpp_components
   mcr_msgs
+  motion_action
+  cyberdog_system
   # visualization
 )
 
@@ -133,4 +137,5 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+ament_export_include_directories(include)
 ament_package()
