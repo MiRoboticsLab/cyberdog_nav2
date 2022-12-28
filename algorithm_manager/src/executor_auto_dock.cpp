@@ -41,11 +41,25 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
   client_seat_adjust_ptr_ = rclcpp_action::create_client<SeatAdjustT>(
     action_client_node_,
     "seatadjust");
-
+  GetParams();
   INFO("ExecutorAutoDock server is ready");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
+bool ExecutorAutoDock::GetParams()
+{
+  auto local_share_dir = ament_index_cpp::get_package_share_directory("algorithm_manager");
+  auto path = local_share_dir + std::string("/config/AutoDock.toml");
 
+  if (!cyberdog::common::CyberdogToml::ParseFile(path.c_str(), params_toml_)) {
+    ERROR("Params config file is not in toml format");
+    return false;
+  }
+
+  stage1_enable_ = toml::find<bool>(params_toml_, "stage1_enable");
+  stage2_enable_ = toml::find<bool>(params_toml_, "stage2_enable");
+  stage3_enable_ = toml::find<bool>(params_toml_, "stage3_enable");
+  return true;
+}
 void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
@@ -80,14 +94,14 @@ void ExecutorAutoDock::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("VisionTracking Stop");
+  INFO("AutoDock Stop");
   OnCancel();
   response->result = StopTaskSrv::Response::SUCCESS;
 }
 
 void ExecutorAutoDock::Cancel()
 {
-  INFO("VisionTracking Cancel");
+  INFO("AutoDock Cancel");
   OnCancel();
 }
 
@@ -143,7 +157,9 @@ void ExecutorAutoDock::stage2_result_callback(
       // StopReportPreparationThread();
       // task_success_callback_();
       laser_charge_goal_handle_.reset();
-      stage3_send_goal();
+      if (stage3_enable_) {
+        stage3_send_goal();
+      }
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage2 Goal was aborted");
