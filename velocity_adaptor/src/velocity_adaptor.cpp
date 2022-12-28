@@ -25,7 +25,7 @@ namespace navigation
 VelocityAdaptor::VelocityAdaptor()
 : Node("velocity_adaptor"), gait_motion_id(309),
   gait_shape_value(0), gait_step_height({0.06, 0.06}),
-  twist_history_duration_(rclcpp::Duration::from_seconds(0.5))
+  twist_history_duration_(rclcpp::Duration::from_seconds(0.25))
 {
   motion_vel_cmd_pub_ = this->create_publisher<::protocol::msg::MotionServoCmd>(
     "motion_servo_cmd", rclcpp::SystemDefaultsQoS());
