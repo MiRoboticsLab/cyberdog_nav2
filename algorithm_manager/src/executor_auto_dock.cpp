@@ -160,7 +160,7 @@ void ExecutorAutoDock::stage2_result_callback(
       if (stage3_enable_) {
         stage3_send_goal();
       }
-      if(!stage3_enable_) {
+      if (!stage3_enable_) {
         task_success_callback_();
       }
       break;
