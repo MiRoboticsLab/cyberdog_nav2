@@ -1,3 +1,3 @@
-stage1_enable = false;
-stage2_enable = true;
-stage3_enable = false;
+stage1_enable = false
+stage2_enable = true
+stage3_enable = false
