@@ -67,7 +67,16 @@ bool AlgorithmTaskManager::Init()
       std::placeholders::_1, std::placeholders::_2),
     rmw_qos_profile_services_default,
     callback_group_);
+  algo_task_status_publisher_ = node_->create_publisher<protocol::msg::AlgoTaskStatus>(
+    "algo_task_status", 10);
   SetStatus(ManagerStatus::kIdle);
+  std::thread{[this]() {
+      while (rclcpp::ok()) {
+        this->PublishStatus();
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      }
+
+    }}.detach();
   return true;
 }
 
@@ -171,8 +180,11 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     INFO("Will Reset Nav");
   } else {
     auto status = GetStatus();
-    if (static_cast<uint8_t>(status) != request->task_id) {
-      ERROR("Task %d cannot stop when %d", request->task_id, (int)status);
+    auto status_reparsed = ReParseStatus(status);
+    if (status_reparsed != request->task_id) {
+      ERROR(
+        "Cannot execute to stop %d when %d(%d)", request->task_id, (int)status_reparsed,
+        (int)status);
       return;
     }
   }
@@ -242,6 +254,7 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
 {
+  global_feedback_ = feedback->feedback_code;
   if (goal_handle_executing_ != nullptr) {
     goal_handle_executing_->publish_feedback(feedback);
   }
@@ -291,43 +304,42 @@ std::string ToString(const ManagerStatus & status)
   switch (status) {
     case ManagerStatus::kUninitialized:
       return "kUninitialized:100";
-      break;
 
     case ManagerStatus::kIdle:
       return "kIdle:101";
-      break;
 
     case ManagerStatus::kLaunchingLifecycleNode:
       return "kLaunchingLifecycleNode:102";
-      break;
 
     case ManagerStatus::kStoppingTask:
       return "kStoppingTask:103";
-      break;
 
     case ManagerStatus::kExecutingLaserMapping:
       return "kExecutingLaserMapping:5";
-      break;
+
+    case ManagerStatus::kExecutingVisMapping:
+      return "kExecutingVisMapping:15";
 
     case ManagerStatus::kExecutingLaserLocalization:
       return "kExecutingLaserLocalization:7";
-      break;
+
+    case ManagerStatus::kExecutingVisLocalization:
+      return "kExecutingVisLocalization:17";
 
     case ManagerStatus::kExecutingAbNavigation:
       return "kExecutingAbNavigation:1";
-      break;
 
     case ManagerStatus::kExecutingAutoDock:
       return "kExecutingAutoDock:9";
-      break;
 
     case ManagerStatus::kExecutingUwbTracking:
       return "kExecutingUwbTracking:11";
-      break;
 
-    case ManagerStatus::kShuttingDownUwbTracking:
-      return "kShuttingDownUwbTracking:12";
-      break;
+    case ManagerStatus::kExecutingHumanTracking:
+      return "kExecutingHumanTracking:13";
+
+    case ManagerStatus::kExecutingFollowing:
+      return "kExecutingFollowing:3";
 
     default:
       break;

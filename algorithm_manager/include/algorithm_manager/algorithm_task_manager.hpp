@@ -25,6 +25,7 @@
 #include "cyberdog_debug/backtrace.hpp"
 #include "protocol/srv/stop_algo_task.hpp"
 #include "protocol/srv/algo_task_status.hpp"
+#include "protocol/msg/algo_task_status.hpp"
 #include "motion_action/motion_macros.hpp"
 namespace cyberdog
 {
@@ -39,12 +40,15 @@ enum class ManagerStatus : uint8_t
   kIdle = 101,
   kLaunchingLifecycleNode = 102,
   kStoppingTask = 103,
-  kExecutingLaserMapping = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING,
-  kExecutingLaserLocalization = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION,
+  kExecutingLaserMapping = 5,
+  kExecutingVisMapping = 15,
+  kExecutingLaserLocalization = 7,
+  kExecutingVisLocalization = 17,
   kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
   kExecutingAutoDock = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING,
   kExecutingUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
-  kShuttingDownUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_UWB_TRACKING,
+  kExecutingHumanTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING,
+  kExecutingFollowing = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_FOLLOW,
 };
 
 std::string ToString(const ManagerStatus & status);
@@ -85,10 +89,60 @@ private:
     manager_status_ = status;
   }
 
+  void SetStatus(std::shared_ptr<const AlgorithmMGR::Goal> goal)
+  {
+    std::lock_guard<std::mutex> lk(status_mutex_);
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING) {
+      if (goal->outdoor) {
+        manager_status_ = ManagerStatus::kExecutingVisMapping;
+      } else {
+        manager_status_ = ManagerStatus::kExecutingLaserMapping;
+      }
+      return;
+    }
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION) {
+      if (goal->outdoor) {
+        manager_status_ = ManagerStatus::kExecutingVisLocalization;
+      } else {
+        manager_status_ = ManagerStatus::kExecutingLaserLocalization;
+      }
+      return;
+    }
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING) {
+      if (goal->object_tracking) {
+        manager_status_ = ManagerStatus::kExecutingFollowing;
+      } else {
+        manager_status_ = ManagerStatus::kExecutingHumanTracking;
+      }
+      return;
+    }
+    manager_status_ = static_cast<ManagerStatus>(goal->nav_type);
+  }
+
   ManagerStatus & GetStatus()
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
     return manager_status_;
+  }
+
+  uint8_t ReParseStatus(const ManagerStatus & status)
+  {
+    if (status == ManagerStatus::kExecutingLaserMapping ||
+      status == ManagerStatus::kExecutingVisMapping) 
+    {
+      return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING;
+    }
+    if (status == ManagerStatus::kExecutingLaserLocalization ||
+      status == ManagerStatus::kExecutingVisLocalization)
+    {
+      return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION;
+    }
+    if (status == ManagerStatus::kExecutingHumanTracking ||
+      status == ManagerStatus::kExecutingFollowing) 
+    {
+      return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING;
+    }
+    return static_cast<uint8_t>(status);
   }
 
   void ResetManagerStatus()
@@ -124,6 +178,13 @@ private:
     activated_executor_.reset();
   }
 
+  void PublishStatus()
+  {
+    global_task_status_.task_status = static_cast<uint8_t>(manager_status_);
+    global_task_status_.task_sub_status = global_feedback_;
+    algo_task_status_publisher_->publish(global_task_status_);
+  }
+
 private:
   rclcpp_action::GoalResponse HandleAlgorithmManagerGoal(
     const rclcpp_action::GoalUUID & uuid,
@@ -146,6 +207,7 @@ private:
   rclcpp::Service<protocol::srv::StopAlgoTask>::SharedPtr stop_algo_task_server_{nullptr};
   rclcpp::Service<protocol::srv::AlgoTaskStatus>::SharedPtr algo_task_status_server_{nullptr};
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
+  rclcpp::Publisher<protocol::msg::AlgoTaskStatus>::SharedPtr algo_task_status_publisher_{nullptr};
   std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle_executing_{nullptr};
   std::shared_ptr<ExecutorBase> activated_executor_{nullptr};
   rclcpp::executors::MultiThreadedExecutor::SharedPtr ros_executor_{nullptr};
@@ -154,6 +216,8 @@ private:
   common::MsgQueue<ExecutorData> executor_data_queue_;
   std::unordered_map<uint8_t, std::shared_ptr<ExecutorBase>> executor_map_;
   std::unordered_map<std::string, TaskRef> task_map_;
+  protocol::msg::AlgoTaskStatus global_task_status_;
+  int32_t global_feedback_{0};
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog
