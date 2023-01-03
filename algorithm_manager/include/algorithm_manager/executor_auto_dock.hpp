@@ -40,6 +40,7 @@ public:
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
   void OnCancel();
+  bool GetParams();
 
 private:
   // std::shared_ptr<cyberdog::algorithm::ExecutorBase> exe_laser_loc_ptr_ = nullptr;
@@ -54,6 +55,11 @@ private:
   bool stage1_goal_done_;
   bool stage2_goal_done_;
   bool stage3_goal_done_;
+
+  bool stage1_enable_;
+  bool stage2_enable_;
+  bool stage3_enable_;
+  toml::value params_toml_;
   geometry_msgs::msg::PoseStamped goal_pose;
 
   // This section is for the stage2 client interface

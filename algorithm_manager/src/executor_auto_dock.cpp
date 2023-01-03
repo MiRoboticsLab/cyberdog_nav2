@@ -41,11 +41,25 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
   client_seat_adjust_ptr_ = rclcpp_action::create_client<SeatAdjustT>(
     action_client_node_,
     "seatadjust");
-
+  GetParams();
   INFO("ExecutorAutoDock server is ready");
   std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
 }
+bool ExecutorAutoDock::GetParams()
+{
+  auto local_share_dir = ament_index_cpp::get_package_share_directory("algorithm_manager");
+  auto path = local_share_dir + std::string("/config/AutoDock.toml");
 
+  if (!cyberdog::common::CyberdogToml::ParseFile(path.c_str(), params_toml_)) {
+    ERROR("Params config file is not in toml format");
+    return false;
+  }
+
+  stage1_enable_ = toml::find<bool>(params_toml_, "stage1_enable");
+  stage2_enable_ = toml::find<bool>(params_toml_, "stage2_enable");
+  stage3_enable_ = toml::find<bool>(params_toml_, "stage3_enable");
+  return true;
+}
 void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
@@ -64,7 +78,7 @@ void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
-    // return AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
+    return;
   }
   stage2_send_goal();
   // uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
@@ -80,14 +94,14 @@ void ExecutorAutoDock::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("VisionTracking Stop");
+  INFO("AutoDock Stop");
   OnCancel();
   response->result = StopTaskSrv::Response::SUCCESS;
 }
 
 void ExecutorAutoDock::Cancel()
 {
-  INFO("VisionTracking Cancel");
+  INFO("AutoDock Cancel");
   OnCancel();
 }
 
@@ -143,10 +157,17 @@ void ExecutorAutoDock::stage2_result_callback(
       // StopReportPreparationThread();
       // task_success_callback_();
       laser_charge_goal_handle_.reset();
-      stage3_send_goal();
+      if (stage3_enable_) {
+        stage3_send_goal();
+      }
+      if (!stage3_enable_) {
+        task_success_callback_();
+      }
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage2 Goal was aborted");
+      laser_charge_goal_handle_.reset();
+      task_abort_callback_();
       return;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("stage2 Goal was canceled");
@@ -182,7 +203,7 @@ void ExecutorAutoDock::stage2_send_goal()
   auto goal_msg = AutomaticRechargeT::Goal();
   goal_msg.behavior_tree = "";
 
-  INFO("Sending goal");
+  INFO("stage2 sending goal");
 
   auto send_goal_options = rclcpp_action::Client<AutomaticRechargeT>::SendGoalOptions();
   send_goal_options.goal_response_callback =
@@ -237,13 +258,17 @@ void ExecutorAutoDock::stage3_feedback_callback(
 
 void ExecutorAutoDock::stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result)
 {
-  this->stage3_goal_done_ = true;
+  stage3_goal_done_ = true;
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("stage3 Result received.");
+      seat_adjust_goal_handle_.reset();
+      task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage3 Goal was aborted");
+      seat_adjust_goal_handle_.reset();
+      task_abort_callback_();
       return;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("stage3 Goal was canceled");
@@ -258,22 +283,22 @@ void ExecutorAutoDock::stage3_send_goal()
 {
   using namespace std::placeholders;
 
-  this->stage3_goal_done_ = false;
+  stage3_goal_done_ = false;
 
-  if (!this->client_seat_adjust_ptr_) {
+  if (!client_seat_adjust_ptr_) {
     ERROR("Action client not initialized");
   }
 
-  if (!this->client_seat_adjust_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
+  if (!client_seat_adjust_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
     ERROR("Action server not available after waiting");
-    this->stage3_goal_done_ = true;
+    stage3_goal_done_ = true;
     return;
   }
 
   auto goal_msg = SeatAdjustT::Goal();
   goal_msg.start = goal_msg.SEATADJUST_GOAL_TYPE_START;
 
-  INFO("Sending goal");
+  INFO("stage3 sending goal");
 
   auto send_goal_options = rclcpp_action::Client<SeatAdjustT>::SendGoalOptions();
   send_goal_options.goal_response_callback =
@@ -282,7 +307,7 @@ void ExecutorAutoDock::stage3_send_goal()
     std::bind(&ExecutorAutoDock::stage3_feedback_callback, this, _1, _2);
   send_goal_options.result_callback =
     std::bind(&ExecutorAutoDock::stage3_result_callback, this, _1);
-  auto future_goal_handle = this->client_seat_adjust_ptr_->async_send_goal(
+  auto future_goal_handle = client_seat_adjust_ptr_->async_send_goal(
     goal_msg,
     send_goal_options);
   INFO("client_seat_adjust_ptr_ async_send_goal");
