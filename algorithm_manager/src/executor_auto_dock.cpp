@@ -81,6 +81,11 @@ void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   stage2_send_goal();
+  if (stage3_enable_) {
+    std::unique_lock<std::mutex> lk_stage3(stage3_process_mutex_);
+    stage3_process_cv_.wait(lk_stage3);
+    stage3_send_goal();
+  }
   // uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
   // if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
   //   ERROR("ExecutorVisionTracking::Start Error");
@@ -158,7 +163,7 @@ void ExecutorAutoDock::stage2_result_callback(
       // task_success_callback_();
       laser_charge_goal_handle_.reset();
       if (stage3_enable_) {
-        stage3_send_goal();
+        stage3_process_cv_.notify_one();
       }
       if (!stage3_enable_) {
         task_success_callback_();

@@ -61,7 +61,8 @@ private:
   bool stage3_enable_;
   toml::value params_toml_;
   geometry_msgs::msg::PoseStamped goal_pose;
-
+  std::condition_variable stage3_process_cv_;
+  std::mutex stage3_process_mutex_;
   // This section is for the stage2 client interface
   void stage2_goal_response_callback(GoalHandleAutomaticRecharge::SharedPtr goal_handle);
   void stage2_feedback_callback(
