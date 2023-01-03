@@ -77,7 +77,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 {
   (void)goal;
   INFO("Laser Localization started");
-  ReportPreparationStatus();
+  // ReportPreparationStatus();
 
   Timer timer_;
   timer_.Start();
@@ -85,7 +85,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
@@ -95,28 +95,30 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
 
   // Send request and wait relocalization result success
-  success = WaitRelocalization(std::chrono::seconds(60s));
+  success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Laser localization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
+    StopLocalization();
     return;
   }
 
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
+    StopLocalization();
     return;
   }
 
@@ -124,18 +126,20 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
+    StopLocalization();
     return;
   }
 
   // 结束激活进度的上报
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
 
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  is_activate_ = true;
   task_success_callback_();
 }
 
@@ -148,13 +152,11 @@ void ExecutorLaserLocalization::Stop(
   Timer timer_;
   timer_.Start();
 
-  StopReportPreparationThread();
-
   // Disenable Relocalization
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -163,7 +165,7 @@ void ExecutorLaserLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -187,8 +189,8 @@ void ExecutorLaserLocalization::Stop(
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
-  feedback_->feedback_code = 0;
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  is_activate_ = false;
   task_success_callback_();
 }
 
@@ -211,13 +213,13 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
     relocalization_failure_ = true;
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     WARN("Relocalization failed.");
   }
 }
@@ -225,8 +227,13 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 void ExecutorLaserLocalization::HandleStopTriggerCommandMessages(
   const std_msgs::msg::Bool::SharedPtr msg)
 {
-  INFO("Handle stop relocalization module.");
+  INFO("Handle stop laser relocalization module.");
   if (msg == nullptr) {
+    return;
+  }
+
+  if (!is_activate_) {
+    INFO("Current laser localization not in activate, not need stop.");
     return;
   }
 
@@ -239,6 +246,9 @@ void ExecutorLaserLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
+  Timer timer_;
+  timer_.Start();
+
   // RealSense camera lifecycle(configure state)
   bool success = LifecycleNodeManager::GetSingleton()->Configure(
     LifeCycleNodeType::RealSenseCameraSensor);
@@ -252,6 +262,8 @@ bool ExecutorLaserLocalization::IsDependsReady()
   if (!success) {
     return false;
   }
+
+  INFO("[Laser Localization] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // localization_node lifecycle(configure state)
   if (!localization_lifecycle_->Configure()) {
@@ -271,7 +283,7 @@ bool ExecutorLaserLocalization::IsDependsReady()
   //   }
   // }
 
-
+  INFO("[Laser Localization] localization_node elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return true;
 }
 
@@ -372,6 +384,13 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
   }
 
   return future.get()->success;
+}
+
+void ExecutorLaserLocalization::StopLocalization()
+{
+  auto request = std::make_shared<StopTaskSrv::Request>();
+  auto response = std::make_shared<StopTaskSrv::Response>();
+  Stop(request, response);
 }
 
 }  // namespace algorithm

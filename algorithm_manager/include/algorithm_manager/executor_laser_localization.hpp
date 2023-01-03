@@ -133,6 +133,8 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
+  void StopLocalization();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -157,6 +159,9 @@ private:
 
   //  LocationStatus location_status_;
   LocationStatus location_status_;
+
+  // in service
+  bool is_activate_ {false};
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

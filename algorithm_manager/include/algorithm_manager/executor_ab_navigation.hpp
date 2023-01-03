@@ -213,6 +213,11 @@ private:
   bool CheckMapAvailable(const std::string & map_name = "map.pgm");
 
   /**
+   * Check current is outdoor mode
+   */
+  bool CheckUseOutdoor(bool & outdoor, const std::string & filename = "map.json");
+
+  /**
    * @brief Check vision slam location
    *
    * @return true Return success

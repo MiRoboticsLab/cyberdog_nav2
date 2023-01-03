@@ -188,8 +188,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   std::shared_ptr<const AlgorithmMGR::Goal> goal)
 {
   (void)uuid;
-  (void)goal;
   INFO("---------------------");
+  INFO("goal->outdoor : %d", goal->outdoor);
+
   if (!CheckStatusValid()) {
     ERROR(
       "Cannot accept task: %d, status is invalid!", goal->nav_type);
@@ -208,6 +209,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
       "Cannot accept task: %d, nav type is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   } else {
+    std::string outdoor = iter->second.out_door ? "true" : "false";
+    INFO("Run current task: %s, outdoor : %s", task_name.c_str(), outdoor.c_str());
     SetTaskExecutor(iter->second.executor);
   }
   SetStatus(static_cast<ManagerStatus>(goal->nav_type));

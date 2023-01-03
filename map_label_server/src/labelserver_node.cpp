@@ -200,9 +200,10 @@ void LabelServer::handle_set_label(
     }
   }
 
+  // INFO("Current is_outdoor flag : %d", request->label.is_outdoor);
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
-  map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
+  // map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
 
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print

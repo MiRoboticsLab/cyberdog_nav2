@@ -53,13 +53,13 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   timer_.Start();
   (void)goal;
   INFO("[Vision Mapping] Vision Mapping started");
-  ReportPreparationStatus();
+  // ReportPreparationStatus();
 
   // If current slam mapping in background, it's not available build mapping now
   bool available = CheckBuildMappingAvailable();
   if (!available) {
     ERROR("[Vision Mapping] Vision Mapping can't start, due to miloc creating map data.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_cancle_callback_();
     return;
   }
@@ -68,8 +68,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -88,8 +88,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool success = StartBuildMapping();
   if (!success) {
     ERROR("[Vision Mapping] Start Vision Mapping failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
@@ -98,21 +98,44 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   VelocitySmoother();
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
-  if (!success) {
-    ERROR("[Vision Mapping] Enable report realtime robot pose failed.");
-    ReportPreparationFinished(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  // success = EnableReportRealtimePose(true);
+  // if (!success) {
+  //   ERROR("[Vision Mapping] Enable report realtime robot pose failed.");
+  //   ReportPreparationFinished(
+  //     AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+  //   task_abort_callback_();
+  //   return;
+  // }
+
+  auto pose_thread = std::make_shared<std::thread>(
+    [&]() {
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        success = EnableReportRealtimePose(true);
+
+        if (success) {
+          INFO("Enable report realtime robot pose success.");
+          try_count = 0;
+          break;
+        }
+
+        if (try_count >= 3 && !success) {
+          ERROR("Enable report realtime robot pose failed.");
+          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+          ResetLifecycleDefaultValue();
+          task_abort_callback_();
+          return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      }
+    });
+  pose_thread->detach();
 
   // 结束激活进度的上报
-  ReportPreparationFinished(
-    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  timer_.Pause();
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Vision Mapping] Vision Mapping success.");
-  INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
+  INFO("[Vision Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorVisionMapping::Stop(
@@ -129,7 +152,7 @@ void ExecutorVisionMapping::Stop(
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -141,7 +164,7 @@ void ExecutorVisionMapping::Stop(
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -154,7 +177,7 @@ void ExecutorVisionMapping::Stop(
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -167,12 +190,11 @@ void ExecutorVisionMapping::Stop(
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
-  INFO("-----> 0 <-------");
   // mivins lifecycle
   success = mapping_client_->Pause();
   if (!success) {
@@ -180,19 +202,12 @@ void ExecutorVisionMapping::Stop(
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
-  // INFO("-----> 1 <-------");
-  // StopReportPreparationThread();
-  // INFO("-----> 2 <-------");
-  // ReportPreparationFinished(
-  //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  // INFO("-----> 3 <-------");
-
-  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   task_cancle_callback_();
   INFO("[Vision Mapping] Vision Mapping stoped success");
   INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
@@ -205,6 +220,9 @@ void ExecutorVisionMapping::Cancel()
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
+  Timer timer_;
+  timer_.Start();
+
   // RealSense camera
   bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
@@ -225,6 +243,8 @@ bool ExecutorVisionMapping::IsDependsReady()
       return false;
     }
   }
+
+  INFO("[Vision Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // RGB-G camera
   success = LifecycleNodeManager::GetSingleton()->IsActivate(
@@ -247,6 +267,8 @@ bool ExecutorVisionMapping::IsDependsReady()
     }
   }
 
+  INFO("[Vision Mapping] RGB-G camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+
   // // Nav lifecycle
   // if (!OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kStartUp)) {
   //   ERROR("[Vision Mapping] lifecycle manager vis_mapping set activate state failed.");
@@ -261,6 +283,7 @@ bool ExecutorVisionMapping::IsDependsReady()
     }
   }
 
+  INFO("[Vision Mapping] mivinsmapping elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Vision Mapping] Start all depends lifecycle nodes success.");
   return true;
 }
@@ -452,7 +475,18 @@ bool ExecutorVisionMapping::CheckBuildMappingAvailable()
   bool result = false;
   try {
     auto future_result = mapping_available_client_->invoke(request, std::chrono::seconds(5s));
-    result = future_result->code != 300;
+
+    if (future_result->code == 0) {
+      INFO("Relocation map is available.");
+      return true;
+    } else if (future_result->code == 300) {
+      INFO("Relocation map not available, under construction.");
+      return false;
+    } else if (future_result->code == 301) {
+      INFO("The relocation map is not available. There was an error in the last offline map building, \
+        and the map needs to be rebuilt");
+      return false;
+    }
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
@@ -498,6 +532,27 @@ void ExecutorVisionMapping::PublishBuildMapType()
   std_msgs::msg::Bool state;
   state.data = true;
   vision_mapping_trigger_pub_->publish(state);
+}
+
+bool ExecutorVisionMapping::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    ERROR("Release RealSense failed.");
+  }
+
+  LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RGBCameraSensor);
+  if (!success) {
+    ERROR("Release RGBCamera failed.");
+  }
+
+  mapping_client_->Pause();
+  if (!success) {
+    ERROR("Release mapping_client failed.");
+  }
+  return success;
 }
 
 }  // namespace algorithm

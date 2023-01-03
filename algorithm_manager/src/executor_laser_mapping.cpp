@@ -78,7 +78,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("[Laser Mapping] Laser Mapping started");
-  ReportPreparationStatus();
+  // ReportPreparationStatus();
 
   Timer timer_;
   timer_.Start();
@@ -89,7 +89,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("[Laser Mapping] Laser Localization is running, Laser Mapping is not available.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -99,8 +99,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("[Laser Mapping] Laser Mapping lifecycle depend start up failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
@@ -118,8 +119,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("[Laser Mapping] Start laser mapping failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
@@ -137,15 +139,16 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
   // 结束激活进度的上报
   // ReportPreparationFinished(
   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping success.");
 }
@@ -155,7 +158,6 @@ void ExecutorLaserMapping::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   INFO("[Laser Mapping] Laser Mapping will stop");
-  StopReportPreparationThread();
   Timer timer_;
   timer_.Start();
 
@@ -163,7 +165,7 @@ void ExecutorLaserMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(
+    UpdateFeedback(
       AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
 
     // use topic stop robot realtime pose
@@ -185,7 +187,7 @@ void ExecutorLaserMapping::Stop(
     response->result = StopTaskSrv::Response::FAILED;
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -204,7 +206,7 @@ void ExecutorLaserMapping::Stop(
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     // ReportPreparationFinished(
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -221,7 +223,7 @@ void ExecutorLaserMapping::Stop(
 
   // ReportPreparationFinished(
   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   task_success_callback_();
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
@@ -298,6 +300,9 @@ bool ExecutorLaserMapping::IsDependsReady()
   //   return false;
   // }
 
+  Timer timer_;
+  timer_.Start();
+
   // RealSense camera
   bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
@@ -319,6 +324,8 @@ bool ExecutorLaserMapping::IsDependsReady()
     is_open_realsense_camera_ = success;
   }
 
+  INFO("[Laser Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+
   // Laser mapping  lifecycle
   if (!mapping_client_->IsActivate()) {
     bool ok = mapping_client_->Configure();
@@ -331,6 +338,7 @@ bool ExecutorLaserMapping::IsDependsReady()
     }
   }
 
+  INFO("[Laser Mapping] map_builder elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Start all depends lifecycle nodes success.");
   return true;
 }
