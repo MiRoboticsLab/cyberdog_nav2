@@ -62,5 +62,5 @@ TaskName = "AutoDock"
 Id = 9
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["charging_localization", "controller_server", "planner_server", "recoveries_server",
+DepsLifecycleNodes = ["charging_localization", "mivinsfollowing", "controller_server", "planner_server", "recoveries_server",
                       "bt_navigator"]
