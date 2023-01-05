@@ -14,6 +14,7 @@ find_package(filesystem REQUIRED)
 find_package(cyberdog_common REQUIRED)
 find_package(cyberdog_debug REQUIRED)
 find_package(nav2_map_server REQUIRED)
+find_package(cyberdog_visions_interfaces REQUIRED)
 
 set(executable_name label_server)
 set(library_name ${executable_name}_core)
@@ -25,6 +26,7 @@ set(dependencies
   cyberdog_common
   cyberdog_debug
   nav2_map_server
+  cyberdog_visions_interfaces
 )
 
 include_directories(include)
