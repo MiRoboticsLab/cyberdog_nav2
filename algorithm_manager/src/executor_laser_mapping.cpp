@@ -90,8 +90,14 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       "start_mapping", shared_from_this());
   }
 
+  // miloc manager for map delete
+  if (miloc_client_ == nullptr) {
+    miloc_client_ = std::make_shared<nav2_util::ServiceClient<MilocMapHandler>>(
+      "delete_reloc_map", shared_from_this());
+  }
+
   // Get all ros parameters
-  GetParameters();
+  // GetParameters();
 
   // Start build mapping
   bool success = StartBuildMapping();
@@ -455,6 +461,41 @@ bool ExecutorLaserMapping::ResetLifecycleDefaultValue()
     return success;
   }
   return success;
+}
+
+bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
+{
+  // Wait service
+  while (!miloc_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MilocMapHandler::Request>();
+  auto response = std::make_shared<MilocMapHandler::Response>();
+  request->map_id = 0;
+
+  // Send request
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = miloc_client_->invoke(request, std::chrono::seconds(5s));
+    constexpr int kDeleteSuccess = 0;
+    constexpr int kDeleteFailure = 100;
+
+    if (future_result->code == kDeleteSuccess) {
+      INFO("Delete the relocation map successfully.");
+      result = true;
+    } else if (future_result->code == kDeleteFailure) {
+      ERROR("Delete relocation map exception.");
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace algorithm

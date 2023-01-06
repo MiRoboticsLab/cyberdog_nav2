@@ -217,7 +217,7 @@ void ExecutorAbNavigation::HandleResultCallback(
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
       UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
-      // task_success_callback_();
+      task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Navigation AB run target goal aborted");

@@ -30,7 +30,7 @@ const std::string kMapLabelDirectory = "/home/mi/mapping/";   // NOLINT
 LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
 {
-  LoadLabels(map_label_directory_);
+  // LoadLabels(map_label_directory_);
   // Debug();
 }
 

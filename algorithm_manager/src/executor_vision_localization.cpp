@@ -174,7 +174,6 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  is_activate_ = true;
   task_success_callback_();
 }
 
@@ -342,6 +341,7 @@ bool ExecutorVisionLocalization::IsDependsReady()
     }
   }
 
+  is_activate_ = true;
   INFO("[Vision Mapping] mivinslocalization elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return true;
 }
