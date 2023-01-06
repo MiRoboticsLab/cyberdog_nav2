@@ -126,20 +126,6 @@ class SeatAdjustServer(Node):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        self.head_subscription = self.create_subscription(
-            HeadTofPayload, 'head_tof_payload', self.head_listener_callback, 10
-        )
-
-        self.rear_subscription = self.create_subscription(
-            RearTofPayload, 'rear_tof_payload', self.rear_listener_callback, 10
-        )
-
-        self.motion_result_client_ = self.create_client(
-            MotionResultCmd, 'motion_result_cmd'
-        )
-        while not self.motion_result_client_.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('motion service not available, waiting again...')
-
         compute_trig_coeffs()
 
         self.yaw_limit = 25 * 3.14 / 180
@@ -175,17 +161,34 @@ class SeatAdjustServer(Node):
             )
             self.pcd_publisher.append(pcd_publisher)
 
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.create_init()
+
         self.timer_count = 0
         self.action_start = 0
         self.action_complete = 0
-        self.get_logger().info('__init__ complete')
+        self.get_logger().info('__init__0 complete')
+
+    def create_init(self):
+        self.get_logger().info('create_init---------------')
+        self.head_subscription = self.create_subscription(
+            HeadTofPayload, 'head_tof_payload', self.head_listener_callback, 10
+        )
+
+        self.rear_subscription = self.create_subscription(
+            RearTofPayload, 'rear_tof_payload', self.rear_listener_callback, 10
+        )
+
+        self.motion_result_client_ = self.create_client(
+            MotionResultCmd, 'motion_result_cmd'
+        )
+        if not self.motion_result_client_.wait_for_service(timeout_sec=3.0):
+            self.get_logger().info('motion service not available, waiting again...')
+
+        self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def goal_callback(self, goal_request):
         """Accept or reject a client request to begin an action."""
         # This server allows multiple goals in parallel
-        self.action_start = 1
-        self.action_complete = 0
         self.get_logger().info('Received goal request')
 
         self.motion_req = MotionResultCmd.Request()
@@ -200,6 +203,8 @@ class SeatAdjustServer(Node):
         self.motion_req.duration = 0
         self.send_motion_request()
 
+        self.action_start = 1
+        self.action_complete = 0
         return GoalResponse.ACCEPT
 
     def cancel_callback(self, goal_handle):
@@ -330,12 +335,14 @@ class SeatAdjustServer(Node):
         self.point_intensity_compute(intensity, tof_msg)
 
     def head_listener_callback(self, msg):
-        self.tof_pcd_generate(msg.left_head)
-        self.tof_pcd_generate(msg.right_head)
+        if self.action_start:
+            self.tof_pcd_generate(msg.left_head)
+            self.tof_pcd_generate(msg.right_head)
 
     def rear_listener_callback(self, msg):
-        self.tof_pcd_generate(msg.left_rear)
-        self.tof_pcd_generate(msg.right_rear)
+        if self.action_start:
+            self.tof_pcd_generate(msg.left_rear)
+            self.tof_pcd_generate(msg.right_rear)
 
     def x_pose_adjust(self):
         tag_row_idx = 4
