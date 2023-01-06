@@ -140,7 +140,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  is_activate_ = true;
   task_success_callback_();
 }
 
@@ -275,6 +274,7 @@ bool ExecutorLaserLocalization::IsDependsReady()
     return false;
   }
 
+  is_activate_ = true;
   INFO(
     "[Laser Localization] localization_node elapsed time: %.5f [seconds]",
     timer_.ElapsedSeconds());

@@ -41,16 +41,15 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   timer_.Start();
   (void)goal;
   INFO("[Vision Mapping] Vision Mapping started");
-  // ReportPreparationStatus();
 
   // If current slam mapping in background, it's not available build mapping now
-  bool available = CheckBuildMappingAvailable();
-  if (!available) {
-    ERROR("[Vision Mapping] Vision Mapping can't start, due to miloc creating map data.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_cancle_callback_();
-    return;
-  }
+  // bool available = CheckBuildMappingAvailable();
+  // if (!available) {
+  //   ERROR("[Vision Mapping] Vision Mapping can't start, due to miloc creating map data.");
+  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+  //   task_cancle_callback_();
+  //   return;
+  // }
 
   // Check all sensors turn on
   bool ready = IsDependsReady();

@@ -126,7 +126,7 @@ private:
    */
   void SetOutdoorFlag(bool outdoor);
 
-  bool ReqeustVisionBuildingMapAvailable(const std::string & map_name = "map");
+  bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
 
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
