@@ -75,7 +75,8 @@ private:
   bool CheckStatusValid()
   {
     auto status = GetStatus();
-    INFO("Current status: %s", ToString(status).c_str());
+    INFO("Current status : %d", status);
+    // INFO("Current status: %s", ToString(status).c_str());
     return status == ManagerStatus::kIdle;
   }
 

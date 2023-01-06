@@ -166,6 +166,9 @@ private:
   // Record relocalization result
   bool relocalization_success_ {false};
   bool relocalization_failure_ {false};
+
+  // in service
+  bool is_activate_ {false};
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

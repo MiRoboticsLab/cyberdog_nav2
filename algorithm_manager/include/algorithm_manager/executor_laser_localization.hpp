@@ -133,6 +133,8 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
+  void StopLocalization();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -143,9 +145,9 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
 
   // service client
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
@@ -157,6 +159,9 @@ private:
 
   //  LocationStatus location_status_;
   LocationStatus location_status_;
+
+  // in service
+  bool is_activate_ {false};
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog
