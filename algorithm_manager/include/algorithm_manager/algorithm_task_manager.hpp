@@ -98,11 +98,22 @@ private:
     std::unique_lock<std::mutex> lk(state_mutex_);
     return state_;
   }
-  bool IsStateValid()
+  bool IsStateValid(int32_t & code)
   {
     auto state = GetState();
-    return state == FsmState::kActive;
+    if (state == FsmState::kActive || state == FsmState::kProtected) {
+      code = code_ptr_->GetKeyCode(system::KeyCode::kOK);
+      return true;
+    } else if (state == FsmState::kLowPower) {
+      OnlineAudioPlay("低功耗模式，任务启动失败");
+    } else {
+      OnlineAudioPlay("状态机无效，任务启动失败");
+    }
+    ERROR("FSM invalid with current state: %s", status_map_.at(state_).c_str());
+    code = code_ptr_->GetKeyCode(system::KeyCode::kStateInvalid);
+    return false;
   }
+
   int32_t OnSetUp()
   {
     INFO("Get fsm: Setup");
@@ -181,7 +192,7 @@ private:
         INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
       };
     auto future = audio_client_->async_send_request(request, callback);
-    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    if (future.wait_for(std::chrono::milliseconds(500)) == std::future_status::timeout) {
       playing = false;
       ERROR("Cannot get response from AudioPlay");
     }
@@ -279,7 +290,6 @@ private:
   FsmState state_{FsmState::kUninit};
   std::unordered_map<FsmState, std::string> status_map_;
   std::mutex state_mutex_;
-
 };  // class algorithm_manager
 }  // namespace algorithm
 }  // namespace cyberdog

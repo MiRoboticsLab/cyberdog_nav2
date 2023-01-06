@@ -25,6 +25,7 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
+: machine::MachineActuator("algorithm_manager")
 {
 }
 
@@ -229,14 +230,9 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   (void)uuid;
   (void)goal;
   INFO("---------------------");
-  if (!IsStateValid(code, protected_cmd)) {
-    ERROR("FSM invalid with current state: %s", status_map_.at(state_).c_str());
-    if (code == code_ptr_->GetKeyCode(system::KeyCode::kProtectedError)) {
-      OnlineAudioPlay("电量低，请充电后尝试");
-    }
-    response->result = false;
-    response->code = code;
-    return;
+  int32_t code = 0;
+  if (!IsStateValid(code)) {
+    return rclcpp_action::GoalResponse::REJECT;
   }
   if (!CheckStatusValid()) {
     ERROR(
