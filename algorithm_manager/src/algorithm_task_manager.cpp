@@ -187,7 +187,8 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   if (request->task_id == 0) {
     auto status = GetStatus();
     if (status != ManagerStatus::kExecutingAbNavigation &&
-      status != ManagerStatus::kExecutingLaserLocalization)
+      status != ManagerStatus::kExecutingLaserLocalization &&
+      status != ManagerStatus::kIdle)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
@@ -228,12 +229,13 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   std::shared_ptr<const AlgorithmMGR::Goal> goal)
 {
   (void)uuid;
-  (void)goal;
   INFO("---------------------");
   int32_t code = 0;
   if (!IsStateValid(code)) {
     return rclcpp_action::GoalResponse::REJECT;
   }
+  INFO("goal->outdoor : %d", goal->outdoor);
+
   if (!CheckStatusValid()) {
     ERROR(
       "Cannot accept task: %d, status is invalid!", goal->nav_type);
@@ -252,6 +254,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
       "Cannot accept task: %d, nav type is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   } else {
+    std::string outdoor = iter->second.out_door ? "true" : "false";
+    INFO("Run current task: %s, outdoor : %s", task_name.c_str(), outdoor.c_str());
     SetTaskExecutor(iter->second.executor);
   }
   SetStatus(static_cast<ManagerStatus>(goal->nav_type));
