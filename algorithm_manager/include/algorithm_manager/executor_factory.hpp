@@ -77,9 +77,9 @@ std::shared_ptr<cyberdog::algorithm::ExecutorBase> CreateExecutor(
       break;
 
     // PosesThrough
-    case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AB:
-      result = std::make_shared<ExecutorPosesThroughNavigation>(task_name);
-      break;
+    // case AlgorithmMGR::Goal::NAVIGATION_TYPE_STOP_AB:
+    //   result = std::make_shared<ExecutorPosesThroughNavigation>(task_name);
+    //   break;
 
     // Laser Localization
     case AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION:

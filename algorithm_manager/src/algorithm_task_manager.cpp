@@ -25,6 +25,7 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
+: machine::MachineActuator("algorithm_manager")
 {
 }
 
@@ -68,6 +69,43 @@ bool AlgorithmTaskManager::Init()
     rmw_qos_profile_services_default,
     callback_group_);
   SetStatus(ManagerStatus::kIdle);
+  code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
+    cyberdog::system::ModuleCode::kNavigation);
+  audio_client_ = node_->create_client<protocol::srv::AudioTextPlay>(
+    "speech_text_play",
+    rmw_qos_profile_services_default,
+    callback_group_);
+  auto local_share_dir = ament_index_cpp::get_package_share_directory("params");
+  auto path = local_share_dir + std::string("/toml_config/manager/state_machine_config.toml");
+  heart_beats_ptr_ = std::make_unique<cyberdog::machine::HeartBeatsActuator>("algorithm_manager");
+  heart_beats_ptr_->HeartBeatRun();
+  if (!this->MachineActuatorInit(path, node_)) {
+    ERROR("Init failed, actuator init error.");
+    return false;
+  }
+  this->RegisterStateCallback("SetUp", std::bind(&AlgorithmTaskManager::OnSetUp, this));
+  this->RegisterStateCallback("TearDown", std::bind(&AlgorithmTaskManager::OnTearDown, this));
+  this->RegisterStateCallback("SelfCheck", std::bind(&AlgorithmTaskManager::OnSelfCheck, this));
+  this->RegisterStateCallback("Active", std::bind(&AlgorithmTaskManager::OnActive, this));
+  this->RegisterStateCallback("DeActive", std::bind(&AlgorithmTaskManager::OnDeActive, this));
+  this->RegisterStateCallback("Protected", std::bind(&AlgorithmTaskManager::OnProtected, this));
+  this->RegisterStateCallback("LowPower", std::bind(&AlgorithmTaskManager::OnLowPower, this));
+  this->RegisterStateCallback("OTA", std::bind(&AlgorithmTaskManager::OnOTA, this));
+  this->RegisterStateCallback("Error", std::bind(&AlgorithmTaskManager::OnError, this));
+  if (!this->ActuatorStart()) {
+    ERROR("Init failed, actuator start error.");
+    return false;
+  }
+  status_map_.emplace(FsmState::kUninit, "Uninit");
+  status_map_.emplace(FsmState::kSetup, "Setup");
+  status_map_.emplace(FsmState::kTearDown, "TearDown");
+  status_map_.emplace(FsmState::kSelfCheck, "SelfCheck");
+  status_map_.emplace(FsmState::kActive, "Active");
+  status_map_.emplace(FsmState::kDeactive, "Deactive");
+  status_map_.emplace(FsmState::kProtected, "Protected");
+  status_map_.emplace(FsmState::kLowPower, "LowPower");
+  status_map_.emplace(FsmState::kOTA, "OTA");
+  status_map_.emplace(FsmState::kError, "Error");
   return true;
 }
 
@@ -149,7 +187,8 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   if (request->task_id == 0) {
     auto status = GetStatus();
     if (status != ManagerStatus::kExecutingAbNavigation &&
-      status != ManagerStatus::kExecutingLaserLocalization)
+      status != ManagerStatus::kExecutingLaserLocalization &&
+      status != ManagerStatus::kIdle)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
@@ -190,8 +229,13 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   std::shared_ptr<const AlgorithmMGR::Goal> goal)
 {
   (void)uuid;
-  (void)goal;
   INFO("---------------------");
+  int32_t code = 0;
+  if (!IsStateValid(code)) {
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+  INFO("goal->outdoor : %d", goal->outdoor);
+
   if (!CheckStatusValid()) {
     ERROR(
       "Cannot accept task: %d, status is invalid!", goal->nav_type);
@@ -210,6 +254,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
       "Cannot accept task: %d, nav type is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
   } else {
+    std::string outdoor = iter->second.out_door ? "true" : "false";
+    INFO("Run current task: %s, outdoor : %s", task_name.c_str(), outdoor.c_str());
     SetTaskExecutor(iter->second.executor);
   }
   SetStatus(static_cast<ManagerStatus>(goal->nav_type));

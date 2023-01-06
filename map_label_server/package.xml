@@ -16,6 +16,7 @@
   <depend>nav2_map_server</depend>
   <depend>filesystem</depend>
   <depend>visualization</depend>
+  <depend>cyberdog_visions_interfaces</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
