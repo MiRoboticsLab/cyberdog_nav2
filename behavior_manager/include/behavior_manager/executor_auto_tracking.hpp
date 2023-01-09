@@ -53,6 +53,7 @@ struct BehaviorIdMap
   std::string module_name;
   bool is_online;
   std::string text;
+  bool occupation;
   std::string client;
   uint8_t target;
   uint8_t mode;
@@ -269,7 +270,17 @@ public:
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      // auto_tracking_start_ = false;
+      if(!auto_tracking_start_){
+        req_led->occupation = 1;
+        req_led->client = "tracking";
+        req_led->target = 1;
+        req_led->mode = 2;
+        req_led->effect = 8;
+        req_led->r_value = 255;
+        req_led->g_value = 165;
+        req_led->b_value = 0;
+        auto future_led = led_execute_client_->async_send_request(req_led);
+      }
     }
   }
   // bool WalkAround()
