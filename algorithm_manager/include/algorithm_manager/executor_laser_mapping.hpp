@@ -25,6 +25,7 @@
 #include "nav2_util/service_client.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "algorithm_manager/timer.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 
 namespace cyberdog
 {
@@ -36,6 +37,7 @@ class ExecutorLaserMapping : public ExecutorBase
 public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
+  using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   explicit ExecutorLaserMapping(std::string node_name);
   ~ExecutorLaserMapping();
@@ -130,6 +132,14 @@ private:
    */
   bool ResetLifecycleDefaultValue();
 
+  /**
+   * @brief Delete all vision in background viosn building data
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool DeleteBackgroundVisionMapDatasets();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -144,6 +154,7 @@ private:
   // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
   // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
 

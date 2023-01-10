@@ -69,22 +69,26 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 {
   (void)goal;
   INFO("Vision Localization started");
-  ReportPreparationStatus();
+  // ReportPreparationStatus();
   Timer timer_;
   timer_.Start();
+
+  // Check current map available
+  bool available = CheckMapAvailable();
+  if (!available) {
+    ERROR("Vision build map file not available.");
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    task_abort_callback_();
+    return;
+  }
 
   bool ready = IsDependsReady();
   if (!ready) {
     ResetLifecycleDefaultValue();
     ERROR("Vision localization lifecycle depend start up failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
-  }
-
-  if (map_result_client_ == nullptr) {
-    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
-      "get_miloc_status", shared_from_this());
   }
 
   if (start_client_ == nullptr) {
@@ -102,21 +106,11 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       "PoseEnable", shared_from_this());
   }
 
-  // Check current map available
-  bool available = CheckMapAvailable();
-  if (!available) {
-    ERROR("Vision build map file not available.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    ResetLifecycleDefaultValue();
-    task_abort_callback_();
-    return;
-  }
-
   // Enable Relocalization
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -126,7 +120,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   success = WaitRelocalization(std::chrono::seconds(60s));
   if (!success) {
     ERROR("Vision localization failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -135,7 +129,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -146,6 +140,15 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     [&]() {
       int try_count = 0;
       while (true) {
+        if (relocalization_failure_) {
+          break;
+        }
+
+        if (!relocalization_success_) {
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          continue;
+        }
+
         try_count++;
         success = EnableReportRealtimePose(true);
 
@@ -157,7 +160,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
-          SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
           ResetLifecycleDefaultValue();
           task_abort_callback_();
           return;
@@ -168,7 +171,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   pose_thread->detach();
 
   // 结束激活进度的上报
-  SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
@@ -180,7 +183,8 @@ void ExecutorVisionLocalization::Stop(
 {
   (void)request;
   INFO("Vision localization will stop");
-  StopReportPreparationThread();
+  // StopReportPreparationThread();
+
   Timer timer_;
   timer_.Start();
 
@@ -188,7 +192,7 @@ void ExecutorVisionLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     ResetLifecycleDefaultValue();
     return;
@@ -198,7 +202,7 @@ void ExecutorVisionLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -227,7 +231,9 @@ void ExecutorVisionLocalization::Stop(
 
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+
+  is_activate_ = false;
   task_success_callback_();
 }
 
@@ -243,13 +249,13 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
     relocalization_failure_ = true;
-    SetFeedbackCode(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     WARN("Relocalization failed.");
   }
 }
@@ -257,8 +263,13 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
 void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
   const std_msgs::msg::Bool::SharedPtr msg)
 {
-  INFO("Handle stop relocalization module.");
+  INFO("Handle stop vision relocalization module.");
   if (msg == nullptr) {
+    return;
+  }
+
+  if (!is_activate_) {
+    INFO("Current vision localization not in activate, not need stop.");
     return;
   }
 
@@ -271,6 +282,9 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
+  Timer timer_;
+  timer_.Start();
+
   bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
@@ -290,6 +304,8 @@ bool ExecutorVisionLocalization::IsDependsReady()
   } else {
     INFO("RealSense Camera Sensor is activate.");
   }
+
+  INFO("[Vision Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   success = LifecycleNodeManager::GetSingleton()->IsActivate(
     LifeCycleNodeType::RGBCameraSensor);
@@ -311,6 +327,7 @@ bool ExecutorVisionLocalization::IsDependsReady()
     INFO("RGB-D Camera Sensor is activate.");
   }
 
+  INFO("[Vision Mapping] RGB-G camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   success = localization_lifecycle_->IsActivate();
   if (!success) {
     // localization_node lifecycle(configure state)
@@ -323,6 +340,9 @@ bool ExecutorVisionLocalization::IsDependsReady()
       return false;
     }
   }
+
+  is_activate_ = true;
+  INFO("[Vision Mapping] mivinslocalization elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return true;
 }
 
@@ -348,28 +368,6 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 
 bool ExecutorVisionLocalization::EnableRelocalization()
 {
-  // // Wait service
-  // while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
-  //   if (!rclcpp::ok()) {
-  //     ERROR("Waiting for relocalization start the service. but cannot connect the service.");
-  //     return false;
-  //   }
-  // }
-
-  // // Set request data
-  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  // request->data = true;
-
-  // // Send request
-  // auto future = start_client_->async_send_request(request);
-  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
-  //   ERROR("Connect relocalization start service timeout");
-  //   return false;
-  // }
-
-  // INFO("Send start relocalization service request success.");
-  // return future.get()->success;
-
   // Wait service
   while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -396,26 +394,6 @@ bool ExecutorVisionLocalization::EnableRelocalization()
 
 bool ExecutorVisionLocalization::DisenableRelocalization()
 {
-  // while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
-  //   if (!rclcpp::ok()) {
-  //     ERROR("Waiting for relocalization stop the service. but cannot connect the service.");
-  //     return false;
-  //   }
-  // }
-
-  // // Set request data
-  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  // request->data = true;
-
-  // // Send request
-  // auto future = stop_client_->async_send_request(request);
-  // if (future.wait_for(std::chrono::seconds(20s)) == std::future_status::timeout) {
-  //   ERROR("Connect relocalization stop service timeout");
-  //   return false;
-  // }
-
-  // return future.get()->success;
-
   // Wait service
   while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
@@ -442,34 +420,6 @@ bool ExecutorVisionLocalization::DisenableRelocalization()
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
-  // // Wait service
-  // while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-  //   if (!rclcpp::ok()) {
-  //     ERROR("Waiting for position checker the service.");
-  //     return false;
-  //   }
-  // }
-
-  // // Set request data
-  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  // request->data = enable;
-
-  // // Print enable and disenable message
-  // if (enable) {
-  //   INFO("Start report robot's realtime pose");
-  // } else {
-  //   INFO("Stop report robot's realtime pose.");
-  // }
-
-  // // Send request
-  // auto future = realtime_pose_client_->async_send_request(request);
-  // if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-  //   ERROR("Connect position checker service timeout");
-  //   return false;
-  // }
-
-  // return future.get()->success;
-
   while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for the service. but cannot connect the service.");
@@ -502,6 +452,11 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 
 bool ExecutorVisionLocalization::CheckMapAvailable()
 {
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
   while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
     if (!rclcpp::ok()) {
       ERROR("Waiting for miloc map handler the service. but cannot connect the service.");

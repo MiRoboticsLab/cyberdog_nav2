@@ -178,7 +178,7 @@ void ExecutorPosesThroughNavigation::HandleResultCallback(
 void ExecutorPosesThroughNavigation::HandleTriggerStopCallback(
   const std_msgs::msg::Bool::SharedPtr msg)
 {
-  INFO("Reset location module and reset some sensor.");
+  // INFO("Reset location module and reset some sensor.");
   if (msg == nullptr) {
     return;
   }
@@ -306,11 +306,11 @@ void ExecutorPosesThroughNavigation::ReleaseSources()
   command->data = true;
   stop_vision_trigger_pub_->publish(*command);
 
-  // if (IsUseVisionLocation()) {
-  //   stop_vision_trigger_pub_->publish(*command);
-  // } else if (IsUseLidarLocation()) {
-  //   stop_lidar_trigger_pub_->publish(*command);
-  // }
+  if (IsUseVisionLocation()) {
+    stop_vision_trigger_pub_->publish(*command);
+  } else if (IsUseLidarLocation()) {
+    stop_lidar_trigger_pub_->publish(*command);
+  }
   ResetDefaultValue();
 }
 

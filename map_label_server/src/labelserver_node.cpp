@@ -31,6 +31,7 @@
 #include "map_label_server/labelserver_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "filesystem/filesystem.hpp"
+#include "cyberdog_common/cyberdog_json.hpp"
 
 namespace CYBERDOG_NAV
 {
@@ -98,6 +99,12 @@ void LabelServer::handle_get_label(
   std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
 
   INFO("map_name : %s", request->map_name.c_str());
+  bool map_status = false;
+  bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
+  if (!ready && !map_status) {
+    WARN("Current map not available.");
+    return;
+  }
 
   std::string map_filename = request->map_name + ".pgm";
   if (!map_label_store_ptr_->IsExist(map_filename)) {
@@ -200,9 +207,10 @@ void LabelServer::handle_set_label(
     }
   }
 
+  // INFO("Current is_outdoor flag : %d", request->label.is_outdoor);
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
-  map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
+  // map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
 
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
@@ -389,6 +397,66 @@ void LabelServer::SetOutdoorFlag(bool outdoor)
   map_label_store_ptr_->SetOutdoor(outdoor, doc);
   map_label_store_ptr_->Write(label_filename, doc);
   INFO("Label server set outdoor : %d", outdoor);
+}
+
+bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std::string & map_name)
+{
+  std::string map_json_filename = "/home/mi/mapping/" + map_name + ".json";
+  if (!filesystem::exists(map_json_filename)) {
+    ERROR("Current map json file is not exist.");
+    return false;
+  }
+
+  rapidjson::Document document(rapidjson::kObjectType);
+  cyberdog::common::CyberdogJson::ReadJsonFromFile(map_json_filename, document);
+
+  bool outdoor = false;
+  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
+    std::string key = it->name.GetString();
+    if (key == "is_outdoor") {
+      outdoor = it->value.GetBool();
+      INFO("Function ReqeustVisionBuildingMapAvailable() get is_outdoor: %d", outdoor);
+      break;
+    }
+  }
+
+  if (!outdoor) {
+    map_status = true;
+    return true;
+  }
+
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  // Client request
+  while (!map_result_client_->wait_for_service(std::chrono::seconds(5))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  // request->map_id = 0;
+
+  bool result = false;
+  try {
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
+    if (future_result->code == 0 || future_result->code == 300) {
+      map_status = true;
+      result = true;
+    } else if (future_result->code == 301 || future_result->code == 302) {
+      map_status = false;
+      result = false;
+    }
+    result = future_result->code == 0;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace CYBERDOG_NAV
