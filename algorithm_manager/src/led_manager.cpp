@@ -44,11 +44,9 @@ struct LedInfo
 class LedManagerNode : public rclcpp::Node
 {
 public:
-  // explicit LedManagerNode(const rclcpp::Node::SharedPtr node)
-  // : node_(node)
   explicit LedManagerNode(std::string name) : Node(name)
   {
-    INFO("222");
+    INFO("555");
     callback_group_ =
       this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     led_execute_client_ =
@@ -61,101 +59,102 @@ public:
       rmw_qos_profile_services_default, callback_group_);
     rclcpp::SubscriptionOptions sub_options;
     sub_options.callback_group = callback_group_;
-    // algotask_status_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    //   "tracking_pose", rclcpp::SystemDefaultsQoS(),
-    //   std::bind(&LedManagerNode::Algotask_status, this, std::placeholders::_1),
-    //   sub_options);
     if(!audio_play_client_->wait_for_service(std::chrono::seconds(1))) {
       ERROR("call audio_execute server not available");
-    }
+    };
+    if(!led_execute_client_->wait_for_service(std::chrono::seconds(1))) {
+      ERROR("call audio_execute server not available");
+    };
     algotask_status_sub_ = this->create_subscription<protocol::msg::AlgoTaskStatus>(
       "algo_task_status", rclcpp::SystemDefaultsQoS(),
       std::bind(&LedManagerNode::Algotask_status, this, std::placeholders::_1),
       sub_options);
-     //  ros_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-     //  ros_executor_->add_node(node_);
-     //  std::thread{[this]() {ros_executor_->spin();}}.detach();
   }
 
 private:
   void Algotask_status(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
-  //void Algotask_status(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
     if(msg->task_status == 11 && !follow_tags_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      bool result = Reqservice(headled_on, tailled_on, miniled_on);
-      INFO("%s set led when follow_tags_start status", result ? "successed" : "failed");
+      Reqservice(headled_on, tailled_on, miniled_on);
+      //INFO("%s set led when follow_tags_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
       audio_execute->is_online = false;
       audio_execute->speech.play_id = 30000;
-      auto callback = [this](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
-        INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
-      };
-      auto future_audio = audio_play_client_->async_send_request(audio_execute, callback);
-      // if(future_audio.wait_for(std::chrono::milliseconds(10000)) == std::future_status::timeout) {
-      //   ERROR("Cannot get reponse of AudioPlay");
-      // }
+      // auto callback = [this](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
+      //   INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
+      // };
+      // auto future_audio = audio_play_client_->async_send_request(audio_execute, callback);
+      auto future_audio = audio_play_client_->async_send_request(audio_execute);
+      if(future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of start_uwb_tracking AudioPlay");
+      }
       follow_tags_start_ = true;
       follow_person_start_ = false;
       follow_object_start_ = false;
       stop_task_ = false;
+      fail_stop_task_ = false;
       status_ = 1;
     } else if (msg->task_status ==13 && !follow_person_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      bool result = Reqservice(headled_on, tailled_on, miniled_on);
-      INFO("%s set led when follow_person_start status", result ? "successed" : "failed");
+      Reqservice(headled_on, tailled_on, miniled_on);
+      //INFO("%s set led when follow_person_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
       audio_execute->is_online = false;
       audio_execute->speech.play_id = 30001;
       auto future_audio = audio_play_client_->async_send_request(audio_execute);
-      if(future_audio.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
-        ERROR("Cannot get reponse of AudioPlay");
+      if(future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of start_human_tracking AudioPlay");
       }
       follow_person_start_ = true;
       follow_tags_start_ = false;
       follow_object_start_ = false;
       stop_task_ = false;
+      fail_stop_task_ = false;
       status_ = 2;
     } else if (msg->task_status == 3 && !follow_object_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      bool result = Reqservice(headled_on, tailled_on, miniled_on);
-      INFO("%s set led when follow_object_start status", result ? "successed" : "failed");
+      Reqservice(headled_on, tailled_on, miniled_on);
+      //INFO("%s set led when follow_object_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
       audio_execute->is_online = false;
       audio_execute->speech.play_id = 30002;
       auto future_audio = audio_play_client_->async_send_request(audio_execute);
-      if(future_audio.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
-        ERROR("Cannot get reponse of AudioPlay");
+      if(future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of start_follow AudioPlay");
       }
       follow_object_start_ = true;
       follow_tags_start_ = false;
       follow_person_start_ = false;
       stop_task_ = false;
-      status_ = 3;
+      fail_stop_task_ = false;
+      status_ = 3; 
     } else if (msg->task_status == 103 && !stop_task_) {
       auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
       led_execute->occupation = 0;
       led_execute->client = "tracking";
       led_execute->target = 1;
       auto future_head_led = led_execute_client_->async_send_request(led_execute);
-      std::future_status status_head = future_head_led.wait_for(std::chrono::seconds(2));
 
       led_execute->target = 2;
       auto future_tail_led = led_execute_client_->async_send_request(led_execute);
-      std::future_status status_tail = future_head_led.wait_for(std::chrono::seconds(2));
 
       led_execute->target = 3;
       auto future_mini_led = led_execute_client_->async_send_request(led_execute);
-      std::future_status status_mini = future_head_led.wait_for(std::chrono::seconds(2));
+      if(future_head_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_tail_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_mini_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of recovery Led");
+      }
 
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
@@ -170,15 +169,37 @@ private:
         audio_execute->speech.play_id = 30005;
       }
       auto future_audio = audio_play_client_->async_send_request(audio_execute);
-      if(future_audio.wait_for(std::chrono::milliseconds(1000)) == std::future_status::timeout) {
-        ERROR("Cannot get reponse of AudioPlay");
+      if(future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of stop_tracking AudioPlay");
       }
       follow_object_start_ = false;
       follow_tags_start_ = false;
       follow_person_start_ = false;
       stop_task_ = true;
+      fail_stop_task_ = false;
       status_ = 0;
+    } else if (msg->task_status == 101 && (status_ == 1 || status_ == 2 || status_ == 3) && !fail_stop_task_) {
+      auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
+      led_execute->occupation = 0;
+      led_execute->client = "tracking";
+      led_execute->target = 1;
+      auto future_head_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 2;
+      auto future_tail_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 3;
+      auto future_mini_led = led_execute_client_->async_send_request(led_execute);
+      if(future_head_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_tail_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_mini_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of recovery Led from unsuccessful startup");
+      }
+      follow_object_start_ = false;
+      follow_tags_start_ = false;
+      follow_person_start_ = false;
+      stop_task_ = false;
+      fail_stop_task_ = true;
     }
+
   }
 
   void LedRegister(std::shared_ptr<protocol::srv::LedExecute::Request> req, LedInfo & type)
@@ -193,12 +214,8 @@ private:
     req->b_value = type.b_value;
   }
 
-  bool Reqservice(LedInfo & head, LedInfo & tail, LedInfo & mini)
+  void Reqservice(LedInfo & head, LedInfo & tail, LedInfo & mini)
   {
-    if(!led_execute_client_->wait_for_service(std::chrono::seconds(1))) {
-      ERROR("call led_execute server not available");
-      return false;
-    }
     auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
     LedRegister(led_execute, head);
     auto future_head_led = led_execute_client_->async_send_request(led_execute);
@@ -212,6 +229,11 @@ private:
 
     LedRegister(led_execute, mini);
     auto future_mini_led = led_execute_client_->async_send_request(led_execute);
+    if(future_head_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+    future_tail_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+    future_mini_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout) {
+      ERROR("Cannot get reponse of set Led");
+    }
     //std::future_status status_mini = future_mini_led.wait_for(std::chrono::seconds(2));
     //INFO("%d", future_mini_led.get()->code); 
 
@@ -247,6 +269,7 @@ private:
   bool follow_person_end_ {false};
   bool follow_object_end_ {false};
   bool stop_task_ {false};
+  bool fail_stop_task_ {false};
   int status_{0};
   //rclcpp::Executor::SharedPtr ros_executor_;
 };
