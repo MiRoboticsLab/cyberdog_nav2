@@ -46,9 +46,9 @@ class LedManagerNode : public rclcpp::Node
 public:
   explicit LedManagerNode(std::string name) : Node(name)
   {
-    INFO("555");
+    INFO("666");
     callback_group_ =
-      this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+      create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     led_execute_client_ =
       this->create_client<protocol::srv::LedExecute>(
       "led_execute",
@@ -67,18 +67,18 @@ public:
     };
     algotask_status_sub_ = this->create_subscription<protocol::msg::AlgoTaskStatus>(
       "algo_task_status", rclcpp::SystemDefaultsQoS(),
-      std::bind(&LedManagerNode::Algotask_status, this, std::placeholders::_1),
+      std::bind(&LedManagerNode::AlgoTaskStatus, this, std::placeholders::_1),
       sub_options);
   }
 
 private:
-  void Algotask_status(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
+  void AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
   {
     if(msg->task_status == 11 && !follow_tags_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      Reqservice(headled_on, tailled_on, miniled_on);
+      ReqService(headled_on, tailled_on, miniled_on);
       //INFO("%s set led when follow_tags_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
@@ -102,7 +102,7 @@ private:
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      Reqservice(headled_on, tailled_on, miniled_on);
+      ReqService(headled_on, tailled_on, miniled_on);
       //INFO("%s set led when follow_person_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
@@ -122,7 +122,7 @@ private:
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
       LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-      Reqservice(headled_on, tailled_on, miniled_on);
+      ReqService(headled_on, tailled_on, miniled_on);
       //INFO("%s set led when follow_object_start status", result ? "successed" : "failed");
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
@@ -214,7 +214,7 @@ private:
     req->b_value = type.b_value;
   }
 
-  void Reqservice(LedInfo & head, LedInfo & tail, LedInfo & mini)
+  void ReqService(LedInfo & head, LedInfo & tail, LedInfo & mini)
   {
     auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
     LedRegister(led_execute, head);
@@ -270,7 +270,7 @@ private:
   bool follow_object_end_ {false};
   bool stop_task_ {false};
   bool fail_stop_task_ {false};
-  int status_{0};
+  int status_ {0};
   //rclcpp::Executor::SharedPtr ros_executor_;
 };
 }
@@ -279,9 +279,13 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
+  rclcpp::executors::SingleThreadedExecutor executor;
   auto node = std::make_shared<cyberdog::algorithm::LedManagerNode>("led_manager");
-  rclcpp::spin(node);
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }
+
+
 
