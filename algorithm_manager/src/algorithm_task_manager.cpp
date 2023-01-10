@@ -222,7 +222,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   } else {
     SetTaskExecutor(iter->second.executor);
   }
-  SetStatus(static_cast<ManagerStatus>(goal->nav_type));
+  // SetStatus(static_cast<ManagerStatus>(goal->nav_type));
+  SetStatus(goal);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
