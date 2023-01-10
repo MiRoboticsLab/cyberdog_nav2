@@ -212,7 +212,7 @@ private:
   bool CheckStatusValid()
   {
     auto status = GetStatus();
-    INFO("Current status : %d", status);
+    INFO("Current status : %d", (int)status);
     // INFO("Current status: %s", ToString(status).c_str());
     return status == ManagerStatus::kIdle;
   }
@@ -294,6 +294,7 @@ private:
   void ResetManagerStatus()
   {
     SetStatus(ManagerStatus::kIdle);
+    global_feedback_ = 0;
   }
 
   void SetFeedBack(const ExecutorData & executor_data)
