@@ -44,11 +44,14 @@ enum class ManagerStatus : uint8_t
   kExecutingVisMapping = 15,
   kExecutingLaserLocalization = 7,
   kExecutingVisLocalization = 17,
-  kExecutingAbNavigation = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB,
-  kExecutingAutoDock = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AUTO_DOCKING,
-  kExecutingUwbTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_UWB_TRACKING,
-  kExecutingHumanTracking = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING,
-  kExecutingFollowing = AlgorithmMGR::Goal::NAVIGATION_TYPE_START_FOLLOW,
+  kLaserLocalizing = 8,
+  kVisLocalizing = 18,
+  kExecutingLaserAbNavigation = 1,
+  kExecutingVisAbNavigation = 21,
+  kExecutingAutoDock = 9,
+  kExecutingUwbTracking = 11,
+  kExecutingHumanTracking = 13,
+  kExecutingFollowing = 3,
 };
 
 std::string ToString(const ManagerStatus & status);
@@ -108,6 +111,13 @@ private:
       }
       return;
     }
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+      if (goal->outdoor) {
+        manager_status_ = ManagerStatus::kExecutingVisAbNavigation;
+      } else {
+        manager_status_ = ManagerStatus::kExecutingLaserAbNavigation;
+      }
+    }
     if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING) {
       if (goal->object_tracking) {
         manager_status_ = ManagerStatus::kExecutingFollowing;
@@ -141,6 +151,11 @@ private:
       status == ManagerStatus::kExecutingFollowing) 
     {
       return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING;
+    }
+    if (status == ManagerStatus::kExecutingLaserAbNavigation ||
+      status == ManagerStatus::kExecutingVisAbNavigation)
+    {
+      return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB;
     }
     return static_cast<uint8_t>(status);
   }

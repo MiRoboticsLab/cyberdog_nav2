@@ -157,7 +157,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   INFO("=====================");
   if (request->task_id == 0) {
     auto status = GetStatus();
-    if (status != ManagerStatus::kExecutingAbNavigation) {
+    if (status != ManagerStatus::kExecutingLaserAbNavigation) {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
       return;
@@ -270,6 +270,13 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
+  if (GetStatus() == ManagerStatus::kExecutingLaserLocalization) {
+    SetStatus(ManagerStatus::kLaserLocalizing);
+    return;
+  } else if (GetStatus() == ManagerStatus::kExecutingVisLocalization) {
+    SetStatus(ManagerStatus::kVisLocalizing);
+    return;
+  }
   ResetManagerStatus();
 }
 
@@ -327,8 +334,8 @@ std::string ToString(const ManagerStatus & status)
     case ManagerStatus::kExecutingVisLocalization:
       return "kExecutingVisLocalization:17";
 
-    case ManagerStatus::kExecutingAbNavigation:
-      return "kExecutingAbNavigation:1";
+    case ManagerStatus::kExecutingLaserAbNavigation:
+      return "kExecutingLaserAbNavigation:1";
 
     case ManagerStatus::kExecutingAutoDock:
       return "kExecutingAutoDock:9";
