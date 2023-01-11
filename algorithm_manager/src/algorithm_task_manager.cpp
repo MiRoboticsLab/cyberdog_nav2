@@ -192,8 +192,10 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
   INFO("=====================");
+  auto status = GetStatus();
+  bool reset_all = false;
   if (request->task_id == 0) {
-    auto status = GetStatus();
+    reset_all = true;
     if (status != ManagerStatus::kExecutingLaserAbNavigation &&
       status != ManagerStatus::kExecutingVisAbNavigation &&
       status != ManagerStatus::kExecutingLaserLocalization &&
@@ -224,7 +226,6 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     }
     INFO("Will Reset Nav");
   } else {
-    auto status = GetStatus();
     auto status_reparsed = ReParseStatus(status);
     if (status_reparsed != request->task_id) {
       ERROR(
@@ -236,6 +237,15 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   SetStatus(ManagerStatus::kStoppingTask);
   if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
+  }
+  if (!reset_all) {
+    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+      SetStatus(ManagerStatus::kLaserLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+      SetStatus(ManagerStatus::kVisLocalizing);
+      return;
+    }
   }
   ResetManagerStatus();
 }
