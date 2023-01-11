@@ -76,7 +76,6 @@ bool AlgorithmTaskManager::Init()
         this->PublishStatus();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
       }
-
     }}.detach();
   code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
     cyberdog::system::ModuleCode::kNavigation);

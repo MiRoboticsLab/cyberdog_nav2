@@ -269,7 +269,7 @@ private:
   uint8_t ReParseStatus(const ManagerStatus & status)
   {
     if (status == ManagerStatus::kExecutingLaserMapping ||
-      status == ManagerStatus::kExecutingVisMapping) 
+      status == ManagerStatus::kExecutingVisMapping)
     {
       return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_MAPPING;
     }
@@ -279,7 +279,7 @@ private:
       return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_LOCALIZATION;
     }
     if (status == ManagerStatus::kExecutingHumanTracking ||
-      status == ManagerStatus::kExecutingFollowing) 
+      status == ManagerStatus::kExecutingFollowing)
     {
       return AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING;
     }
