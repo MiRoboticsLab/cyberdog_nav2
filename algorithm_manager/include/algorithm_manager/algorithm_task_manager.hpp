@@ -46,6 +46,8 @@ enum class ManagerStatus : uint8_t
   kExecutingVisMapping = 15,
   kExecutingLaserLocalization = 7,
   kExecutingVisLocalization = 17,
+  kLaserLocalizationFailed = 6,
+  kVisLocalizationFailed = 16,
   kLaserLocalizing = 8,
   kVisLocalizing = 18,
   kExecutingLaserAbNavigation = 1,
@@ -217,6 +219,21 @@ private:
     return status == ManagerStatus::kIdle;
   }
 
+  bool CheckStatusValid(std::shared_ptr<const AlgorithmMGR::Goal> goal)
+  {
+    auto status = GetStatus();
+    INFO("Current status : %d", (int)status);
+    // INFO("Current status: %s", ToString(status).c_str());
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+      if (goal->outdoor) {
+        return status == ManagerStatus::kVisLocalizing;
+      } else {
+        return status == ManagerStatus::kLaserLocalizing;
+      }
+    }
+    return status == ManagerStatus::kIdle;
+  }
+
   void SetStatus(const ManagerStatus & status)
   {
     std::lock_guard<std::mutex> lk(status_mutex_);
@@ -294,6 +311,10 @@ private:
   void ResetManagerStatus()
   {
     SetStatus(ManagerStatus::kIdle);
+  }
+
+  void ResetManagerSubStatus()
+  {
     global_feedback_ = 0;
   }
 

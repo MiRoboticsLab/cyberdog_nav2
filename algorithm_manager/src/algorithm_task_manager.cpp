@@ -199,7 +199,9 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
       status != ManagerStatus::kExecutingLaserLocalization &&
       status != ManagerStatus::kExecutingVisLocalization &&
       status != ManagerStatus::kLaserLocalizing &&
-      status != ManagerStatus::kVisLocalizing)
+      status != ManagerStatus::kVisLocalizing &&
+      status != ManagerStatus::kLaserLocalizationFailed &&
+      status != ManagerStatus::kVisLocalizationFailed)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
@@ -322,10 +324,17 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
-  if (GetStatus() == ManagerStatus::kExecutingLaserLocalization) {
+  ResetManagerSubStatus();
+  auto status = GetStatus();
+  if (status == ManagerStatus::kExecutingLaserLocalization ||
+    status == ManagerStatus::kExecutingLaserAbNavigation)
+  {
     SetStatus(ManagerStatus::kLaserLocalizing);
     return;
-  } else if (GetStatus() == ManagerStatus::kExecutingVisLocalization) {
+  }
+  if (status == ManagerStatus::kExecutingVisLocalization ||
+    status == ManagerStatus::kExecutingVisAbNavigation)
+  {
     SetStatus(ManagerStatus::kVisLocalizing);
     return;
   }
@@ -342,6 +351,15 @@ void AlgorithmTaskManager::TaskCanceled()
     INFO("Manager canceled");
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc canceled");
+    ResetManagerSubStatus();
+    auto status = GetStatus();
+    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+      SetStatus(ManagerStatus::kLaserLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+      SetStatus(ManagerStatus::kVisLocalizing);
+      return;
+    }
     ResetManagerStatus();
   } else {
     ERROR("GoalHandle is null when server executing cancel, this should never happen");
@@ -356,6 +374,21 @@ void AlgorithmTaskManager::TaskAborted()
   INFO("Manager abort");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc aborted");
+  ResetManagerSubStatus();
+  auto status = GetStatus();
+  if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+    SetStatus(ManagerStatus::kLaserLocalizing);
+    return;
+  } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+    SetStatus(ManagerStatus::kVisLocalizing);
+    return;
+  } else if (status == ManagerStatus::kExecutingLaserLocalization) {
+    SetStatus(ManagerStatus::kLaserLocalizationFailed);
+    return;
+  } else if (status == ManagerStatus::kExecutingVisLocalization) {
+    SetStatus(ManagerStatus::kVisLocalizationFailed);
+    return;
+  }
   ResetManagerStatus();
 }
 
