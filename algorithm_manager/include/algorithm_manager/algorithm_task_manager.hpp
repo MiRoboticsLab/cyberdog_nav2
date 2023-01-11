@@ -215,8 +215,11 @@ private:
   {
     auto status = GetStatus();
     INFO("Current status : %d", (int)status);
-    // INFO("Current status: %s", ToString(status).c_str());
-    return status == ManagerStatus::kIdle;
+    return status == ManagerStatus::kIdle ||
+           status == ManagerStatus::kExecutingLaserMapping ||
+           status == ManagerStatus::kExecutingVisMapping ||
+           status == ManagerStatus::kLaserLocalizationFailed ||
+           status == ManagerStatus::kVisLocalizationFailed;
   }
 
   bool CheckStatusValid(std::shared_ptr<const AlgorithmMGR::Goal> goal)

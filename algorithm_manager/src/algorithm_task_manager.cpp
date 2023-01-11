@@ -252,7 +252,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   INFO("goal->outdoor : %d", goal->outdoor);
 
-  if (!CheckStatusValid()) {
+  if (!CheckStatusValid(goal)) {
     ERROR(
       "Cannot accept task: %d, status is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
