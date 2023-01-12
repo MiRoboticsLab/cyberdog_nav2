@@ -25,6 +25,7 @@ namespace cyberdog
 namespace algorithm
 {
 AlgorithmTaskManager::AlgorithmTaskManager()
+: machine::MachineActuator("algorithm_manager")
 {
 }
 
@@ -67,7 +68,52 @@ bool AlgorithmTaskManager::Init()
       std::placeholders::_1, std::placeholders::_2),
     rmw_qos_profile_services_default,
     callback_group_);
+  algo_task_status_publisher_ = node_->create_publisher<protocol::msg::AlgoTaskStatus>(
+    "algo_task_status", 10);
   SetStatus(ManagerStatus::kIdle);
+  std::thread{[this]() {
+      while (rclcpp::ok()) {
+        this->PublishStatus();
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      }
+    }}.detach();
+  code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
+    cyberdog::system::ModuleCode::kNavigation);
+  audio_client_ = node_->create_client<protocol::srv::AudioTextPlay>(
+    "speech_text_play",
+    rmw_qos_profile_services_default,
+    callback_group_);
+  auto local_share_dir = ament_index_cpp::get_package_share_directory("params");
+  auto path = local_share_dir + std::string("/toml_config/manager/state_machine_config.toml");
+  heart_beats_ptr_ = std::make_unique<cyberdog::machine::HeartBeatsActuator>("algorithm_manager");
+  heart_beats_ptr_->HeartBeatRun();
+  if (!this->MachineActuatorInit(path, node_)) {
+    ERROR("Init failed, actuator init error.");
+    return false;
+  }
+  this->RegisterStateCallback("SetUp", std::bind(&AlgorithmTaskManager::OnSetUp, this));
+  this->RegisterStateCallback("TearDown", std::bind(&AlgorithmTaskManager::OnTearDown, this));
+  this->RegisterStateCallback("SelfCheck", std::bind(&AlgorithmTaskManager::OnSelfCheck, this));
+  this->RegisterStateCallback("Active", std::bind(&AlgorithmTaskManager::OnActive, this));
+  this->RegisterStateCallback("DeActive", std::bind(&AlgorithmTaskManager::OnDeActive, this));
+  this->RegisterStateCallback("Protected", std::bind(&AlgorithmTaskManager::OnProtected, this));
+  this->RegisterStateCallback("LowPower", std::bind(&AlgorithmTaskManager::OnLowPower, this));
+  this->RegisterStateCallback("OTA", std::bind(&AlgorithmTaskManager::OnOTA, this));
+  this->RegisterStateCallback("Error", std::bind(&AlgorithmTaskManager::OnError, this));
+  if (!this->ActuatorStart()) {
+    ERROR("Init failed, actuator start error.");
+    return false;
+  }
+  status_map_.emplace(FsmState::kUninit, "Uninit");
+  status_map_.emplace(FsmState::kSetup, "Setup");
+  status_map_.emplace(FsmState::kTearDown, "TearDown");
+  status_map_.emplace(FsmState::kSelfCheck, "SelfCheck");
+  status_map_.emplace(FsmState::kActive, "Active");
+  status_map_.emplace(FsmState::kDeactive, "Deactive");
+  status_map_.emplace(FsmState::kProtected, "Protected");
+  status_map_.emplace(FsmState::kLowPower, "LowPower");
+  status_map_.emplace(FsmState::kOTA, "OTA");
+  status_map_.emplace(FsmState::kError, "Error");
   return true;
 }
 
@@ -146,11 +192,18 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   protocol::srv::StopAlgoTask::Response::SharedPtr response)
 {
   INFO("=====================");
+  auto status = GetStatus();
+  bool reset_all = false;
   if (request->task_id == 0) {
-    auto status = GetStatus();
-    if (status != ManagerStatus::kExecutingAbNavigation &&
+    reset_all = true;
+    if (status != ManagerStatus::kExecutingLaserAbNavigation &&
+      status != ManagerStatus::kExecutingVisAbNavigation &&
       status != ManagerStatus::kExecutingLaserLocalization &&
-      status != ManagerStatus::kIdle)
+      status != ManagerStatus::kExecutingVisLocalization &&
+      status != ManagerStatus::kLaserLocalizing &&
+      status != ManagerStatus::kVisLocalizing &&
+      status != ManagerStatus::kLaserLocalizationFailed &&
+      status != ManagerStatus::kVisLocalizationFailed)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
@@ -173,15 +226,26 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     }
     INFO("Will Reset Nav");
   } else {
-    auto status = GetStatus();
-    if (static_cast<uint8_t>(status) != request->task_id) {
-      ERROR("Task %d cannot stop when %d", request->task_id, (int)status);
+    auto status_reparsed = ReParseStatus(status);
+    if (status_reparsed != request->task_id) {
+      ERROR(
+        "Cannot execute to stop %d when %d(%d)", request->task_id, (int)status_reparsed,
+        (int)status);
       return;
     }
   }
   SetStatus(ManagerStatus::kStoppingTask);
   if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
+  }
+  if (!reset_all) {
+    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+      SetStatus(ManagerStatus::kLaserLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+      SetStatus(ManagerStatus::kVisLocalizing);
+      return;
+    }
   }
   ResetManagerStatus();
 }
@@ -192,9 +256,13 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
 {
   (void)uuid;
   INFO("---------------------");
+  int32_t code = 0;
+  if (!IsStateValid(code)) {
+    return rclcpp_action::GoalResponse::REJECT;
+  }
   INFO("goal->outdoor : %d", goal->outdoor);
 
-  if (!CheckStatusValid()) {
+  if (!CheckStatusValid(goal)) {
     ERROR(
       "Cannot accept task: %d, status is invalid!", goal->nav_type);
     return rclcpp_action::GoalResponse::REJECT;
@@ -216,7 +284,8 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
     INFO("Run current task: %s, outdoor : %s", task_name.c_str(), outdoor.c_str());
     SetTaskExecutor(iter->second.executor);
   }
-  SetStatus(static_cast<ManagerStatus>(goal->nav_type));
+  // SetStatus(static_cast<ManagerStatus>(goal->nav_type));
+  SetStatus(goal);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -248,7 +317,10 @@ void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
 
 void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr feedback)
 {
-  if (goal_handle_executing_ != nullptr) {
+  global_feedback_ = feedback->feedback_code;
+  if (goal_handle_executing_ != nullptr &&
+    GetStatus() != ManagerStatus::kStoppingTask)
+  {
     goal_handle_executing_->publish_feedback(feedback);
   }
 }
@@ -262,6 +334,20 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
+  ResetManagerSubStatus();
+  auto status = GetStatus();
+  if (status == ManagerStatus::kExecutingLaserLocalization ||
+    status == ManagerStatus::kExecutingLaserAbNavigation)
+  {
+    SetStatus(ManagerStatus::kLaserLocalizing);
+    return;
+  }
+  if (status == ManagerStatus::kExecutingVisLocalization ||
+    status == ManagerStatus::kExecutingVisAbNavigation)
+  {
+    SetStatus(ManagerStatus::kVisLocalizing);
+    return;
+  }
   ResetManagerStatus();
 }
 
@@ -275,6 +361,15 @@ void AlgorithmTaskManager::TaskCanceled()
     INFO("Manager canceled");
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc canceled");
+    ResetManagerSubStatus();
+    auto status = GetStatus();
+    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+      SetStatus(ManagerStatus::kLaserLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+      SetStatus(ManagerStatus::kVisLocalizing);
+      return;
+    }
     ResetManagerStatus();
   } else {
     ERROR("GoalHandle is null when server executing cancel, this should never happen");
@@ -286,13 +381,26 @@ void AlgorithmTaskManager::TaskAborted()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
 
-  if (goal_handle_executing_ != nullptr) {
-    goal_handle_executing_->abort(result);
-    INFO("Manager abort");
-    ResetTaskHandle();
-    INFO("Manager TaskHandle reset bc aborted");
-    ResetManagerStatus();
+  goal_handle_executing_->abort(result);
+  INFO("Manager abort");
+  ResetTaskHandle();
+  INFO("Manager TaskHandle reset bc aborted");
+  ResetManagerSubStatus();
+  auto status = GetStatus();
+  if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+    SetStatus(ManagerStatus::kLaserLocalizing);
+    return;
+  } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+    SetStatus(ManagerStatus::kVisLocalizing);
+    return;
+  } else if (status == ManagerStatus::kExecutingLaserLocalization) {
+    SetStatus(ManagerStatus::kLaserLocalizationFailed);
+    return;
+  } else if (status == ManagerStatus::kExecutingVisLocalization) {
+    SetStatus(ManagerStatus::kVisLocalizationFailed);
+    return;
   }
+  ResetManagerStatus();
 }
 
 std::string ToString(const ManagerStatus & status)
@@ -300,43 +408,42 @@ std::string ToString(const ManagerStatus & status)
   switch (status) {
     case ManagerStatus::kUninitialized:
       return "kUninitialized:100";
-      break;
 
     case ManagerStatus::kIdle:
       return "kIdle:101";
-      break;
 
     case ManagerStatus::kLaunchingLifecycleNode:
       return "kLaunchingLifecycleNode:102";
-      break;
 
     case ManagerStatus::kStoppingTask:
       return "kStoppingTask:103";
-      break;
 
     case ManagerStatus::kExecutingLaserMapping:
       return "kExecutingLaserMapping:5";
-      break;
+
+    case ManagerStatus::kExecutingVisMapping:
+      return "kExecutingVisMapping:15";
 
     case ManagerStatus::kExecutingLaserLocalization:
       return "kExecutingLaserLocalization:7";
-      break;
 
-    case ManagerStatus::kExecutingAbNavigation:
-      return "kExecutingAbNavigation:1";
-      break;
+    case ManagerStatus::kExecutingVisLocalization:
+      return "kExecutingVisLocalization:17";
+
+    case ManagerStatus::kExecutingLaserAbNavigation:
+      return "kExecutingLaserAbNavigation:1";
 
     case ManagerStatus::kExecutingAutoDock:
       return "kExecutingAutoDock:9";
-      break;
 
     case ManagerStatus::kExecutingUwbTracking:
       return "kExecutingUwbTracking:11";
-      break;
 
-    case ManagerStatus::kShuttingDownUwbTracking:
-      return "kShuttingDownUwbTracking:12";
-      break;
+    case ManagerStatus::kExecutingHumanTracking:
+      return "kExecutingHumanTracking:13";
+
+    case ManagerStatus::kExecutingFollowing:
+      return "kExecutingFollowing:3";
 
     default:
       break;
