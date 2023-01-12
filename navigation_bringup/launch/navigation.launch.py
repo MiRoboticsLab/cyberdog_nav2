@@ -70,6 +70,7 @@ def generate_launch_description():
         'elevation_mapping_odom',
         'head_tof_pc_publisher',
         'stair_align',
+        'led_manager',
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),

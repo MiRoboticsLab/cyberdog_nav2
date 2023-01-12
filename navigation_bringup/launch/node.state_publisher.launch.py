@@ -40,21 +40,21 @@ def generate_launch_description():
         description='Top-level namespace')
 
     urdf_file = 'static_tf.urdf'
-    urdf_map_file = 'static_tf_map.urdf'
+    # urdf_map_file = 'static_tf_map.urdf'
     urdf = os.path.join(
         get_package_share_directory('navigation_bringup'),
         'urdf',
         urdf_file) 
-    urdf_map = os.path.join(
-        get_package_share_directory('navigation_bringup'),
-        'urdf',
-        urdf_map_file)
+    # urdf_map = os.path.join(
+    #     get_package_share_directory('navigation_bringup'),
+    #     'urdf',
+    #     urdf_map_file)
     with open(urdf, 'r') as infp:
         robot_desc = infp.read()
-    with open(urdf_map, 'r') as infp_map:
-      robot_desc_map = infp_map.read()
+    # with open(urdf_map, 'r') as infp_map:
+    #   robot_desc_map = infp_map.read()
     rsp_params = {'robot_description': robot_desc}
-    rsp_params_map = {'robot_description': robot_desc_map}
+    # rsp_params_map = {'robot_description': robot_desc_map}
 
     base_link_urdf = Node(
             package='robot_state_publisher',
@@ -64,18 +64,18 @@ def generate_launch_description():
             parameters=[rsp_params],
             )
 
-    map_urdf = Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            namespace=namespace,
-            output='screen',
-            parameters=[rsp_params_map],
-            )
+    # map_urdf = Node(
+    #         package='robot_state_publisher',
+    #         executable='robot_state_publisher',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[rsp_params_map],
+    #         )
 
     ld = launch.LaunchDescription([
         namespace_declare,
         base_link_urdf,
-        map_urdf,
+        # map_urdf,
     ])
     return ld
 

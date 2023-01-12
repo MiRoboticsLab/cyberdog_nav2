@@ -27,6 +27,8 @@
 #include "nav2_map_server/map_io.hpp"
 #include "map_label_server/label_store.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "nav2_util/lifecycle_service_client.hpp"
 
 namespace CYBERDOG_NAV
 {
@@ -39,6 +41,8 @@ typedef struct LABEL
 class LabelServer : public rclcpp::Node
 {
 public:
+  using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
+
   LabelServer();
   ~LabelServer();
 
@@ -122,9 +126,14 @@ private:
    */
   void SetOutdoorFlag(bool outdoor);
 
+  bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
+
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
   rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
+
+  // Get vision build map available result
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
 
   // User save robot's map name
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr map_server_;

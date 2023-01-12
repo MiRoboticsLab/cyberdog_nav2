@@ -141,7 +141,7 @@ install(TARGETS ${library_name}
 )
 
 install(TARGETS ${PROJECT_NAME} led_manager
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS ${PROJECT_NAME} fake_action

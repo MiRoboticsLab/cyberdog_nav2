@@ -22,6 +22,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
@@ -213,6 +214,11 @@ private:
   bool CheckMapAvailable(const std::string & map_name = "map.pgm");
 
   /**
+   * Check current is outdoor mode
+   */
+  bool CheckUseOutdoor(bool & outdoor, const std::string & filename = "map.json");
+
+  /**
    * @brief Check vision slam location
    *
    * @return true Return success
@@ -241,6 +247,7 @@ private:
    */
   void ResetDefaultValue();
   void ResetPreprocessingValue();
+  void PublishZeroPath();
 
   // feedback data
   ExecutorData executor_nav_ab_data_;
@@ -278,6 +285,7 @@ private:
   bool lifecycle_depend_ready_ {false};
 
   // Stop lidar and vision location module
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_{nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_nav_trigger_sub_{nullptr};
