@@ -270,7 +270,7 @@ public:
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      if(!auto_tracking_start_){
+      if (!auto_tracking_start_) {
         req_led->occupation = 1;
         req_led->client = "tracking";
         req_led->target = 1;
