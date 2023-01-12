@@ -180,7 +180,7 @@ private:
 
   // in service
   bool is_activate_ {false};
-  bool location_finished_ {false};
+  bool location_stop_function_starting_ {false};
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

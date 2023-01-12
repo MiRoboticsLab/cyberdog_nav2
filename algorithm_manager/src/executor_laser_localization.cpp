@@ -63,6 +63,12 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   (void)goal;
   INFO("Laser Localization started");
 
+  if (location_stop_function_starting_) {
+    WARN("Current robot localization have not stopped, Laser Localization not started.");
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    return;
+  }
+
   Timer timer_;
   timer_.Start();
 
@@ -163,12 +169,15 @@ void ExecutorLaserLocalization::Stop(
   Timer timer_;
   timer_.Start();
 
+  location_stop_function_starting_ = true;
+
   // Disenable Relocalization
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
     task_cancle_callback_();
+    location_stop_function_starting_ = false;
     return;
   }
 
@@ -177,6 +186,7 @@ void ExecutorLaserLocalization::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_cancle_callback_();
+    location_stop_function_starting_ = false;
     return;
   }
 
@@ -200,6 +210,7 @@ void ExecutorLaserLocalization::Stop(
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
   is_activate_ = false;
+  location_stop_function_starting_ = false;
 }
 
 void ExecutorLaserLocalization::Cancel()
