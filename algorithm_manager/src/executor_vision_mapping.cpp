@@ -71,6 +71,12 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       "stop_vins_mapping", shared_from_this());
   }
 
+   // miloc manager for map delete
+  if (miloc_client_ == nullptr) {
+    miloc_client_ = std::make_shared<nav2_util::ServiceClient<MilocMapHandler>>(
+      "delete_reloc_map", shared_from_this());
+  }
+
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
@@ -132,7 +138,8 @@ void ExecutorVisionMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
+    // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -142,45 +149,68 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
+  
+  auto reset_thread = std::make_shared<std::thread>(
+    [&]() {
+      while (true) {
+        if (!success) {
+          continue;
+        }
 
-  // RGB-G camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+        // If check map name is empty, so that delete vision background data.
+        if (request->map_name.empty()) {
+          WARN("Start delete background vision map datasets.");
+          bool delete_success = DeleteBackgroundVisionMapDatasets();
+          if (!delete_success) {
+            WARN("Delete background vision map datasets failed.");
+          } else {
+            INFO("Delete background vision map datasets success.");
+          }
+        }
 
-  // realsense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+        // RGB-G camera lifecycle
+        success = LifecycleNodeManager::GetSingleton()->Pause(
+          LifeCycleNodeType::RGBCameraSensor);
+        if (!success) {
+          response->result = StopTaskSrv::Response::FAILED;
+          ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
+          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+          task_abort_callback_();
+          return;
+        }
 
-  // mivins lifecycle
-  success = mapping_client_->Pause();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+        // realsense camera lifecycle
+        success = LifecycleNodeManager::GetSingleton()->Pause(
+          LifeCycleNodeType::RealSenseCameraSensor);
+        if (!success) {
+          response->result = StopTaskSrv::Response::FAILED;
+          ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
+          // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+          task_abort_callback_();
+          return;
+        }
 
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("[Vision Mapping] Vision Mapping stoped success");
+        // mivins lifecycle
+        success = mapping_client_->Pause();
+        if (!success) {
+          response->result = StopTaskSrv::Response::FAILED;
+          ERROR("[Vision Mapping] Vision Mapping stop failed.");
+          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+          task_abort_callback_();
+          return;
+        }
+
+        // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
+        response->result = StopTaskSrv::Response::SUCCESS;
+        INFO("[Vision Mapping] Vision Mapping stoped success");
+        break;
+      }
+    });
+  reset_thread->detach();
   INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
 
   // invaild feedback code for send app
@@ -457,6 +487,41 @@ bool ExecutorVisionMapping::ResetLifecycleDefaultValue()
     ERROR("Release mapping_client failed.");
   }
   return success;
+}
+
+bool ExecutorVisionMapping::DeleteBackgroundVisionMapDatasets()
+{
+  // Wait service
+  while (!miloc_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<MilocMapHandler::Request>();
+  auto response = std::make_shared<MilocMapHandler::Response>();
+  request->map_id = 1;
+
+  // Send request
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    auto future_result = miloc_client_->invoke(request, std::chrono::seconds(5s));
+    constexpr int kDeleteSuccess = 0;
+    constexpr int kDeleteFailure = 100;
+
+    if (future_result->code == kDeleteSuccess) {
+      INFO("Delete the relocation map successfully.");
+      result = true;
+    } else if (future_result->code == kDeleteFailure) {
+      ERROR("Delete relocation map exception.");
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace algorithm

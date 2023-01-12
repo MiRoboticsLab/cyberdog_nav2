@@ -17,6 +17,8 @@
 
 #include <memory>
 #include <string>
+#include <set>
+#include <atomic>
 
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
@@ -92,6 +94,7 @@ public:
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
+
   /**
    * @brief Set the robot map name object
    * @param name Map's name
@@ -128,6 +131,8 @@ private:
 
   bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
 
+  bool CheckLabelTagHavedExist(std::string & label_tag);
+
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
   rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
@@ -150,6 +155,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
   bool use_lidar_create_map_ {false};
   bool use_vision_create_map_ {false};
+  std::set<std::string> label_set_;
 };
 }  // namespace CYBERDOG_NAV
 #endif  // MAP_LABEL_SERVER__LABELSERVER_NODE_HPP_

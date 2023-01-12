@@ -18,7 +18,7 @@ TaskName = "LaserLocalization"
 Id = 7
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator"]
 
 [[task]]
 TaskName = "VisionMapping"
@@ -32,14 +32,14 @@ TaskName = "VisionLocalization"
 Id = 7
 OutDoor = true
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator"]
 
 [[task]]
 TaskName = "NavAB"
 Id = 1
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator", "map_server"]
+DepsLifecycleNodes = []
 
 [[task]]
 TaskName = "VisionTracking"
@@ -54,7 +54,7 @@ TaskName = "ResetNav"
 Id = 0
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator"]
 
 
 [[task]]

@@ -37,6 +37,7 @@ public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
+  using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -110,6 +111,14 @@ private:
   */
   bool ResetLifecycleDefaultValue();
 
+  /**
+   * @brief Delete all vision in background viosn building data
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool DeleteBackgroundVisionMapDatasets();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -123,6 +132,7 @@ private:
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // velocity smoother 'velocity_adaptor_gait'

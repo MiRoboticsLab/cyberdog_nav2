@@ -19,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <atomic>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_util/robot_utils.hpp"
@@ -41,6 +42,11 @@ public:
 private:
   void HandleTriggerCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
+  void HandlePoseServerStatus(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   void loop();
@@ -53,6 +59,9 @@ private:
     std::shared_ptr<SetBool::Response> response);
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pos_pub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enable_sub_ {nullptr};
+
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr map_server_state_;
+  std::atomic_bool activate_;
 };
 }  // namespace CYBERDOG_NAV
 

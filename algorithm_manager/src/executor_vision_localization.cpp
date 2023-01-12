@@ -174,6 +174,11 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   INFO("Vision localization success.");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+
+  bool activate_success = ActivateAllNavigationLifecycleNodes();
+  if (!activate_success) {
+    WARN("Activate all navigation lifecycle nodes failed.");
+  }
   task_success_callback_();
 }
 
@@ -192,49 +197,60 @@ void ExecutorVisionLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
+    response->result = StopTaskSrv::Response::FAILED;
+    task_cancle_callback_();
     ResetLifecycleDefaultValue();
     return;
   }
 
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  auto reset_thread = std::make_shared<std::thread>(
+    [&]() {
+      while (true) {
+        if (!success) {
+          continue;
+        }
+        // Disenable report realtime robot pose
+        success = CheckPoseServerActivate();
+        if (success) {
+          INFO("Current pose server is activated.");
+        } else {
+          success = EnableReportRealtimePose(false);
+          if (!success) {
+            ERROR("Disenable report realtime robot pose failed.");
+          }
+        }
 
-  // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
-  }
+        // RealSense camera lifecycle
+        success = LifecycleNodeManager::GetSingleton()->Pause(
+          LifeCycleNodeType::RealSenseCameraSensor);
+        if (!success) {
+          response->result = StopTaskSrv::Response::FAILED;
+          task_cancle_callback_();
+          return;
+        }
 
-  // RGB-D camera lifecycle(dectivate state)
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
-  }
+        // RGB-D camera lifecycle(dectivate state)
+        success = LifecycleNodeManager::GetSingleton()->Pause(
+          LifeCycleNodeType::RGBCameraSensor);
+        if (!success) {
+          response->result = StopTaskSrv::Response::FAILED;
+          task_cancle_callback_();
+          return;
+        }
 
-  response->result = localization_lifecycle_->Pause() ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+        response->result = localization_lifecycle_->Pause() ?
+          StopTaskSrv::Response::SUCCESS :
+          StopTaskSrv::Response::FAILED;
 
-  INFO("Vision Localization stoped success");
+        INFO("Vision Localization stoped success");
+        is_activate_ = false;
+        break;
+      }
+    });
+  reset_thread->detach();
+
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
-
-  is_activate_ = false;
-  task_success_callback_();
 }
 
 void ExecutorVisionLocalization::Cancel()
@@ -501,6 +517,48 @@ bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
     ERROR("Release localization failed.");
   }
   return success;
+}
+
+bool ExecutorVisionLocalization::ActivateAllNavigationLifecycleNodes()
+{
+  // Nav lifecycle
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    return false;
+  }
+
+  // start_lifecycle_depend_finished_ = true;
+  INFO("Call function IsDependsReady() finished.");
+  return true;
+}
+
+bool ExecutorVisionLocalization::CheckPoseServerActivate()
+{
+  if (pose_server_client_ == nullptr) {
+    pose_server_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "pose_server_state", shared_from_this());
+  }
+
+  while (!pose_server_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+
+  // Send request
+  bool result = false;
+  try {
+    auto future_result = pose_server_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace algorithm

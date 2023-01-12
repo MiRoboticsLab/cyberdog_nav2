@@ -285,11 +285,14 @@ void AlgorithmTaskManager::TaskAborted()
   INFO("Got Executor abort");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  goal_handle_executing_->abort(result);
-  INFO("Manager abort");
-  ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc aborted");
-  ResetManagerStatus();
+
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->abort(result);
+    INFO("Manager abort");
+    ResetTaskHandle();
+    INFO("Manager TaskHandle reset bc aborted");
+    ResetManagerStatus();
+  }
 }
 
 std::string ToString(const ManagerStatus & status)

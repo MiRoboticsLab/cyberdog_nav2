@@ -83,13 +83,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   // Check all depends is ok
-  bool ready = IsDependsReady();
-  if (!ready) {
-    ERROR("AB navigation lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  // bool ready = IsDependsReady();
+  // if (!ready) {
+  //   ERROR("AB navigation lifecycle depend start up failed.");
+  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+  //   task_abort_callback_();
+  //   return;
+  // }
 
   INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
@@ -98,7 +98,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    DeactivateDepsLifecycleNodes();
+    // DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -108,7 +108,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    DeactivateDepsLifecycleNodes();
+    // DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
@@ -129,8 +129,10 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Send navigation AB point send target goal request failed.");
     // Reset lifecycle nodes
     // LifecycleNodesReinitialize();
-    DeactivateDepsLifecycleNodes();
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    // DeactivateDepsLifecycleNodes();
+
+    constexpr int NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE = 30;
+    UpdateFeedback(NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -153,8 +155,9 @@ void ExecutorAbNavigation::Stop(
   bool cancel = ShouldCancelGoal();
   if (!cancel) {
     WARN("Current robot can't stop, due to navigation status is not available.");
+    response->result = StopTaskSrv::Response::FAILED;
+    PublishZeroPath();
     nav_goal_handle_.reset();
-    // task_cancle_callback_();
     return;
   }
 
@@ -163,6 +166,7 @@ void ExecutorAbNavigation::Stop(
     auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
     if (!server_ready) {
       ERROR("Navigation action server is not available.");
+      response->result = StopTaskSrv::Response::FAILED;
       return;
     }
 
@@ -172,18 +176,18 @@ void ExecutorAbNavigation::Stop(
       PublishZeroPath();
     } catch (const std::exception & e) {
       ERROR("%s", e.what());
+      response->result = StopTaskSrv::Response::FAILED;
       return;
     }
   } else {
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-    task_abort_callback_();
+    response->result = StopTaskSrv::Response::FAILED;
+    task_cancle_callback_();
     ERROR("Navigation AB will stop failed.");
     return;
   }
 
   nav_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("Navigation AB Stoped success");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -217,26 +221,32 @@ void ExecutorAbNavigation::HandleResultCallback(
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
       UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+      PublishZeroPath();
       task_success_callback_();
       break;
+    
     case rclcpp_action::ResultCode::ABORTED:
+    {
       ERROR("Navigation AB run target goal aborted");
-      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+      constexpr int NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE = 30;
+      UpdateFeedback(NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE);
       ResetPreprocessingValue();
-      // task_abort_callback_();
+      PublishZeroPath();
       break;
+    }
+     
     case rclcpp_action::ResultCode::CANCELED:
+    {
       ERROR("Navigation AB run target goal canceled");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-      // task_cancle_callback_();
       break;
+    }
+
     default:
+    {
       ERROR("Navigation AB run target goal unknown result code");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-      // task_abort_callback_();
       break;
+    }
   }
-  // nav_goal_handle_.reset();
 }
 
 void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)

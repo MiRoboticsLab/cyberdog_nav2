@@ -102,7 +102,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
-
+ 
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
@@ -124,14 +124,19 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
-  if (!success) {
-    ERROR("Enable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    location_status_ = LocationStatus::FAILURE;
-    StopLocalization();
-    return;
+  success = CheckPoseServerActivate();
+  if (success) {
+    INFO("Current pose server is activated.");
+  } else {
+    success = EnableReportRealtimePose(true);
+    if (!success) {
+      ERROR("Enable report realtime robot pose failed.");
+      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+      task_abort_callback_();
+      location_status_ = LocationStatus::FAILURE;
+      StopLocalization();
+      return;
+    }
   }
 
   // 结束激活进度的上报
@@ -140,6 +145,12 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+
+  bool activate_success = ActivateAllNavigationLifecycleNodes();
+  if (!activate_success) {
+    WARN("Activate all navigation lifecycle nodes failed.");
+  }
+
   task_success_callback_();
 }
 
@@ -156,17 +167,8 @@ void ExecutorLaserLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
-  }
-
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
+    response->result = StopTaskSrv::Response::FAILED;
+    task_cancle_callback_();
     return;
   }
 
@@ -174,7 +176,7 @@ void ExecutorLaserLocalization::Stop(
   success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
+    task_cancle_callback_();
     return;
   }
 
@@ -183,12 +185,21 @@ void ExecutorLaserLocalization::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  // Disenable report realtime robot pose
+  success = CheckPoseServerActivate();
+  if (success) {
+    success = EnableReportRealtimePose(false);
+    if (!success) {
+      ERROR("Disenable report realtime robot pose failed.");
+      task_cancle_callback_();
+    }
+  }
+
+  task_cancle_callback_();
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   is_activate_ = false;
-  // task_success_callback_();
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -390,6 +401,48 @@ void ExecutorLaserLocalization::StopLocalization()
   auto request = std::make_shared<StopTaskSrv::Request>();
   auto response = std::make_shared<StopTaskSrv::Response>();
   Stop(request, response);
+}
+
+bool ExecutorLaserLocalization::ActivateAllNavigationLifecycleNodes()
+{
+  // Nav lifecycle
+  if (!ActivateDepsLifecycleNodes(this->get_name())) {
+    DeactivateDepsLifecycleNodes();
+    return false;
+  }
+
+  // start_lifecycle_depend_finished_ = true;
+  INFO("Call function IsDependsReady() finished.");
+  return true;
+}
+
+bool ExecutorLaserLocalization::CheckPoseServerActivate()
+{
+  if (pose_server_client_ == nullptr) {
+    pose_server_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "pose_server_state", shared_from_this());
+  }
+
+  while (!pose_server_client_->wait_for_service(std::chrono::seconds(5s))) {
+    if (!rclcpp::ok()) {
+      ERROR("Waiting for the service. but cannot connect the service.");
+      return false;
+    }
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+
+  // Send request
+  bool result = false;
+  try {
+    auto future_result = pose_server_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace algorithm

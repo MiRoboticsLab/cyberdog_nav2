@@ -58,21 +58,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("[Laser Mapping] Laser Mapping started");
-  // ReportPreparationStatus();
 
   Timer timer_;
   timer_.Start();
-
-  // Set Laser Localization in deactivate state
-  // bool ready = CheckAvailable();
-  // if (!ready) {
-  //   ERROR("[Laser Mapping] Laser Localization is running, Laser Mapping is not available.");
-  //   // ReportPreparationFinished(
-  //   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   task_abort_callback_();
-  //   return;
-  // }
 
   bool ready = IsDependsReady();
   if (!ready) {
@@ -120,7 +108,31 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   VelocitySmoother();
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
+  auto pose_thread = std::make_shared<std::thread>(
+  [&]() {
+    int try_count = 0;
+    while (true) {
+      try_count++;
+      success = EnableReportRealtimePose(true);
+
+      if (success) {
+        INFO("Enable report realtime robot pose success.");
+        try_count = 0;
+        break;
+      }
+
+      if (try_count >= 3 && !success) {
+        ERROR("Enable report realtime robot pose failed.");
+        UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+        ResetLifecycleDefaultValue();
+        task_abort_callback_();
+        return;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  });
+  pose_thread->detach();
+
   if (!success) {
     ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
     // ReportPreparationFinished(
@@ -152,13 +164,12 @@ void ExecutorLaserMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
-    UpdateFeedback(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
 
     // use topic stop robot realtime pose
     EnableReportRealtimePose(false, true);
     ResetLifecycleDefaultValue();
-    task_abort_callback_();
+    task_cancle_callback_();
     return;
   }
 
@@ -172,11 +183,8 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
-    task_abort_callback_();
+    task_cancle_callback_();
     return;
   }
 
@@ -185,11 +193,8 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
-    task_abort_callback_();
+    task_cancle_callback_();
     return;
   }
 
@@ -197,15 +202,9 @@ void ExecutorLaserMapping::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
-
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   task_cancle_callback_();
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
-
-  // invaild feedback code for send app
-  const int32_t kInvalidFeedbackCode = -1;
-  UpdateFeedback(kInvalidFeedbackCode);
 }
 
 void ExecutorLaserMapping::Cancel()
@@ -317,10 +316,17 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 
   // Set request data
   auto request = std::make_shared<visualization::srv::Stop::Request>();
-  request->finish = true;
+  if (!request->map_name.empty()) {
+    request->finish = true;
+    INFO("Saved lidar map building filename: %s", map_filename.c_str());
+  } else {
+    request->finish = false;
+    INFO("Saved lidar map building filename is empty.");
+  }
+  
   // request->map_name = map_filename;
-  request->map_name = "map";
-  INFO("Saved lidar map building filename: %s", map_filename.c_str());
+  // request->map_name = "map";
+  
 
   // Send request
   // return stop_->invoke(request, response);

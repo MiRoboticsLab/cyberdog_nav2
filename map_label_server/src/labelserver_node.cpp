@@ -99,12 +99,12 @@ void LabelServer::handle_get_label(
   std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
 
   INFO("map_name : %s", request->map_name.c_str());
-  bool map_status = false;
-  bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
-  if (!ready && !map_status) {
-    WARN("Current map not available.");
-    return;
-  }
+  // bool map_status = false;
+  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
+  // if (!ready && !map_status) {
+  //   WARN("Current map not available.");
+  //   return;
+  // }
 
   std::string map_filename = request->map_name + ".pgm";
   if (!map_label_store_ptr_->IsExist(map_filename)) {
@@ -154,7 +154,7 @@ void LabelServer::handle_get_label(
   response->label.is_outdoor = is_outdoor;
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
-  INFO("Current building  map is outdoor : %d", is_outdoor);
+  INFO("Current building map is outdoor : %d", is_outdoor);
 
   // publish map
   occ_pub_->publish(map);
@@ -219,6 +219,12 @@ void LabelServer::handle_set_label(
       request->label.labels[i].label_name.c_str(),
       request->label.labels[i].physic_x,
       request->label.labels[i].physic_y);
+
+    bool exist = CheckLabelTagHavedExist(request->label.labels[i].label_name);
+    if (exist) {
+      WARN("Current map label tag: %s haved exist, save it's will override",
+        request->label.labels[i].label_name.c_str());
+    }
 
     // save label
     auto label = std::make_shared<protocol::msg::Label>();
@@ -457,6 +463,17 @@ bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std
     ERROR("%s", e.what());
   }
   return result;
+}
+
+bool LabelServer::CheckLabelTagHavedExist(std::string & label_tag)
+{
+  auto it = label_set_.find(label_tag);
+  if (it != label_set_.end()) {
+    return true;
+  }
+
+  label_set_.insert(label_tag);
+  return  false;
 }
 
 }  // namespace CYBERDOG_NAV

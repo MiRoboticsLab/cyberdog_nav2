@@ -38,6 +38,12 @@ PositionChecker::PositionChecker()
   tf_buffer_->setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+  map_server_state_ = this->create_service<std_srvs::srv::SetBool>(
+    "pose_server_state",
+    std::bind(
+      &PositionChecker::HandlePoseServerStatus, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3));
+
   enable_service = create_service<SetBool>(
     "PoseEnable",
     std::bind(
@@ -88,10 +94,15 @@ void PositionChecker::serviceCallback(
     looping_ = true;
     INFO("Request start report robot's realtime pose.");
     loop_thread_ = std::make_shared<std::thread>(&PositionChecker::loop, this);
+    activate_.store(true);
   } else if (request->data == false) {
     INFO("Request stop report robot's realtime pose.");
     looping_ = false;
-    loop_thread_->join();
+    activate_.store(false);
+
+    if (loop_thread_->joinable()) {
+      loop_thread_->join();
+    }
   }
   response->success = true;
 }
@@ -99,6 +110,16 @@ void PositionChecker::serviceCallback(
 void PositionChecker::HandleTriggerCallback(const std_msgs::msg::Bool::SharedPtr msg)
 {
   looping_ = msg->data;
+}
+
+void PositionChecker::HandlePoseServerStatus(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  if (request->data) {
+    response->success = activate_.load();
+  }
 }
 
 }  // namespace CYBERDOG_NAV
