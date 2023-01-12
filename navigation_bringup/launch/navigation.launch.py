@@ -70,6 +70,8 @@ def generate_launch_description():
         'elevation_mapping_odom',
         'head_tof_pc_publisher',
         'stair_align',
+        'charging_localization',
+        'seat_adjust_server'
         'led_manager',
         ]
     lds = [IncludeLaunchDescription(
