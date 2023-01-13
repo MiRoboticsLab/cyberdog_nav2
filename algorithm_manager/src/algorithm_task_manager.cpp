@@ -201,9 +201,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
       status != ManagerStatus::kExecutingLaserLocalization &&
       status != ManagerStatus::kExecutingVisLocalization &&
       status != ManagerStatus::kLaserLocalizing &&
-      status != ManagerStatus::kVisLocalizing &&
-      status != ManagerStatus::kLaserLocalizationFailed &&
-      status != ManagerStatus::kVisLocalizationFailed)
+      status != ManagerStatus::kVisLocalizing)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;

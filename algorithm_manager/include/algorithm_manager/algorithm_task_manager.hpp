@@ -234,7 +234,9 @@ private:
         return status == ManagerStatus::kLaserLocalizing;
       }
     }
-    return status == ManagerStatus::kIdle;
+    return status == ManagerStatus::kIdle ||
+           status == ManagerStatus::kLaserLocalizationFailed||
+           status == ManagerStatus::kVisLocalizationFailed;
   }
 
   void SetStatus(const ManagerStatus & status)
