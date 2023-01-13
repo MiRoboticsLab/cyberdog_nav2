@@ -90,16 +90,19 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
       "PoseEnable", shared_from_this());
   }
 
+  // 1 正在激活依赖节点
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
-    // 正在激活依赖节点
+    // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
-  // 激活依赖节点成功
+  // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
   // Enable Relocalization
@@ -456,6 +459,17 @@ bool ExecutorLaserLocalization::CheckPoseServerActivate()
     ERROR("%s", e.what());
   }
   return result;
+}
+
+bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    ERROR("Release RealSense failed.");
+  }
+
+  return success;
 }
 
 }  // namespace algorithm
