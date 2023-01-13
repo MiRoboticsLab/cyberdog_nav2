@@ -104,7 +104,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
     ResetLifecycleDefaultValue();
     location_status_ = LocationStatus::FAILURE;
@@ -115,7 +115,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
-    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
     return;
@@ -124,7 +124,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
