@@ -178,7 +178,7 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
-    // Disenable report realtime robot pose
+  // Disenable report realtime robot pose
   success = EnableReportRealtimePose(false);
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;

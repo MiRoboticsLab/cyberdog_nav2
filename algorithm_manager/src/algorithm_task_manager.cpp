@@ -227,7 +227,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     auto status_reparsed = ReParseStatus(status);
     if (status_reparsed != request->task_id) {
       ERROR(
-        "Cannot execute to stop %d when %d(%d)", request->task_id, (int)status_reparsed,
+        "Cannot execute to stop %d when %d(raw: %d)", request->task_id, (int)status_reparsed,
         (int)status);
       return;
     }

@@ -235,7 +235,7 @@ private:
       }
     }
     return status == ManagerStatus::kIdle ||
-           status == ManagerStatus::kLaserLocalizationFailed||
+           status == ManagerStatus::kLaserLocalizationFailed ||
            status == ManagerStatus::kVisLocalizationFailed;
   }
 
