@@ -328,7 +328,9 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Got Executor Success");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-  goal_handle_executing_->succeed(result);
+  if (goal_handle_executing_) {
+    goal_handle_executing_->succeed(result);
+  }
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
