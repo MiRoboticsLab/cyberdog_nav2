@@ -71,7 +71,8 @@ def generate_launch_description():
         'head_tof_pc_publisher',
         'stair_align',
         'charging_localization',
-        'seat_adjust_server'
+        'seat_adjust_server',
+        'led_manager'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
