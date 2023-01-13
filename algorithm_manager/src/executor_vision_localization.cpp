@@ -82,14 +82,20 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
 
+  // 1 正在激活依赖节点
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
     ResetLifecycleDefaultValue();
     ERROR("Vision localization lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    // 2 激活依赖节点失败
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
+
+  // 3 激活依赖节点成功
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
   if (start_client_ == nullptr) {
     start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(

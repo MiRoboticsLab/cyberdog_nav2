@@ -53,6 +53,7 @@ struct BehaviorIdMap
   std::string module_name;
   bool is_online;
   std::string text;
+  bool occupation;
   std::string client;
   uint8_t target;
   uint8_t mode;
@@ -114,6 +115,7 @@ public:
         GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
         GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
         GET_TOML_VALUE(value, "text", behavior_id_map.text);
+        GET_TOML_VALUE(value, "occupation", behavior_id_map.occupation);
         GET_TOML_VALUE(value, "client", behavior_id_map.client);
         GET_TOML_VALUE(value, "target", behavior_id_map.target);
         GET_TOML_VALUE(value, "mode", behavior_id_map.mode);
@@ -123,6 +125,7 @@ public:
         GET_TOML_VALUE(value, "module_name", behavior_id_map.module_name);
         GET_TOML_VALUE(value, "is_online", behavior_id_map.is_online);
         GET_TOML_VALUE(value, "text", behavior_id_map.text);
+        GET_TOML_VALUE(value, "occupation", behavior_id_map.occupation);
         GET_TOML_VALUE(value, "client", behavior_id_map.client);
         GET_TOML_VALUE(value, "target", behavior_id_map.target);
         GET_TOML_VALUE(value, "mode", behavior_id_map.mode);
@@ -199,6 +202,7 @@ public:
           req_audio->is_online = iter->second.is_online;
           req_audio->text = iter->second.text;
           INFO("req_audio->text=%s", req_audio->text.c_str());
+          req_led->occupation = iter->second.occupation;
           req_led->client = iter->second.client;
           req_led->target = iter->second.target;
           req_led->mode = iter->second.mode;
@@ -234,6 +238,7 @@ public:
               req_audio->is_online = iter->second.is_online;
               req_audio->text = iter->second.text;
               INFO("req_audio->text=%s", req_audio->text.c_str());
+              req_led->occupation = iter->second.occupation;
               req_led->client = iter->second.client;
               req_led->target = iter->second.target;
               req_led->mode = iter->second.mode;
@@ -269,7 +274,17 @@ public:
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      // auto_tracking_start_ = false;
+      if (!auto_tracking_start_) {
+        req_led->occupation = 1;
+        req_led->client = "tracking";
+        req_led->target = 1;
+        req_led->mode = 0x02;
+        req_led->effect = 0x08;
+        req_led->r_value = 0xFF;
+        req_led->g_value = 0XA5;
+        req_led->b_value = 0X00;
+        auto future_led = led_execute_client_->async_send_request(req_led);
+      }
     }
   }
   // bool WalkAround()

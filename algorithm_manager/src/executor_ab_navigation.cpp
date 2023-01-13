@@ -83,13 +83,18 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   // Check all depends is ok
+  // 1 正在激活依赖节点
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("AB navigation lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    // 2 激活依赖节点失败
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
+  // 3 激活依赖节点成功
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
   INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
@@ -236,6 +241,8 @@ void ExecutorAbNavigation::HandleResultCallback(
       // task_abort_callback_();
       break;
   }
+
+  PublishZeroPath();
   // nav_goal_handle_.reset();
 }
 
