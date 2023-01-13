@@ -270,6 +270,7 @@ private:
       } else {
         manager_status_ = ManagerStatus::kExecutingLaserAbNavigation;
       }
+      return;
     }
     if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING) {
       if (goal->object_tracking) {

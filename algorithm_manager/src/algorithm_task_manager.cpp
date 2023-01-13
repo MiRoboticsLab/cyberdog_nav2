@@ -267,11 +267,33 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
-      task_name = task.first;
-      break;
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+      if (task.second.id == goal->nav_type) {
+        task_name = task.first;
+        break;
+      } 
+    } else {
+      if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
+        task_name = task.first;
+        break;
+      }
     }
   }
+  // if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+  //   for (auto task : task_map_) {
+  //     if (task.second.id == goal->nav_type) {
+  //       task_name = task.first;
+  //       break;
+  //     }
+  //   }    
+  // } else {
+  //   for (auto task : task_map_) {
+  //     if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
+  //       task_name = task.first;
+  //       break;
+  //     }
+  //   }
+  // }
   auto iter = task_map_.find(task_name);
   if (iter == task_map_.end()) {
     ERROR(
