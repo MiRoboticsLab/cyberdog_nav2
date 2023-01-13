@@ -388,8 +388,7 @@ void ExecutorVisionTracking::HandleResultCallback(
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Vision Tracking reported aborted");
       target_tracking_goal_handle_.reset();
-      feedback_->feedback_code =
-        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
+      feedback_->feedback_code = 509;
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
