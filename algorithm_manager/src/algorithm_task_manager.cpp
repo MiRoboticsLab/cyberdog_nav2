@@ -74,7 +74,7 @@ bool AlgorithmTaskManager::Init()
   std::thread{[this]() {
       while (rclcpp::ok()) {
         this->PublishStatus();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }}.detach();
   code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
