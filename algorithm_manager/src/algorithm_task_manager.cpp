@@ -271,7 +271,7 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
       if (task.second.id == goal->nav_type) {
         task_name = task.first;
         break;
-      } 
+      }
     } else {
       if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
         task_name = task.first;
