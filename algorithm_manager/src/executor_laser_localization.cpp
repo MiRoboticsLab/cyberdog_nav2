@@ -93,11 +93,14 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    // 正在激活依赖节点
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
+  // 激活依赖节点成功
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
   // Enable Relocalization
   bool success = EnableRelocalization();
@@ -113,7 +116,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
     return;
@@ -122,7 +125,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
@@ -232,7 +235,6 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
     WARN("Relocalization retrying.");
