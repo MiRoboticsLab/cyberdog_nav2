@@ -145,7 +145,7 @@ private:
 
   /**
    * @brief Check current `pose server` in activate state
-   * 
+   *
    * @return true Return success
    * @return false Return failure
    */

@@ -222,7 +222,8 @@ void LabelServer::handle_set_label(
 
     bool exist = CheckLabelTagHavedExist(request->label.labels[i].label_name);
     if (exist) {
-      WARN("Current map label tag: %s haved exist, save it's will override",
+      WARN(
+        "Current map label tag: %s haved exist, save it's will override",
         request->label.labels[i].label_name.c_str());
     }
 
@@ -473,7 +474,7 @@ bool LabelServer::CheckLabelTagHavedExist(std::string & label_tag)
   }
 
   label_set_.insert(label_tag);
-  return  false;
+  return false;
 }
 
 }  // namespace CYBERDOG_NAV

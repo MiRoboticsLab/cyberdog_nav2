@@ -224,28 +224,28 @@ void ExecutorAbNavigation::HandleResultCallback(
       PublishZeroPath();
       task_success_callback_();
       break;
-    
+
     case rclcpp_action::ResultCode::ABORTED:
-    {
-      ERROR("Navigation AB run target goal aborted");
-      constexpr int NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE = 30;
-      UpdateFeedback(NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE);
-      ResetPreprocessingValue();
-      PublishZeroPath();
-      break;
-    }
-     
+      {
+        ERROR("Navigation AB run target goal aborted");
+        constexpr int NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE = 30;
+        UpdateFeedback(NAVIGATION_FEEDBACK_NAVIGATING_AB_PATH_FAILURE);
+        ResetPreprocessingValue();
+        PublishZeroPath();
+        break;
+      }
+
     case rclcpp_action::ResultCode::CANCELED:
-    {
-      ERROR("Navigation AB run target goal canceled");
-      break;
-    }
+      {
+        ERROR("Navigation AB run target goal canceled");
+        break;
+      }
 
     default:
-    {
-      ERROR("Navigation AB run target goal unknown result code");
-      break;
-    }
+      {
+        ERROR("Navigation AB run target goal unknown result code");
+        break;
+      }
   }
 }
 

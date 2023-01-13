@@ -114,7 +114,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
- 
+
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {

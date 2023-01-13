@@ -239,8 +239,8 @@ void ExecutorVisionLocalization::Stop(
         }
 
         response->result = localization_lifecycle_->Pause() ?
-          StopTaskSrv::Response::SUCCESS :
-          StopTaskSrv::Response::FAILED;
+        StopTaskSrv::Response::SUCCESS :
+        StopTaskSrv::Response::FAILED;
 
         INFO("Vision Localization stoped success");
         is_activate_ = false;

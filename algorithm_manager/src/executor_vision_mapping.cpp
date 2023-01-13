@@ -71,7 +71,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       "stop_vins_mapping", shared_from_this());
   }
 
-   // miloc manager for map delete
+  // miloc manager for map delete
   if (miloc_client_ == nullptr) {
     miloc_client_ = std::make_shared<nav2_util::ServiceClient<MilocMapHandler>>(
       "delete_reloc_map", shared_from_this());
@@ -153,7 +153,7 @@ void ExecutorVisionMapping::Stop(
     task_abort_callback_();
     return;
   }
-  
+
   auto reset_thread = std::make_shared<std::thread>(
     [&]() {
       while (true) {

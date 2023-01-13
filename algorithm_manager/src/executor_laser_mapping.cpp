@@ -109,28 +109,28 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // Enable report realtime robot pose
   auto pose_thread = std::make_shared<std::thread>(
-  [&]() {
-    int try_count = 0;
-    while (true) {
-      try_count++;
-      success = EnableReportRealtimePose(true);
+    [&]() {
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        success = EnableReportRealtimePose(true);
 
-      if (success) {
-        INFO("Enable report realtime robot pose success.");
-        try_count = 0;
-        break;
-      }
+        if (success) {
+          INFO("Enable report realtime robot pose success.");
+          try_count = 0;
+          break;
+        }
 
-      if (try_count >= 3 && !success) {
-        ERROR("Enable report realtime robot pose failed.");
-        UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-        ResetLifecycleDefaultValue();
-        task_abort_callback_();
-        return;
+        if (try_count >= 3 && !success) {
+          ERROR("Enable report realtime robot pose failed.");
+          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+          ResetLifecycleDefaultValue();
+          task_abort_callback_();
+          return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-  });
+    });
   pose_thread->detach();
 
   if (!success) {
@@ -323,10 +323,10 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     request->finish = false;
     INFO("Saved lidar map building filename is empty.");
   }
-  
+
   // request->map_name = map_filename;
   // request->map_name = "map";
-  
+
 
   // Send request
   // return stop_->invoke(request, response);
