@@ -250,7 +250,7 @@ int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
   rclcpp::executors::MultiThreadedExecutor executor;
-  auto node = std::make_shared<cyberdog::algorithm::LedManagerNode>("led_manager");
+  auto node = std::make_shared<cyberdog::algorithm::LedManagerNode>("tracking_interation");
   executor.add_node(node);
   executor.spin();
   rclcpp::shutdown();
