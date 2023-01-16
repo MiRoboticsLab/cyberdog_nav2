@@ -450,11 +450,10 @@ bool ExecutorAbNavigation::VelocitySmoother()
     return true;
   }
 
-  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Connect velocity adaptor service timeout");
-      return false;
-    }
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
