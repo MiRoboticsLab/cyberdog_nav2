@@ -322,6 +322,7 @@ private:
   void ResetManagerSubStatus()
   {
     global_feedback_ = 0;
+    last_feedback_ = 0;
   }
 
   void SetFeedBack(const ExecutorData & executor_data)
@@ -392,6 +393,7 @@ private:
   std::unordered_map<std::string, TaskRef> task_map_;
   protocol::msg::AlgoTaskStatus global_task_status_;
   int32_t global_feedback_{0};
+  int32_t last_feedback_{0};
   std::shared_ptr<system::CyberdogCode<AlgoTaskCode>> code_ptr_{nullptr};
   rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_client_{nullptr};
   std::unique_ptr<cyberdog::machine::HeartBeatsActuator> heart_beats_ptr_{nullptr};
