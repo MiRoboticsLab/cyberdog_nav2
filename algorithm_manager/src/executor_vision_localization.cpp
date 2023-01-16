@@ -237,6 +237,7 @@ void ExecutorVisionLocalization::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  ResetFlags();
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
@@ -503,6 +504,12 @@ bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
     ERROR("Release localization failed.");
   }
   return success;
+}
+
+void ExecutorVisionLocalization::ResetFlags()
+{
+  relocalization_success_ = false;
+  relocalization_failure_ = false;
 }
 
 }  // namespace algorithm
