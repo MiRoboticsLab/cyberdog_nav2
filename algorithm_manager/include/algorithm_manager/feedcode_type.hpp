@@ -58,7 +58,7 @@ constexpr int kSLAMTimeout = 3106;
 constexpr int kSLAMFailedContinueTrying = 3107;
 constexpr int kSLAMSuccess = 3108;
 constexpr int kSLAMError = 3109;
-}
+}  // namespace relocalization
 
 namespace navigation
 {
@@ -95,7 +95,7 @@ constexpr int kErrorTargetGoalIsEmpty = 305;    // 目标点为空，请重新�
 constexpr int kMapChecking = 309;
 constexpr int kMapCheckingSuccess = 310;
 constexpr int kMapErrorNotExist = 311;
-}
+}  // namespace navigation
 
 }  // namespace algorithm
 }  // namespace cyberdog
