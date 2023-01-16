@@ -132,7 +132,6 @@ void ExecutorVisionMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Vision Mapping] Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -142,7 +141,6 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -153,7 +151,6 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate RGB-D sensor failed");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -164,7 +161,6 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed, deactivate realsense sensor failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -174,18 +170,12 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Vision Mapping] Vision Mapping stop failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
     return;
   }
 
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Vision Mapping] Vision Mapping stoped success");
   INFO("[Vision Mapping] Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
-
-  // invaild feedback code for send app
-  const int32_t kInvalidFeedbackCode = -1;
-  UpdateFeedback(kInvalidFeedbackCode);
 }
 
 void ExecutorVisionMapping::Cancel()
@@ -260,11 +250,10 @@ bool ExecutorVisionMapping::IsDependsReady()
 bool ExecutorVisionMapping::StartBuildMapping()
 {
   // Wait service
-  while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -291,11 +280,10 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
   (void)map_filename;
   // Wait service
-  while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -326,11 +314,10 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
       "PoseEnable", shared_from_this());
   }
 
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -363,11 +350,10 @@ bool ExecutorVisionMapping::CheckBuildMappingAvailable()
       "get_miloc_status", shared_from_this());
   }
 
-  while (!mapping_available_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = mapping_available_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -405,11 +391,10 @@ bool ExecutorVisionMapping::VelocitySmoother()
       "velocity_adaptor_gait", shared_from_this());
   }
 
-  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Laser Mapping] Connect velocity adaptor service timeout");
-      return false;
-    }
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Connect velocity adaptor service timeout.");
+    return false;
   }
 
   // Set request data

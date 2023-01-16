@@ -236,6 +236,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
   }
+  INFO("Executors finished stop, will setting status");
   if (!reset_all) {
     if (status == ManagerStatus::kExecutingLaserAbNavigation) {
       SetStatus(ManagerStatus::kLaserLocalizing);
@@ -326,7 +327,15 @@ void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr 
   if (goal_handle_executing_ != nullptr &&
     GetStatus() != ManagerStatus::kStoppingTask)
   {
+    if (feedback->feedback_code == last_feedback_) {
+      WARN(
+        "Last Feedback: %d, new feedback: %d, will not send", last_feedback_,
+        feedback->feedback_code);
+      return;
+    }
+    INFO("Sending Feedback: %d", feedback->feedback_code);
     goal_handle_executing_->publish_feedback(feedback);
+    last_feedback_ = feedback->feedback_code;
   }
 }
 
@@ -387,24 +396,28 @@ void AlgorithmTaskManager::TaskAborted()
   INFO("Got Executor abort");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  goal_handle_executing_->abort(result);
-  INFO("Manager abort");
-  ResetTaskHandle();
-  INFO("Manager TaskHandle reset bc aborted");
-  ResetManagerSubStatus();
-  auto status = GetStatus();
-  if (status == ManagerStatus::kExecutingLaserAbNavigation) {
-    SetStatus(ManagerStatus::kLaserLocalizing);
-    return;
-  } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
-    SetStatus(ManagerStatus::kVisLocalizing);
-    return;
-  } else if (status == ManagerStatus::kExecutingLaserLocalization) {
-    SetStatus(ManagerStatus::kLaserLocalizationFailed);
-    return;
-  } else if (status == ManagerStatus::kExecutingVisLocalization) {
-    SetStatus(ManagerStatus::kVisLocalizationFailed);
-    return;
+  if (goal_handle_executing_ != nullptr) {
+    goal_handle_executing_->abort(result);
+    INFO("Manager abort");
+    ResetTaskHandle();
+    INFO("Manager TaskHandle reset bc aborted");
+    ResetManagerSubStatus();
+    auto status = GetStatus();
+    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+      SetStatus(ManagerStatus::kLaserLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+      SetStatus(ManagerStatus::kVisLocalizing);
+      return;
+    } else if (status == ManagerStatus::kExecutingLaserLocalization) {
+      SetStatus(ManagerStatus::kLaserLocalizationFailed);
+      return;
+    } else if (status == ManagerStatus::kExecutingVisLocalization) {
+      SetStatus(ManagerStatus::kVisLocalizationFailed);
+      return;
+    }
+  } else {
+    ERROR("GoalHandle is null when server executing abort, this should never happen");
   }
   ResetManagerStatus();
 }

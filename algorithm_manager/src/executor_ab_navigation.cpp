@@ -26,6 +26,41 @@ namespace cyberdog
 namespace algorithm
 {
 
+/**
+成功
+- 导航启动成功，设置目标点成功，正在规划路径： 300
+- 正在导航中： 307
+- 到达目标点：308
+
+- 失败
+- 地图不存在：301
+- 底层导航失败：
+- 底层导航功能服务连接失败，请重新发送目标：302
+- 发送目标点失败，请重新发送目标：303
+- 底层导航功能失败，请重新发送目标：304
+- 目标点为空，请重新选择目标：305
+- 规划路径失败，请重新选择目标： 306
+
+- 地图检查服务feedback_code ：
+  - 正在检查地图：309
+  - 地图检查成功： 310
+  - 地图不存在，请重新建图： 311
+
+*/
+
+constexpr int kSuccessStartNavigation = 300;      // 导航启动成功，设置目标点成功，正在规划路径： 300  // NOLINT
+constexpr int kSuccessStartingNavigation = 307;   // 正在导航中： 307
+constexpr int kSuccessArriveTargetGoal = 308;     // 到达目标点：308
+
+constexpr int kErrorConnectActionServer = 302;  // 底层导航功能服务连接失败，请重新发送目标：302
+constexpr int kErrorSendGoalTarget = 303;       // 发送目标点失败，请重新发送目标：303
+constexpr int kErrorNavigationAbort = 304;      // 底层导航功能失败，请重新发送目标：304
+constexpr int kErrorTargetGoalIsEmpty = 305;    // 目标点为空，请重新选择目标：305
+
+constexpr int kMapChecking = 309;
+constexpr int kMapCheckingSuccess = 310;
+constexpr int kMapErrorNotExist = 311;
+
 ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {
@@ -68,13 +103,15 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   timer_.Start();
 
   // Check current map exits
+  UpdateFeedback(kMapChecking);
   bool exist = CheckMapAvailable();
   if (!exist) {
     ERROR("AB navigation can't start up, because current robot's map not exist");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(kMapErrorNotExist);
     task_cancle_callback_();
     return;
   }
+  UpdateFeedback(kMapCheckingSuccess);
 
   // Set vision and lidar flag
   bool outdoor = false;
@@ -102,7 +139,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool connect = IsConnectServer();
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(kErrorConnectActionServer);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
@@ -112,7 +149,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool legal = IsLegal(goal);
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(kErrorTargetGoalIsEmpty);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
@@ -135,13 +172,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     // Reset lifecycle nodes
     // LifecycleNodesReinitialize();
     DeactivateDepsLifecycleNodes();
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(kErrorSendGoalTarget);
     task_abort_callback_();
     return;
   }
 
   // 结束激活进度的上报
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+  UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -180,7 +217,6 @@ void ExecutorAbNavigation::Stop(
       return;
     }
   } else {
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
     task_abort_callback_();
     ERROR("Navigation AB will stop failed.");
     return;
@@ -188,7 +224,6 @@ void ExecutorAbNavigation::Stop(
 
   nav_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
   INFO("Navigation AB Stoped success");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -211,8 +246,7 @@ void ExecutorAbNavigation::HandleFeedbackCallback(
   const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
   (void)feedback;
-  // INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING);
+  UpdateFeedback(kSuccessStartingNavigation);
 }
 
 void ExecutorAbNavigation::HandleResultCallback(
@@ -221,29 +255,25 @@ void ExecutorAbNavigation::HandleResultCallback(
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
-      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+      UpdateFeedback(kSuccessArriveTargetGoal);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Navigation AB run target goal aborted");
-      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+      UpdateFeedback(kErrorNavigationAbort);
       ResetPreprocessingValue();
       // task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
       // task_cancle_callback_();
       break;
     default:
       ERROR("Navigation AB run target goal unknown result code");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-      // task_abort_callback_();
       break;
   }
 
   PublishZeroPath();
-  // nav_goal_handle_.reset();
 }
 
 void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -420,11 +450,10 @@ bool ExecutorAbNavigation::VelocitySmoother()
     return true;
   }
 
-  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Connect velocity adaptor service timeout");
-      return false;
-    }
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
