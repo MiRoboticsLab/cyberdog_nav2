@@ -40,18 +40,26 @@ namespace algorithm
 - 底层导航功能失败，请重新发送目标：304
 - 目标点为空，请重新选择目标：305
 - 规划路径失败，请重新选择目标： 306
+
+- 地图检查服务feedback_code ：
+  - 正在检查地图：309
+  - 地图检查成功： 310
+  - 地图不存在，请重新建图： 311
+
 */
 
 constexpr int kSuccessStartNavigation = 300;      // 导航启动成功，设置目标点成功，正在规划路径： 300  // NOLINT
 constexpr int kSuccessStartingNavigation = 307;   // 正在导航中： 307
 constexpr int kSuccessArriveTargetGoal = 308;     // 到达目标点：308
 
-constexpr int kErrorMapNotExist = 301;          // 地图不存在：301
 constexpr int kErrorConnectActionServer = 302;  // 底层导航功能服务连接失败，请重新发送目标：302
 constexpr int kErrorSendGoalTarget = 303;       // 发送目标点失败，请重新发送目标：303
 constexpr int kErrorNavigationAbort = 304;      // 底层导航功能失败，请重新发送目标：304
 constexpr int kErrorTargetGoalIsEmpty = 305;    // 目标点为空，请重新选择目标：305
-constexpr int kErrorPathPlanning = 306;
+
+constexpr int kMapChecking = 309;
+constexpr int kMapCheckingSuccess = 310;
+constexpr int kMapErrorNotExist = 311;
 
 ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
@@ -95,13 +103,15 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   timer_.Start();
 
   // Check current map exits
+  UpdateFeedback(kMapChecking);
   bool exist = CheckMapAvailable();
   if (!exist) {
     ERROR("AB navigation can't start up, because current robot's map not exist");
-    UpdateFeedback(kErrorMapNotExist);
+    UpdateFeedback(kMapErrorNotExist);
     task_cancle_callback_();
     return;
   }
+  UpdateFeedback(kMapCheckingSuccess);
 
   // Set vision and lidar flag
   bool outdoor = false;

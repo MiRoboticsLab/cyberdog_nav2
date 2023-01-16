@@ -260,11 +260,10 @@ bool ExecutorVisionMapping::IsDependsReady()
 bool ExecutorVisionMapping::StartBuildMapping()
 {
   // Wait service
-  while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -291,11 +290,10 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
   (void)map_filename;
   // Wait service
-  while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -326,11 +324,10 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
       "PoseEnable", shared_from_this());
   }
 
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -405,11 +402,10 @@ bool ExecutorVisionMapping::VelocitySmoother()
       "velocity_adaptor_gait", shared_from_this());
   }
 
-  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("[Laser Mapping] Connect velocity adaptor service timeout");
-      return false;
-    }
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("[Vision Mapping] Connect velocity adaptor service timeout.");
+    return false;
   }
 
   // Set request data
