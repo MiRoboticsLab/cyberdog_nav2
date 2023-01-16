@@ -135,12 +135,12 @@ private:
 
   void StopLocalization();
 
-    /**
-   * @brief Set all lifecycle default state
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
+  /**
+ * @brief Set all lifecycle default state
+ *
+ * @return true Return success
+ * @return false Return failure
+ */
   bool ResetLifecycleDefaultValue();
 
   // feedback data

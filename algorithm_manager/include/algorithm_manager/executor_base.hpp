@@ -397,7 +397,9 @@ protected:
   void UpdateFeedback(int32_t feedback_code)
   {
     if (feedback_code == last_feedback_->feedback_code) {
-      // INFO("Current set feedback_code = %d", feedback_code);
+      WARN(
+        "Last Feedback: %d, new feedback: %d, will not send", last_feedback_->feedback_code,
+        feedback_code);
       return;
     }
     std::lock_guard<std::mutex> lk(feedback_mutex_);

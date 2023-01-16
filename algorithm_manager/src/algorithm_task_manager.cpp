@@ -74,7 +74,7 @@ bool AlgorithmTaskManager::Init()
   std::thread{[this]() {
       while (rclcpp::ok()) {
         this->PublishStatus();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }}.detach();
   code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
@@ -227,7 +227,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     auto status_reparsed = ReParseStatus(status);
     if (status_reparsed != request->task_id) {
       ERROR(
-        "Cannot execute to stop %d when %d(%d)", request->task_id, (int)status_reparsed,
+        "Cannot execute to stop %d when %d(raw: %d)", request->task_id, (int)status_reparsed,
         (int)status);
       return;
     }
@@ -267,9 +267,16 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
-      task_name = task.first;
-      break;
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+      if (task.second.id == goal->nav_type) {
+        task_name = task.first;
+        break;
+      }
+    } else {
+      if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
+        task_name = task.first;
+        break;
+      }
     }
   }
   auto iter = task_map_.find(task_name);
@@ -319,6 +326,7 @@ void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr 
   if (goal_handle_executing_ != nullptr &&
     GetStatus() != ManagerStatus::kStoppingTask)
   {
+    INFO("Sending Feedback: %d", feedback->feedback_code);
     goal_handle_executing_->publish_feedback(feedback);
   }
 }
@@ -328,7 +336,9 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Got Executor Success");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-  goal_handle_executing_->succeed(result);
+  if (goal_handle_executing_) {
+    goal_handle_executing_->succeed(result);
+  }
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
