@@ -256,7 +256,6 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
     UpdateFeedback(relocalization::kSLAMFailedContinueTrying);
     WARN("Relocalization retrying.");

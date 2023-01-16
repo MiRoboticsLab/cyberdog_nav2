@@ -81,7 +81,6 @@ namespace navigation
   - 正在检查地图：309
   - 地图检查成功： 310
   - 地图不存在，请重新建图： 311
-
 */
 
 constexpr int kSuccessStartNavigation = 300;      // 导航启动成功，设置目标点成功，正在规划路径： 300  // NOLINT
