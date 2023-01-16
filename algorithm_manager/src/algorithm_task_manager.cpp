@@ -236,6 +236,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
   }
+  INFO("Executors finished stop, will setting status");
   if (!reset_all) {
     if (status == ManagerStatus::kExecutingLaserAbNavigation) {
       SetStatus(ManagerStatus::kLaserLocalizing);
