@@ -26,6 +26,35 @@ namespace cyberdog
 namespace algorithm
 {
 
+/**
+ 成功 
+  - 导航启动成功，设置目标点成功，正在规划路径： 300
+  - 正在导航中： 307
+  - 到达目标点：308
+
+- 失败
+  - 地图不存在：301
+  - 底层导航失败：
+    - 底层导航功能服务连接失败，请重新发送目标：302
+    - 发送目标点失败，请重新发送目标：303
+    - 底层导航功能失败，请重新发送目标：304
+    - 目标点为空，请重新选择目标：305
+    - 规划路径失败，请重新选择目标： 306
+*/
+
+
+constexpr int kSuccessStartNavigation = 300;        // 导航启动成功，设置目标点成功，正在规划路径： 300
+constexpr int kSuccessStartingNavigation = 307;     // 正在导航中： 307
+constexpr int kSuccessArriveTargetGoal = 308;       // 到达目标点：308
+
+constexpr int KErrorMapNotExist = 301;              // 地图不存在：301
+constexpr int KErrorConnectActionServer = 302;      // 底层导航功能服务连接失败，请重新发送目标：302
+constexpr int KErrorSendGoalTarget = 303;           // 发送目标点失败，请重新发送目标：303
+constexpr int KErrorNavigationAbort = 304;          // 底层导航功能失败，请重新发送目标：304
+constexpr int KErrorTargetGoalIsEmpty = 305;        // 目标点为空，请重新选择目标：305
+constexpr int KErrorPathPlanning = 306;             // 规划路径失败，请重新选择目标： 306
+
+
 ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {
@@ -71,7 +100,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool exist = CheckMapAvailable();
   if (!exist) {
     ERROR("AB navigation can't start up, because current robot's map not exist");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(KErrorMapNotExist);
     task_cancle_callback_();
     return;
   }
@@ -102,7 +131,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   bool connect = IsConnectServer();
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(KErrorConnectActionServer);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
@@ -111,8 +140,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Check input target goal is legal
   bool legal = IsLegal(goal);
   if (!legal) {
-    ERROR("Current navigation AB point is not legal.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    ERROR("Current navigation AB point is not legal, current target goal is empty.");
+    UpdateFeedback(KErrorTargetGoalIsEmpty);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
@@ -132,16 +161,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
     ERROR("Send navigation AB point send target goal request failed.");
-    // Reset lifecycle nodes
-    // LifecycleNodesReinitialize();
     DeactivateDepsLifecycleNodes();
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    UpdateFeedback(KErrorSendGoalTarget);
     task_abort_callback_();
     return;
   }
 
-  // 结束激活进度的上报
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+  UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -155,19 +181,20 @@ void ExecutorAbNavigation::Stop(
   timer_.Start();
 
   INFO("Navigation AB will stop");
-  bool cancel = ShouldCancelGoal();
-  if (!cancel) {
-    WARN("Current robot can't stop, due to navigation status is not available.");
-    nav_goal_handle_.reset();
-    // task_cancle_callback_();
-    return;
-  }
+  // bool cancel = ShouldCancelGoal();
+  // if (!cancel) {
+  //   WARN("Current robot can't stop, due to navigation status is not available.");
+  //   nav_goal_handle_.reset();
+  //   // task_cancle_callback_();
+  //   return;
+  // }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
   if (nav_goal_handle_ != nullptr) {
     auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
     if (!server_ready) {
       ERROR("Navigation action server is not available.");
+      response->result = StopTaskSrv::Response::FAILED;
       return;
     }
 
@@ -180,7 +207,7 @@ void ExecutorAbNavigation::Stop(
       return;
     }
   } else {
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     ERROR("Navigation AB will stop failed.");
     return;
@@ -188,7 +215,9 @@ void ExecutorAbNavigation::Stop(
 
   nav_goal_handle_.reset();
   response->result = StopTaskSrv::Response::SUCCESS;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+
+  // clear path
+  PublishZeroPath();
   INFO("Navigation AB Stoped success");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -211,8 +240,7 @@ void ExecutorAbNavigation::HandleFeedbackCallback(
   const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
 {
   (void)feedback;
-  // INFO("Navigation feedback, distance_remaining : %f", feedback->distance_remaining);
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_RUNNING);
+  UpdateFeedback(kSuccessStartingNavigation);
 }
 
 void ExecutorAbNavigation::HandleResultCallback(
@@ -221,29 +249,23 @@ void ExecutorAbNavigation::HandleResultCallback(
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("Navigation AB point have arrived target goal success");
-      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_SUCCESS);
+      UpdateFeedback(kSuccessArriveTargetGoal);
       task_success_callback_();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Navigation AB run target goal aborted");
-      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
+      UpdateFeedback(KErrorNavigationAbort);
       ResetPreprocessingValue();
-      // task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-      // task_cancle_callback_();
       break;
     default:
       ERROR("Navigation AB run target goal unknown result code");
-      // UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_NAVIGATING_AB_FAILURE);
-      // task_abort_callback_();
       break;
   }
 
   PublishZeroPath();
-  // nav_goal_handle_.reset();
 }
 
 void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -332,6 +354,13 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     std::bind(
     &ExecutorAbNavigation::HandleResultCallback,
     this, std::placeholders::_1);
+
+  auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+  if (!server_ready) {
+    ERROR("Navigation action server is not available.");
+    return false;
+  }
+
   auto future_goal_handle = action_client_->async_send_goal(
     target_goal_, send_goal_options);
   time_goal_sent_ = this->now();
@@ -360,6 +389,10 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
   // Check if the goal is still executing
   auto status = nav_goal_handle_->get_status();
   NavigationStatus2String(status);
+
+  if (status == action_msgs::msg::GoalStatus::STATUS_ABORTED) {
+
+  }
 
   return status == action_msgs::msg::GoalStatus::STATUS_ACCEPTED ||
          status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;

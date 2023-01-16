@@ -152,8 +152,7 @@ void ExecutorLaserMapping::Stop(
   bool success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
-    UpdateFeedback(
-      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
 
     // use topic stop robot realtime pose
     EnableReportRealtimePose(false, true);
@@ -172,9 +171,6 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -185,27 +181,23 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
 
-  response->result = mapping_client_->Pause() ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  success = mapping_client_->Pause();
+  if (!success) {
+    ERROR("[Laser Mapping] Laser Mapping stop mapping_client failed.");
+    response->result = StopTaskSrv::Response::FAILED;
+    ResetLifecycleDefaultValue();
+    task_abort_callback_();
+    return;
+  }
 
-
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  task_cancle_callback_();
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
-
-  // invaild feedback code for send app
-  const int32_t kInvalidFeedbackCode = -1;
-  UpdateFeedback(kInvalidFeedbackCode);
+  response->result = StopTaskSrv::Response::SUCCESS;
 }
 
 void ExecutorLaserMapping::Cancel()
@@ -238,20 +230,22 @@ bool ExecutorLaserMapping::IsDependsReady()
   Timer timer_;
   timer_.Start();
 
+  auto defualt_timeout = std::chrono::seconds(3s);
+
   // RealSense camera
   bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
+    LifeCycleNodeType::RealSenseCameraSensor, defualt_timeout);
   if (!success) {
     // RealSense camera lifecycle(configure state)
     success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
+      LifeCycleNodeType::RealSenseCameraSensor, defualt_timeout);
     if (!success) {
       return false;
     }
 
     // RealSense camera lifecycle(activate state)
     success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
+      LifeCycleNodeType::RealSenseCameraSensor, defualt_timeout);
     if (!success) {
       return false;
     }
@@ -262,12 +256,12 @@ bool ExecutorLaserMapping::IsDependsReady()
   INFO("[Laser Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // Laser mapping  lifecycle
-  if (!mapping_client_->IsActivate()) {
-    bool ok = mapping_client_->Configure();
+  if (!mapping_client_->IsActivate(defualt_timeout)) {
+    bool ok = mapping_client_->Configure(defualt_timeout);
     if (!ok) {
       return false;
     }
-    ok = mapping_client_->Startup();
+    ok = mapping_client_->Startup(defualt_timeout);
     if (!ok) {
       return false;
     }

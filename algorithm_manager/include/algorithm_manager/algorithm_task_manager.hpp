@@ -109,18 +109,19 @@ private:
   }
   bool IsStateValid(int32_t & code)
   {
-    auto state = GetState();
-    if (state == FsmState::kActive || state == FsmState::kProtected) {
-      code = code_ptr_->GetKeyCode(system::KeyCode::kOK);
-      return true;
-    } else if (state == FsmState::kLowPower) {
-      OnlineAudioPlay("低功耗模式，任务启动失败");
-    } else {
-      OnlineAudioPlay("状态机无效，任务启动失败");
-    }
-    ERROR("FSM invalid with current state: %s", status_map_.at(state_).c_str());
-    code = code_ptr_->GetKeyCode(system::KeyCode::kStateInvalid);
-    return false;
+    // auto state = GetState();
+    // if (state == FsmState::kActive || state == FsmState::kProtected) {
+    //   code = code_ptr_->GetKeyCode(system::KeyCode::kOK);
+    //   return true;
+    // } else if (state == FsmState::kLowPower) {
+    //   OnlineAudioPlay("低功耗模式，任务启动失败");
+    // } else {
+    //   OnlineAudioPlay("状态机无效，任务启动失败");
+    // }
+    // ERROR("FSM invalid with current state: %s", status_map_.at(state_).c_str());
+    // code = code_ptr_->GetKeyCode(system::KeyCode::kStateInvalid);
+    // return false;
+    return true;
   }
 
   int32_t OnSetUp()
@@ -187,24 +188,25 @@ private:
   }
   void OnlineAudioPlay(const std::string & text)
   {
-    static bool playing = false;
-    if (playing) {
-      return;
-    }
-    auto request = std::make_shared<protocol::srv::AudioTextPlay::Request>();
-    request->is_online = true;
-    request->module_name = "AlgorithmManager";
-    request->text = text;
-    playing = true;
-    auto callback = [](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
-        playing = false;
-        INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
-      };
-    auto future = audio_client_->async_send_request(request, callback);
-    if (future.wait_for(std::chrono::milliseconds(500)) == std::future_status::timeout) {
-      playing = false;
-      ERROR("Cannot get response from AudioPlay");
-    }
+    // static bool playing = false;
+    // if (playing) {
+    //   return;
+    // }
+    // auto request = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+    // request->is_online = true;
+    // request->module_name = "AlgorithmManager";
+    // request->text = text;
+    // playing = true;
+    // auto callback = [](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
+    //     playing = false;
+    //     INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
+    //   };
+    // auto future = audio_client_->async_send_request(request, callback);
+    // if (future.wait_for(std::chrono::milliseconds(500)) == std::future_status::timeout) {
+    //   playing = false;
+    //   ERROR("Cannot get response from AudioPlay");
+    // }
+    static bool playing = true;
   }
   void TaskSuccessd();
   void TaskCanceled();

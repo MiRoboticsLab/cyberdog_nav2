@@ -163,7 +163,7 @@ bool RealSenseLifecycleServiceClient::ChangeState(
   }
 }
 
-bool RealSenseLifecycleServiceClient::Startup()
+bool RealSenseLifecycleServiceClient::Startup(const std::chrono::seconds timeout)
 {
   if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
     return true;
@@ -177,7 +177,7 @@ bool RealSenseLifecycleServiceClient::Startup()
   return true;
 }
 
-bool RealSenseLifecycleServiceClient::Pause()
+bool RealSenseLifecycleServiceClient::Pause(const std::chrono::seconds timeout)
 {
   if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
     return true;
@@ -191,7 +191,7 @@ bool RealSenseLifecycleServiceClient::Pause()
   return true;
 }
 
-bool RealSenseLifecycleServiceClient::Cleanup()
+bool RealSenseLifecycleServiceClient::Cleanup(const std::chrono::seconds timeout)
 {
   if (GetState() == lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) {
     return true;

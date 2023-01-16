@@ -27,6 +27,8 @@
 #include "lifecycle_msgs/srv/get_state.hpp"
 #include "algorithm_manager/lifecycle_controller.hpp"
 
+using namespace std::chrono_literals;    // NOLINT
+
 namespace cyberdog
 {
 namespace algorithm
@@ -107,7 +109,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  static bool Configure(const LifeCycleNode & which);
+  static bool Configure(const LifeCycleNode & which, const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief LifeCycle activate state
@@ -116,7 +118,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  static bool Startup(const LifeCycleNode & which);
+  static bool Startup(const LifeCycleNode & which, const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief LifeCycle deactivate state
@@ -125,7 +127,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  static bool Pause(const LifeCycleNode & which);
+  static bool Pause(const LifeCycleNode & which, const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief LifeCycle cleanup state
@@ -134,7 +136,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  static bool Cleanup(const LifeCycleNode & which);
+  static bool Cleanup(const LifeCycleNode & which, const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief Check LifeCycle state
@@ -143,7 +145,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  static bool IsActivate(const LifeCycleNode & which);
+  static bool IsActivate(const LifeCycleNode & which, const std::chrono::seconds timeout = 3s);
 
 private:
   LifecycleNodeManager();

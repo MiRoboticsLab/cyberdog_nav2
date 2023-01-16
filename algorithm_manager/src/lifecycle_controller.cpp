@@ -33,25 +33,64 @@ LifecycleController::~LifecycleController()
 {
 }
 
-bool LifecycleController::IsConfigure()
+bool LifecycleController::IsConfigure(const std::chrono::seconds timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
+  auto start = std::chrono::steady_clock::now();
+
+  while (true) {
+    auto now = std::chrono::steady_clock::now();
+    auto wait_timeout_sencods = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+    auto timeout_seconds = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+    if (wait_timeout_sencods >= timeout_seconds) {
+      INFO("Check configure state timeout");
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  return node_controller_->get_state(timeout) == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
-bool LifecycleController::IsActivate()
+bool LifecycleController::IsActivate(const std::chrono::seconds timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
+  auto start = std::chrono::steady_clock::now();
+
+  while (true) {
+    auto now = std::chrono::steady_clock::now();
+    auto wait_timeout_sencods = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+    auto timeout_seconds = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+    if (wait_timeout_sencods >= timeout_seconds) {
+      INFO("Check activate state timeout");
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  return node_controller_->get_state(timeout) == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
 }
 
-bool LifecycleController::IsDeactivate()
+bool LifecycleController::IsDeactivate(const std::chrono::seconds timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
+  auto start = std::chrono::steady_clock::now();
+
+  while (true) {
+    auto now = std::chrono::steady_clock::now();
+    auto wait_timeout_sencods = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+    auto timeout_seconds = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+    if (wait_timeout_sencods >= timeout_seconds) {
+      INFO("Check deactivate state timeout");
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  return node_controller_->get_state(timeout) == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
-bool LifecycleController::Configure()
+bool LifecycleController::Configure(const std::chrono::seconds timeout)
 {
   // Checker node configure state
-  if (IsConfigure()) {
+  if (IsConfigure(timeout)) {
     WARN("Current lifecycle node(%s) has configure state", node_name().c_str());
     return true;
   }
@@ -66,15 +105,9 @@ bool LifecycleController::Configure()
   return true;
 }
 
-bool LifecycleController::Startup()
+bool LifecycleController::Startup(const std::chrono::seconds timeout)
 {
-  // Checker node activate state
-  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
-  //   WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
-  //   return true;
-  // }
-
-  if (IsActivate()) {
+  if (IsActivate(timeout)) {
     WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
     return true;
   }
@@ -89,14 +122,10 @@ bool LifecycleController::Startup()
   return true;
 }
 
-bool LifecycleController::Pause()
+bool LifecycleController::Pause(const std::chrono::seconds timeout)
 {
   // Checker node deactivate state
-  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-  //   WARN("Current lifecycle node has(%s) deactivate state", node_name().c_str());
-  //   return true;
-  // }
-  if (IsDeactivate()) {
+  if (IsDeactivate(timeout)) {
     WARN("Current lifecycle node(%s) has deactivate state", node_name().c_str());
     return true;
   }
@@ -111,10 +140,10 @@ bool LifecycleController::Pause()
   return true;
 }
 
-bool LifecycleController::Cleanup()
+bool LifecycleController::Cleanup(const std::chrono::seconds timeout)
 {
   // Checker node cleanup state
-  if (node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED) {
+  if (node_controller_->get_state(timeout) == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED) {
     WARN("Current lifecycle node (%s) has cleanup state", node_name().c_str());
     return true;
   }

@@ -117,18 +117,18 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!success) {
     ERROR("Turn on relocalization failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    ResetLifecycleDefaultValue();
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
   // Send request and wait relocalization result success
-  success = WaitRelocalization(std::chrono::seconds(60s));
+  success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Vision localization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    ResetLifecycleDefaultValue();
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
@@ -136,8 +136,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    ResetLifecycleDefaultValue();
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     return;
   }
 
@@ -189,7 +189,6 @@ void ExecutorVisionLocalization::Stop(
 {
   (void)request;
   INFO("Vision localization will stop");
-  // StopReportPreparationThread();
 
   Timer timer_;
   timer_.Start();
@@ -198,7 +197,7 @@ void ExecutorVisionLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     ResetLifecycleDefaultValue();
     return;
@@ -208,7 +207,7 @@ void ExecutorVisionLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
   }
@@ -237,7 +236,6 @@ void ExecutorVisionLocalization::Stop(
 
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
 
   is_activate_ = false;
   task_success_callback_();
@@ -255,7 +253,6 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
     WARN("Relocalization retrying.");

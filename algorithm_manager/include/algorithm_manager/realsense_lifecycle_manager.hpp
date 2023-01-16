@@ -83,7 +83,7 @@ public:
    * @return true
    * @return false
    */
-  bool Startup();
+  bool Startup(const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief deactivate
@@ -91,7 +91,7 @@ public:
    * @return true
    * @return false
    */
-  bool Pause();
+  bool Pause(const std::chrono::seconds timeout = 3s);
 
   /**
    * @brief cleanup
@@ -99,7 +99,7 @@ public:
    * @return true
    * @return false
    */
-  bool Cleanup();
+  bool Cleanup(const std::chrono::seconds timeout = 3s);
 
 private:
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> client_get_state_;

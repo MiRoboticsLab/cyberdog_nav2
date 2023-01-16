@@ -165,7 +165,6 @@ void ExecutorLaserLocalization::Stop(
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
     task_abort_callback_();
     return;
   }
@@ -183,7 +182,6 @@ void ExecutorLaserLocalization::Stop(
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
     task_abort_callback_();
     return;
   }
@@ -196,7 +194,6 @@ void ExecutorLaserLocalization::Stop(
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   is_activate_ = false;
 }
 

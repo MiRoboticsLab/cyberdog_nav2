@@ -129,15 +129,15 @@ std::shared_ptr<LifecycleNodeManager> LifecycleNodeManager::GetSingleton()
   return g_lifecycle_manager;
 }
 
-bool LifecycleNodeManager::Configure(const LifeCycleNode & which)
+bool LifecycleNodeManager::Configure(const LifeCycleNode & which, const std::chrono::seconds timeout)
 {
   switch (which) {
     case LifeCycleNode::RealSenseCameraSensor:
-      return realsense_lifecycle_->Configure();
+      return realsense_lifecycle_->Configure(timeout);
       break;
 
     case LifeCycleNode::RGBCameraSensor:
-      return camera_lifecycle_->Configure();
+      return camera_lifecycle_->Configure(timeout);
       break;
 
     default:
@@ -146,15 +146,15 @@ bool LifecycleNodeManager::Configure(const LifeCycleNode & which)
   return true;
 }
 
-bool LifecycleNodeManager::Startup(const LifeCycleNode & which)
+bool LifecycleNodeManager::Startup(const LifeCycleNode & which, const std::chrono::seconds timeout)
 {
   switch (which) {
     case LifeCycleNode::RealSenseCameraSensor:
-      return realsense_lifecycle_->Startup();
+      return realsense_lifecycle_->Startup(timeout);
       break;
 
     case LifeCycleNode::RGBCameraSensor:
-      return camera_lifecycle_->Startup();
+      return camera_lifecycle_->Startup(timeout);
       break;
 
     default:
@@ -163,15 +163,15 @@ bool LifecycleNodeManager::Startup(const LifeCycleNode & which)
   return true;
 }
 
-bool LifecycleNodeManager::Pause(const LifeCycleNode & which)
+bool LifecycleNodeManager::Pause(const LifeCycleNode & which, const std::chrono::seconds timeout)
 {
   switch (which) {
     case LifeCycleNode::RealSenseCameraSensor:
-      return realsense_lifecycle_->Pause();
+      return realsense_lifecycle_->Pause(timeout);
       break;
 
     case LifeCycleNode::RGBCameraSensor:
-      return camera_lifecycle_->Pause();
+      return camera_lifecycle_->Pause(timeout);
       break;
 
     default:
@@ -180,15 +180,15 @@ bool LifecycleNodeManager::Pause(const LifeCycleNode & which)
   return true;
 }
 
-bool LifecycleNodeManager::Cleanup(const LifeCycleNode & which)
+bool LifecycleNodeManager::Cleanup(const LifeCycleNode & which, const std::chrono::seconds timeout)
 {
   switch (which) {
     case LifeCycleNode::RealSenseCameraSensor:
-      return realsense_lifecycle_->Cleanup();
+      return realsense_lifecycle_->Cleanup(timeout);
       break;
 
     case LifeCycleNode::RGBCameraSensor:
-      return camera_lifecycle_->Cleanup();
+      return camera_lifecycle_->Cleanup(timeout);
       break;
 
     default:
@@ -197,15 +197,15 @@ bool LifecycleNodeManager::Cleanup(const LifeCycleNode & which)
   return true;
 }
 
-bool LifecycleNodeManager::IsActivate(const LifeCycleNode & which)
+bool LifecycleNodeManager::IsActivate(const LifeCycleNode & which, const std::chrono::seconds timeout)
 {
   switch (which) {
     case LifeCycleNode::RealSenseCameraSensor:
-      return realsense_lifecycle_->IsActivate();
+      return realsense_lifecycle_->IsActivate(timeout);
       break;
 
     case LifeCycleNode::RGBCameraSensor:
-      return camera_lifecycle_->IsActivate();
+      return camera_lifecycle_->IsActivate(timeout);
       break;
 
     default:
