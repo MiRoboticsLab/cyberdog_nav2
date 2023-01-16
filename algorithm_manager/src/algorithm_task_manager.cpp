@@ -326,6 +326,7 @@ void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr 
   if (goal_handle_executing_ != nullptr &&
     GetStatus() != ManagerStatus::kStoppingTask)
   {
+    INFO("Sending Feedback: %d", feedback->feedback_code);
     goal_handle_executing_->publish_feedback(feedback);
   }
 }
