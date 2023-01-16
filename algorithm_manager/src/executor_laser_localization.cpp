@@ -194,6 +194,7 @@ void ExecutorLaserLocalization::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  ResetFlags();
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
@@ -407,6 +408,12 @@ bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
   }
 
   return success;
+}
+
+void ExecutorLaserLocalization::ResetFlags()
+{
+  relocalization_success_ = false;
+  relocalization_failure_ = false;
 }
 
 }  // namespace algorithm
