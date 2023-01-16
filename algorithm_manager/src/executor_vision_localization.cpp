@@ -463,11 +463,17 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
       "get_miloc_status", shared_from_this());
   }
 
-  while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
-      return false;
-    }
+  // while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
+  //   if (!rclcpp::ok()) {
+  //     ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+  //     return false;
+  //   }
+  // }
+
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
