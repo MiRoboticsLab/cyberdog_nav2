@@ -41,7 +41,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  bool IsConfigure();
+  bool IsConfigure(const int timeout = 20000);
 
   /**
    * @brief Check lifecycle is activate state
@@ -49,7 +49,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  bool IsActivate();
+  bool IsActivate(const int timeout = 20000);
 
   /**
    * @brief Check lifecycle is deactivate state
@@ -57,7 +57,7 @@ public:
    * @return true Success
    * @return false Failure
    */
-  bool IsDeactivate();
+  bool IsDeactivate(const int timeout = 20000);
 
   /**
    * @brief Lifecycle set configure state
@@ -65,7 +65,7 @@ public:
    * @return true
    * @return false
    */
-  bool Configure();
+  bool Configure(const int timeout = 20000);
 
   /**
    * @brief Lifecycle set configure state
@@ -73,7 +73,7 @@ public:
    * @return true
    * @return false
    */
-  bool Startup();
+  bool Startup(const int timeout = 20000);
 
   /**
    * @brief Lifecycle set deactivate state
@@ -81,7 +81,7 @@ public:
    * @return true
    * @return false
    */
-  bool Pause();
+  bool Pause(const int timeout = 20000);
 
   /**
    * @brief Lifecycle set cleanup state
@@ -89,7 +89,7 @@ public:
    * @return true
    * @return false
    */
-  bool Cleanup();
+  bool Cleanup(const int timeout = 20000);
 
 private:
   // Get current lifecycle node name
@@ -100,6 +100,8 @@ private:
 
   // Record node's name
   std::string node_name_;
+
+  // Default timeout
 };
 
 }  // namespace algorithm

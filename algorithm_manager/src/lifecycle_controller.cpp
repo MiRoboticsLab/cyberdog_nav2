@@ -33,31 +33,68 @@ LifecycleController::~LifecycleController()
 {
 }
 
-bool LifecycleController::IsConfigure()
+bool LifecycleController::IsConfigure(const int timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
+  if (!node_controller_->service_exist(std::chrono::seconds(2))) {
+    ERROR("Lifecycle [%s] not exist", node_name().c_str());
+    return false;
+  }
+
+  bool is_timeout = false;
+  auto state = node_controller_->get_state(is_timeout, timeout);
+  if (is_timeout) {
+    ERROR("Cannot get state of [%s]", node_name().c_str());
+    return false;
+  }
+
+  return state == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
-bool LifecycleController::IsActivate()
+bool LifecycleController::IsActivate(const int timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
+  if (!node_controller_->service_exist(std::chrono::seconds(2))) {
+    ERROR("Lifecycle [%s] not exist", node_name().c_str());
+    return false;
+  }
+
+  bool is_timeout = false;
+  auto state = node_controller_->get_state(is_timeout, timeout);
+  if (is_timeout) {
+    ERROR("Cannot get state of [%s]", node_name().c_str());
+    return false;
+  }
+  return state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
 }
 
-bool LifecycleController::IsDeactivate()
+bool LifecycleController::IsDeactivate(const int timeout)
 {
-  return node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
+  if (!node_controller_->service_exist(std::chrono::seconds(2))) {
+    ERROR("Lifecycle [%s] not exist", node_name().c_str());
+    return false;
+  }
+
+  bool is_timeout = false;
+  auto state = node_controller_->get_state(is_timeout, timeout);
+  if (is_timeout) {
+    ERROR("Cannot get state of [%s]", node_name().c_str());
+    return false;
+  }
+  return state == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE;
 }
 
-bool LifecycleController::Configure()
+bool LifecycleController::Configure(const int timeout)
 {
   // Checker node configure state
-  if (IsConfigure()) {
+  if (IsConfigure(timeout)) {
     WARN("Current lifecycle node(%s) has configure state", node_name().c_str());
     return true;
   }
 
   // Set node configure state
-  if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE) ) {
+  if (!node_controller_->change_state(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE,
+      timeout) )
+  {
     ERROR("Set current lifecycle node(%s) configure state failed", node_name().c_str());
     return false;
   }
@@ -66,21 +103,18 @@ bool LifecycleController::Configure()
   return true;
 }
 
-bool LifecycleController::Startup()
+bool LifecycleController::Startup(const int timeout)
 {
-  // Checker node activate state
-  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) {
-  //   WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
-  //   return true;
-  // }
-
-  if (IsActivate()) {
+  if (IsActivate(timeout)) {
     WARN("Current lifecycle node(%s) has activate state", node_name().c_str());
     return true;
   }
 
   // Set node activate state
-  if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE) ) {
+  if (!node_controller_->change_state(
+      lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE,
+      timeout) )
+  {
     ERROR("Set current lifecycle node(%s) activate state failed", node_name().c_str());
     return false;
   }
@@ -89,20 +123,19 @@ bool LifecycleController::Startup()
   return true;
 }
 
-bool LifecycleController::Pause()
+bool LifecycleController::Pause(const int timeout)
 {
   // Checker node deactivate state
-  // if (node_controller_->get_state() == lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) {
-  //   WARN("Current lifecycle node has(%s) deactivate state", node_name().c_str());
-  //   return true;
-  // }
-  if (IsDeactivate()) {
+  if (IsDeactivate(timeout)) {
     WARN("Current lifecycle node(%s) has deactivate state", node_name().c_str());
     return true;
   }
 
   // Set node deactivate state
-  if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) ) {
+  if (!node_controller_->change_state(
+      lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE,
+      timeout) )
+  {
     ERROR("Set current lifecycle node(%s) deactivate state failed", node_name().c_str());
     return false;
   }
@@ -111,16 +144,31 @@ bool LifecycleController::Pause()
   return true;
 }
 
-bool LifecycleController::Cleanup()
+bool LifecycleController::Cleanup(const int timeout)
 {
+  if (!node_controller_->service_exist(std::chrono::seconds(2))) {
+    ERROR("Lifecycle [%s] not exist", node_name().c_str());
+    return false;
+  }
+
   // Checker node cleanup state
-  if (node_controller_->get_state() == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED) {
+  bool is_timeout = false;
+  auto state = node_controller_->get_state(is_timeout, timeout);
+  if (is_timeout) {
+    ERROR("Cannot get state of [%s]", node_name().c_str());
+    return false;
+  }
+
+  if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED) {
     WARN("Current lifecycle node (%s) has cleanup state", node_name().c_str());
     return true;
   }
 
   // Set node cleanup state
-  if (!node_controller_->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP) ) {
+  if (!node_controller_->change_state(
+      lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP,
+      timeout) )
+  {
     INFO("Set current lifecycle node(%s) cleanup state failed", node_name().c_str());
     return false;
   }
