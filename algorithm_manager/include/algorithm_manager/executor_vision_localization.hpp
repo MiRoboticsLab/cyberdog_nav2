@@ -139,6 +139,8 @@ private:
    */
   bool ResetLifecycleDefaultValue();
 
+  void ResetFlags();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 

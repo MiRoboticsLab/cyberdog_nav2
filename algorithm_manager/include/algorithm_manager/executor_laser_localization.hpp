@@ -135,6 +135,15 @@ private:
 
   void StopLocalization();
 
+  /**
+ * @brief Set all lifecycle default state
+ *
+ * @return true Return success
+ * @return false Return failure
+ */
+  bool ResetLifecycleDefaultValue();
+  void ResetFlags();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 

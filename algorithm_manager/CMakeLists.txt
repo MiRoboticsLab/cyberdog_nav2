@@ -106,6 +106,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+add_executable(tracking_indication src/tracking_indication.cpp)
+ament_target_dependencies(tracking_indication
+  ${dependencies}
+)
+target_include_directories(tracking_indication PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(tracking_indication PUBLIC c_std_99 cxx_std_17)
+
 add_executable(fake_action test/fake_action.cpp)
 ament_target_dependencies(fake_action
   ${dependencies}
@@ -129,6 +138,10 @@ install(TARGETS ${library_name}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(TARGETS ${PROJECT_NAME} tracking_indication
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS ${PROJECT_NAME} fake_action

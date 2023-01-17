@@ -18,6 +18,7 @@
 #include <functional>
 
 #include "algorithm_manager/executor_vision_localization.hpp"
+#include "algorithm_manager/feedcode_type.hpp"
 
 namespace cyberdog
 {
@@ -74,22 +75,30 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   timer_.Start();
 
   // Check current map available
+  UpdateFeedback(relocalization::kMapChecking);
   bool available = CheckMapAvailable();
   if (!available) {
     ERROR("Vision build map file not available.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kMapCheckingError);
     task_abort_callback_();
     return;
   }
+  UpdateFeedback(relocalization::kMapCheckingSuccess);
 
+  // 1 正在激活依赖节点
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
     ResetLifecycleDefaultValue();
     ERROR("Vision localization lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    // 2 激活依赖节点失败
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
     return;
   }
+
+  // 3 激活依赖节点成功
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
   if (start_client_ == nullptr) {
     start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
@@ -107,20 +116,22 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   }
 
   // Enable Relocalization
+  UpdateFeedback(relocalization::kServiceStarting);
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kServiceStartingError);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
+  UpdateFeedback(relocalization::kServiceStartingSuccess);
 
   // Send request and wait relocalization result success
-  success = WaitRelocalization(std::chrono::seconds(60s));
+  success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Vision localization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kSLAMTimeout);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -129,7 +140,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kSLAMError);
     ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
@@ -160,7 +171,6 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
-          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
           ResetLifecycleDefaultValue();
           task_abort_callback_();
           return;
@@ -170,8 +180,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     });
   pose_thread->detach();
 
-  // 结束激活进度的上报
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  UpdateFeedback(relocalization::kSLAMSuccess);
   INFO("Vision localization success.");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
@@ -183,7 +192,6 @@ void ExecutorVisionLocalization::Stop(
 {
   (void)request;
   INFO("Vision localization will stop");
-  // StopReportPreparationThread();
 
   Timer timer_;
   timer_.Start();
@@ -192,7 +200,7 @@ void ExecutorVisionLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     ResetLifecycleDefaultValue();
     return;
@@ -202,7 +210,7 @@ void ExecutorVisionLocalization::Stop(
   success = EnableReportRealtimePose(false);
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
   }
@@ -229,9 +237,9 @@ void ExecutorVisionLocalization::Stop(
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  ResetFlags();
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
 
   is_activate_ = false;
   task_success_callback_();
@@ -249,13 +257,12 @@ void ExecutorVisionLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
+    UpdateFeedback(relocalization::kSLAMFailedContinueTrying);
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
     relocalization_failure_ = true;
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    UpdateFeedback(relocalization::kSLAMError);
     WARN("Relocalization failed.");
   }
 }
@@ -369,11 +376,10 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 bool ExecutorVisionLocalization::EnableRelocalization()
 {
   // Wait service
-  while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -395,11 +401,10 @@ bool ExecutorVisionLocalization::EnableRelocalization()
 bool ExecutorVisionLocalization::DisenableRelocalization()
 {
   // Wait service
-  while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -420,11 +425,10 @@ bool ExecutorVisionLocalization::DisenableRelocalization()
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -457,11 +461,10 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
       "get_miloc_status", shared_from_this());
   }
 
-  while (!map_result_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -501,6 +504,12 @@ bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
     ERROR("Release localization failed.");
   }
   return success;
+}
+
+void ExecutorVisionLocalization::ResetFlags()
+{
+  relocalization_success_ = false;
+  relocalization_failure_ = false;
 }
 
 }  // namespace algorithm

@@ -18,6 +18,7 @@
 #include <functional>
 
 #include "algorithm_manager/executor_laser_localization.hpp"
+#include "algorithm_manager/feedcode_type.hpp"
 
 namespace cyberdog
 {
@@ -84,30 +85,40 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
       "PoseEnable", shared_from_this());
   }
 
+  // 1 正在激活依赖节点
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("Laser localization lifecycle depend start up failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    // 2 激活依赖节点失败
+    UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
 
+  // 3 激活依赖节点成功
+  UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+
   // Enable Relocalization
+  UpdateFeedback(relocalization::kServiceStarting);
   bool success = EnableRelocalization();
   if (!success) {
     ERROR("Turn on relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kServiceStartingError);
     task_abort_callback_();
+    ResetLifecycleDefaultValue();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
+  UpdateFeedback(relocalization::kServiceStartingSuccess);
 
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kSLAMTimeout);
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
     return;
@@ -116,7 +127,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Check relocalization success
   if (!relocalization_success_) {
     ERROR("Lidar relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kSLAMError);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
@@ -127,7 +138,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    UpdateFeedback(relocalization::kSLAMError);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     StopLocalization();
@@ -135,7 +146,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   // 结束激活进度的上报
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
+  UpdateFeedback(relocalization::kSLAMSuccess);
 
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
@@ -156,16 +167,7 @@ void ExecutorLaserLocalization::Stop(
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-    task_abort_callback_();
-    return;
-  }
-
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+    response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
   }
@@ -178,17 +180,25 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
+  // Disenable report realtime robot pose
+  success = EnableReportRealtimePose(false);
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    ERROR("Disenable report realtime robot pose failed.");
+    task_abort_callback_();
+    return;
+  }
+
   // Nav lifecycle
   response->result = localization_lifecycle_->Pause() ?
     StopTaskSrv::Response::SUCCESS :
     StopTaskSrv::Response::FAILED;
 
+  ResetFlags();
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
-  UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_SUCCESS);
   is_activate_ = false;
-  // task_success_callback_();
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -210,13 +220,12 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
   if (msg->data == 0) {
     relocalization_success_ = true;
     INFO("Relocalization success.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_SUCCESS);
   } else if (msg->data == 100) {
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_RETRYING);
+    UpdateFeedback(relocalization::kSLAMFailedContinueTrying);
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
     relocalization_failure_ = true;
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_RELOCING_FAILED);
+    UpdateFeedback(relocalization::kSLAMError);
     WARN("Relocalization failed.");
   }
 }
@@ -304,11 +313,10 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
 bool ExecutorLaserLocalization::EnableRelocalization()
 {
   // Wait service
-  while (!start_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -330,11 +338,10 @@ bool ExecutorLaserLocalization::EnableRelocalization()
 bool ExecutorLaserLocalization::DisenableRelocalization()
 {
   // Wait service
-  while (!stop_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -390,6 +397,23 @@ void ExecutorLaserLocalization::StopLocalization()
   auto request = std::make_shared<StopTaskSrv::Request>();
   auto response = std::make_shared<StopTaskSrv::Response>();
   Stop(request, response);
+}
+
+bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
+{
+  bool success = LifecycleNodeManager::GetSingleton()->Pause(
+    LifeCycleNodeType::RealSenseCameraSensor);
+  if (!success) {
+    ERROR("Release RealSense failed.");
+  }
+
+  return success;
+}
+
+void ExecutorLaserLocalization::ResetFlags()
+{
+  relocalization_success_ = false;
+  relocalization_failure_ = false;
 }
 
 }  // namespace algorithm
