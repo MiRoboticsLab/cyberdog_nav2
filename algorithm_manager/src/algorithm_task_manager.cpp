@@ -315,6 +315,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
 void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   SetTaskHandle(goal_handle);
   std::thread{[this, goal_handle]() {
       activated_executor_->Start(goal_handle->get_goal());
