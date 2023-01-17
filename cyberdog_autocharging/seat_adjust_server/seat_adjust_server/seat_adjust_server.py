@@ -489,7 +489,9 @@ class SeatAdjustServer(Node):
                 + '  yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
             )
         else:
-            self.get_logger().info('YAW_ADJUST_OK!------ yaw_adjust_sum: %3f' % (self.yaw_adjust_sum))
+            self.get_logger().info(
+                'YAW_ADJUST_OK!------ yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
+            )
             self.motion_req.rpy_des[2] = 0.0
             self.yaw_adjust_complete = 1
 
@@ -540,7 +542,7 @@ class SeatAdjustServer(Node):
             self.motion_req.motion_id = 212
             self.motion_req.duration = (int)(timer_period * 1000 - 10)
             self.send_motion_request()
-        elif (self.action_start) and (self.y_adjust_complete) and ( self.yaw_adjust_complete):
+        elif (self.action_start) and (self.y_adjust_complete) and (self.yaw_adjust_complete):
             self.get_logger().info('adjust completed')
             self.timer_count = self.timer_count + 1
             self.motion_req.pos_des[0] = 0
@@ -566,14 +568,7 @@ class SeatAdjustServer(Node):
             self.send_motion_request()
             self.yaw_adjust_sum = 0.0
             self.y_adjust_sum = 0.0
-        # self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-        # if (self.action_start):
-        #     self.timer_count = self.timer_count + 1
-        #     self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-        # if (self.timer_count == 20):
-        #     self.timer_count = 0
-        #     self.action_start = 0
-        #     self.action_complete = 1
+
     def timer_callback_bkp(self):
         if self.action_start and (self.timer_count < adjust_times):
             self.timer_count = self.timer_count + 1
@@ -607,6 +602,7 @@ class SeatAdjustServer(Node):
             self.timer_count = 0
             self.action_start = 0
             self.action_complete = 1
+
 
 def point_cloud(points, parent_frame):
     # In a PointCloud2 message, the point cloud is stored as an byte
