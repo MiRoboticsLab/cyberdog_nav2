@@ -39,6 +39,9 @@ public:
     // Publish trigger signal message for navigation module, Let's stop all depend other
     // modules and some sensors
     nav_stop_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_nav_trigger", 10);
+    stop_robot_nav_client_ = create_client<std_srvs::srv::SetBool>("reset_stop_robot_navigation");
+    stop_lidar_slam_client_ = create_client<std_srvs::srv::SetBool>("reset_stop_lidar_localization");
+    stop_vison_slam_client_ = create_client<std_srvs::srv::SetBool>("reset_stop_vision_localization");
 
     // spin
     std::thread{[this]() {
@@ -58,21 +61,37 @@ public:
     StopTaskSrv::Response::SharedPtr response) override
   {
     (void)request;
-    DeactivateDepsLifecycleNodes(this->get_name());
-    response->result = OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause) ?
-      StopTaskSrv::Response::SUCCESS :
-      StopTaskSrv::Response::FAILED;
     INFO("Nav Reset");
 
-    // Trigger signal
-    PublishResetNavTrigger();
+    // 1 Stop robot navigation and deactive all lifecycle nodes
+    bool is_stop_navgation = StopRobotNavgation();
+    if (!is_stop_navgation) {
+      ERROR("Stop current robot navigation failed.");
+      response->result = StopTaskSrv::Response::FAILED;
+      task_abort_callback_();
+      return;
+    }
+    INFO("Stop current robot navigation success.");
+
+    // 2 Stop current SLAM Localizaiton(lidar or vision) and deactive all lifecycle nodes
+    bool is_stop_slam = StopSLAMLocalization();
+    if (!is_stop_slam) {
+      ERROR("Stop current slam localization failed.");
+      response->result = StopTaskSrv::Response::FAILED;
+      task_abort_callback_();
+      return;
+    }
+    INFO("Stop current slam localization success.");
+  
+    // 3 Return manager status and call callback function
+    response->result = StopTaskSrv::Response::SUCCESS;
+    task_cancle_callback_();
+    INFO("[Nav Reset]: Nav Reset success.");
   }
   void Cancel() override
   {
     ERROR("Error: Cancel ExecutorResetNav should never be called");
   }
-  // void UpdateStatus(const ExecutorStatus & executor_status) override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
   /**
@@ -85,8 +104,92 @@ private:
     nav_stop_trigger_pub_->publish(data);
   }
 
+  bool StopRobotNavgation()
+  {
+    bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
+    if (!is_connect) {
+      ERROR("Connect stop robot navigation server timeout.");
+      return false;
+    }
+
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+    request->data = true;
+
+    bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+    return success;
+  }
+
+  bool StopSLAMLocalization()
+  {
+    // lidar
+    bool is_connect_lidar = stop_lidar_slam_client_->wait_for_service(std::chrono::seconds(2));
+    bool is_connect_vision = stop_vison_slam_client_->wait_for_service(std::chrono::seconds(2));
+
+    if (!is_connect_lidar && !is_connect_vision) {
+      ERROR("SLAM Localization not running, Connect server timeout.");
+      return false;
+    }
+
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+    request->data = true;
+    bool success = false;
+
+    if (is_connect_lidar) {
+      success = SendServerRequest(stop_lidar_slam_client_, request, response);
+    }
+
+    if (is_connect_vision) {
+      success = SendServerRequest(stop_vison_slam_client_, request, response);
+    }
+
+    if (!success) {
+      return false;
+    }
+    INFO("Stop SLAM Localization success.");
+    return true;
+  }
+
+  bool ConnectStopNavigationServer()
+  {
+    return true;
+  }
+
+  bool ConnectLidarLocalizationServer()
+  {
+    return true;
+  }
+
+  bool ConnectVisionLocalizationServer()
+  {
+    return true;
+  }
+
+  bool SendServerRequest(
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const std_srvs::srv::SetBool::Request::SharedPtr & request,
+    std_srvs::srv::SetBool::Response::SharedPtr & response)
+  {
+    auto future = client->async_send_request(request);
+    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
+      return false;
+    }
+
+    if (future.get()->success) {
+      INFO("Success to call stop service : %s.", client->get_service_name());
+    } else {
+      ERROR("Get error when call stop service : %s.", client->get_service_name());
+    }
+    return true;
+  } 
+
   // vision mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_pub_{nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_lidar_slam_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_vison_slam_client_ {nullptr};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

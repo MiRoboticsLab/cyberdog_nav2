@@ -144,6 +144,13 @@ private:
   bool ResetLifecycleDefaultValue();
   void ResetFlags();
 
+  void HandleStopResetCallback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<std_msgs::msg::Bool> request,
+    std::shared_ptr<std_msgs::msg::Bool> respose);
+
+  bool ResetAllLifecyceNodes();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -157,6 +164,9 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
+
+  // serice reset(reset_stop_lidar_localization)
+  rclcpp::Service<std_msgs::msg::Bool>::SharedPtr service_stop_lidar_localization_ {nullptr}; 
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};

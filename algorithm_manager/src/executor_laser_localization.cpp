@@ -52,6 +52,12 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
       &ExecutorLaserLocalization::HandleStopTriggerCommandMessages, this,
       std::placeholders::_1));
 
+  service_stop_lidar_localization_ =  create_service<std_msgs::msg::Bool>(
+    "reset_stop_lidar_localization", std::bind(
+      &ExecutorLaserLocalization::HandleStopResetCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+      rmw_qos_profile_services_default);
+
   // spin
   std::thread{[this]() {
       rclcpp::spin(this->get_node_base_interface());
@@ -394,9 +400,7 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
 
 void ExecutorLaserLocalization::StopLocalization()
 {
-  auto request = std::make_shared<StopTaskSrv::Request>();
-  auto response = std::make_shared<StopTaskSrv::Response>();
-  Stop(request, response);
+  //TODO： 不能调用manager的类似函数 task_abort_callback_();
 }
 
 bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
@@ -414,6 +418,39 @@ void ExecutorLaserLocalization::ResetFlags()
 {
   relocalization_success_ = false;
   relocalization_failure_ = false;
+}
+
+void ExecutorLaserLocalization::HandleStopResetCallback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<std_msgs::msg::Bool> request,
+    std::shared_ptr<std_msgs::msg::Bool> respose)
+{
+  // 1 Check current lidar slan in running state
+  if (!request->data) {
+    return;
+  }
+
+  if (!is_activate_) {
+    respose->data = true;
+    return;
+  }
+
+  // 2 stop current robot navgation
+  StopLocalization();
+
+  // 3 deactivate all navigation lifecycle nodes
+  bool success = ResetAllLifecyceNodes();
+  if (success) {
+    ERROR("[Laser Localization] Reset all lifecyce nodes failed.");
+    respose->data = false;
+  }
+
+  respose->data = true;
+}
+
+bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
+{
+  return true;
 }
 
 }  // namespace algorithm

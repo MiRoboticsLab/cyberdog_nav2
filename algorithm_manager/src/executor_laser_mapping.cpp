@@ -299,13 +299,14 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     return false;
   }
 
-
   // Set request data
   auto request = std::make_shared<visualization::srv::Stop::Request>();
-  request->finish = true;
-  // request->map_name = map_filename;
-  request->map_name = "map";
-  INFO("Saved lidar map building filename: %s", map_filename.c_str());
+  if (map_filename.empty()) {
+    request->finish = false;
+  } else {
+    request->finish = true;
+  }
+  INFO("[Laser Mapping] Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request
   // return stop_->invoke(request, response);

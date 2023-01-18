@@ -248,6 +248,14 @@ private:
   void ResetDefaultValue();
   void ResetPreprocessingValue();
   void PublishZeroPath();
+  bool ResetAllLifecyceNodes();
+
+  bool StopRobotNavigation();
+
+  void HandleStopRobotNavCallback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<std_msgs::msg::Bool> request,
+    std::shared_ptr<std_msgs::msg::Bool> respose);
 
   // feedback data
   ExecutorData executor_nav_ab_data_;
@@ -292,6 +300,7 @@ private:
 
   // nav trigger
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_sub_{nullptr};
+  rclcpp::Service<std_msgs::msg::Bool>::SharedPtr service_stop_robot_nav_ {nullptr};
   std::atomic_bool navigation_reset_trigger_{false};
 
   // Record lidar or vision flag

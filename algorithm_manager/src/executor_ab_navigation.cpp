@@ -83,6 +83,13 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
 
+  // Reset navigation service
+  service_stop_robot_nav_ = create_service<std_msgs::msg::Bool>(
+    "reset_stop_robot_navigation", std::bind(
+      &ExecutorAbNavigation::HandleStopRobotNavCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+      rmw_qos_profile_services_default);
+
   // spin
   std::thread{[this]() {
       rclcpp::spin(this->get_node_base_interface());
@@ -211,6 +218,7 @@ void ExecutorAbNavigation::Stop(
     // async_cancel_goal will throw exceptions::UnknownGoalHandleError()
     try {
       auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+      // TODO: 判断future_cancel的结果和等待
       PublishZeroPath();
     } catch (const std::exception & e) {
       ERROR("%s", e.what());
@@ -591,6 +599,75 @@ void ExecutorAbNavigation::PublishZeroPath()
   auto msg = std::make_unique<nav_msgs::msg::Path>();
   msg->poses.clear();
   plan_publisher_->publish(std::move(msg));
+}
+
+bool ExecutorAbNavigation::ResetAllLifecyceNodes()
+{
+  bool success = DeactivateDepsLifecycleNodes();
+  return true;
+}
+
+bool ExecutorAbNavigation::StopRobotNavigation()
+{
+  if (nav_goal_handle_ == nullptr) {
+    return false;
+  }
+
+  auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+  if (!server_ready) {
+    ERROR("Navigation action server is not available.");
+    return false;
+  }
+
+  try {
+    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+    if (future_cancel.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+      ERROR("Cannot get response from service(navigate_to_pose) in 2s");
+      return false;
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+    return false;
+  }
+
+  // clear robot path
+  PublishZeroPath();
+  return true;
+}
+
+void ExecutorAbNavigation::HandleStopRobotNavCallback(
+  const std::shared_ptr<rmw_request_id_t>,
+  const std::shared_ptr<std_msgs::msg::Bool> request,
+  std::shared_ptr<std_msgs::msg::Bool> respose)
+{
+  // 1 Check current in navigation state
+  if (!request->data) {
+    return;
+  }
+
+  // check robot shoud can call cancel and stop.
+  bool can_cancel = ShouldCancelGoal();
+  if (!can_cancel) {
+    respose->data = true;
+    return;
+  }
+
+  // 2 stop current robot navgation
+  bool success = StopRobotNavigation();
+  if (!success) {
+    ERROR("Stop robot success.");
+    respose->data = false;
+    return;
+  }
+
+  // 3 deactivate all navigation lifecycle nodes
+  success = ResetAllLifecyceNodes();
+  if (success) {
+    ERROR("Reset all lifecyce nodes failed.");
+    respose->data = false;
+  }
+
+  respose->data = true;
 }
 
 }  // namespace algorithm
