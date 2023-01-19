@@ -150,6 +150,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
   bool use_lidar_create_map_ {false};
   bool use_vision_create_map_ {false};
+  std::mutex mutex_;
 };
 }  // namespace CYBERDOG_NAV
 #endif  // MAP_LABEL_SERVER__LABELSERVER_NODE_HPP_

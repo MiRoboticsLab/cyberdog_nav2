@@ -98,13 +98,14 @@ void LabelServer::handle_get_label(
   std::unique_lock<std::mutex> ulk(mut);
   std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
 
+  INFO("[ Get label server request: ------------------------------------- ]");
   INFO("map_name : %s", request->map_name.c_str());
-  bool map_status = false;
-  bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
-  if (!ready && !map_status) {
-    WARN("Current map not available.");
-    return;
-  }
+  // bool map_status = false;
+  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
+  // if (!ready && !map_status) {
+  //   WARN("Current map not available.");
+  //   return;
+  // }
 
   std::string map_filename = request->map_name + ".pgm";
   if (!map_label_store_ptr_->IsExist(map_filename)) {
@@ -165,8 +166,7 @@ void LabelServer::handle_set_label(
   const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
   std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
-  INFO("LabelServer::handle_set_label ");
-
+  INFO("[ Set label server request: ------------------------------------- ]");
   std::string map_filename = request->label.map_name + ".pgm";
   INFO("map name: %s", map_filename.c_str());
   if (!map_label_store_ptr_->IsExist(map_filename)) {
@@ -391,6 +391,7 @@ void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::Shared
 
 void LabelServer::SetOutdoorFlag(bool outdoor)
 {
+  std::lock_guard<std::mutex> locker(mutex_);
   const std::string map_name = "map";
   std::string label_filename = map_label_store_ptr_->map_label_directory() + "map.json";
   rapidjson::Document doc(rapidjson::kObjectType);
@@ -431,11 +432,10 @@ bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std
   }
 
   // Client request
-  while (!map_result_client_->wait_for_service(std::chrono::seconds(5))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
-      return false;
-    }
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(5));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
