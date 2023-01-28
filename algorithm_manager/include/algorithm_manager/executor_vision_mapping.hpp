@@ -108,7 +108,7 @@ private:
   * @return true Return success
   * @return false Return failure
   */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
@@ -133,6 +133,10 @@ private:
 
   // vision mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

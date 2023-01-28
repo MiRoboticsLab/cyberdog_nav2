@@ -25,7 +25,7 @@ TaskName = "VisionMapping"
 Id = 5
 OutDoor = true
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["camera/camera", "stereo_camera", "mivinsmapping"]
 
 [[task]]
 TaskName = "VisionLocalization"

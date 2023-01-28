@@ -134,10 +134,6 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping success.");
-
-  // invaild feedback code for send app
-  const int32_t kInvalidFeedbackCode = -1;
-  UpdateFeedback(kInvalidFeedbackCode);
 }
 
 void ExecutorLaserMapping::Stop(
@@ -145,6 +141,8 @@ void ExecutorLaserMapping::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   INFO("[Laser Mapping] Laser Mapping will stop");
+  response->result = StopTaskSrv::Response::SUCCESS;
+
   Timer timer_;
   timer_.Start();
 
@@ -158,11 +156,6 @@ void ExecutorLaserMapping::Stop(
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
-  }
-
-  if (stop_ == nullptr) {
-    stop_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
-      "stop_mapping", shared_from_this());
   }
 
   // MapServer
@@ -182,7 +175,6 @@ void ExecutorLaserMapping::Stop(
     return;
   }
 
-  response->result = StopTaskSrv::Response::SUCCESS;
   task_cancle_callback_();
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
@@ -242,6 +234,7 @@ bool ExecutorLaserMapping::StartBuildMapping()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = start_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -252,6 +245,11 @@ bool ExecutorLaserMapping::StartBuildMapping()
 
 bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
 {
+  if (stop_ == nullptr) {
+    stop_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
+      "stop_mapping", shared_from_this());
+  }
+
   // Wait service
   bool connect = stop_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -265,6 +263,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     request->finish = false;
   } else {
     request->finish = true;
+    request->map_name = map_filename;
   }
   INFO("[Laser Mapping] Saved lidar map building filename: %s", map_filename.c_str());
 
@@ -272,6 +271,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   // return stop_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
     result = future_result->success;
   } catch (const std::exception & e) {

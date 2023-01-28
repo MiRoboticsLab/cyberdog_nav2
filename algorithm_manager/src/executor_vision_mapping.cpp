@@ -56,7 +56,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!ready) {
     ERROR("[Vision Mapping] Vision Mapping lifecycle depend start up failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -76,7 +76,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!success) {
     ERROR("[Vision Mapping] Start Vision Mapping failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -101,7 +101,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
           UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-          ResetLifecycleDefaultValue();
+          ResetAllLifecyceNodes();
           task_abort_callback_();
           return;
         }
@@ -185,65 +185,12 @@ void ExecutorVisionMapping::Cancel()
 
 bool ExecutorVisionMapping::IsDependsReady()
 {
-  Timer timer_;
-  timer_.Start();
-
-  // RealSense camera
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RealSense camera set configure state failed.");
-      return false;
-    }
-
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RealSense camera set activate state failed.");
-      return false;
-    }
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  if (!acivate_success) {
+    return false;
   }
 
-  INFO("[Vision Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  // RGB-G camera
-  success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    // RGB-G camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RGB-G camera set configure state failed.");
-      return false;
-    }
-
-    // RGB-G camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      ERROR("[Vision Mapping] RGB-G camera set activate state failed.");
-      return false;
-    }
-  }
-
-  INFO("[Vision Mapping] RGB-G camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  if (!mapping_client_->IsActivate()) {
-    success = mapping_client_->Configure() && mapping_client_->Startup();
-    if (!success) {
-      ERROR("[Vision Mapping] lifecycle manager mivinsmapping set activate state failed.");
-      return false;
-    }
-  }
-
-  INFO("[Vision Mapping] mivinsmapping elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  INFO("[Vision Mapping] Start all depends lifecycle nodes success.");
   return true;
 }
 
@@ -278,7 +225,6 @@ bool ExecutorVisionMapping::StartBuildMapping()
 
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
-  (void)map_filename;
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -423,25 +369,10 @@ void ExecutorVisionMapping::PublishBuildMapType()
   vision_mapping_trigger_pub_->publish(state);
 }
 
-bool ExecutorVisionMapping::ResetLifecycleDefaultValue()
+bool ExecutorVisionMapping::ResetAllLifecyceNodes()
 {
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    ERROR("Release RealSense failed.");
-  }
-
-  LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("Release RGBCamera failed.");
-  }
-
-  mapping_client_->Pause();
-  if (!success) {
-    ERROR("Release mapping_client failed.");
-  }
-  return success;
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  return DeactivateDepsLifecycleNodes();
 }
 
 }  // namespace algorithm
