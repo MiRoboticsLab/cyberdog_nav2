@@ -195,6 +195,7 @@ void ExecutorVisionLocalization::Stop(
 {
   (void)request;
   INFO("Vision localization will stop");
+  response->result = StopTaskSrv::Response::SUCCESS;
 
   Timer timer_;
   timer_.Start();
@@ -207,13 +208,10 @@ void ExecutorVisionLocalization::Stop(
   }
 
   // Disenable Relocalization
-  bool success = DisenableRelocalization();
+  bool success = DisableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    ResetAllLifecyceNodes();
-    return;
   }
 
   // Disenable report realtime robot pose
@@ -221,23 +219,19 @@ void ExecutorVisionLocalization::Stop(
   if (!success) {
     ERROR("Disenable report realtime robot pose failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
   }
 
+  ResetFlags();
   success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
   }
+  task_success_callback_();
 
-  ResetFlags();
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  is_activate_ = false;
-  task_success_callback_();
 }
 
 void ExecutorVisionLocalization::Cancel()
@@ -339,7 +333,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   return result;
 }
 
-bool ExecutorVisionLocalization::DisenableRelocalization()
+bool ExecutorVisionLocalization::DisableRelocalization()
 {
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));

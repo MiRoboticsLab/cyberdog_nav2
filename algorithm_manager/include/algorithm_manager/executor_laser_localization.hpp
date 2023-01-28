@@ -116,7 +116,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool DisenableRelocalization();
+  bool DisableRelocalization();
 
   /**
    * @brief Turn on ot turn off report realtime robot pose

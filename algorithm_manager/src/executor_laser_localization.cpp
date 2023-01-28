@@ -144,6 +144,8 @@ void ExecutorLaserLocalization::Stop(
 {
   (void)request;
   INFO("Laser localization will stop");
+  response->result = StopTaskSrv::Response::SUCCESS;
+
   Timer timer_;
   timer_.Start();
 
@@ -155,23 +157,20 @@ void ExecutorLaserLocalization::Stop(
   }
   
   // Disenable Relocalization
-  bool success = DisenableRelocalization();
+  bool success = DisableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
   }
 
   // Disenable report realtime robot pose
   success = EnableReportRealtimePose(false);
   if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
     ERROR("Disenable report realtime robot pose failed.");
-    task_abort_callback_();
-    return;
+    response->result = StopTaskSrv::Response::FAILED;
   }
 
+  ResetFlags();
   success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
@@ -179,15 +178,13 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
-  ResetFlags();
-  response->result = StopTaskSrv::Response::SUCCESS;
-  INFO("Laser localization stoped success");
-  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
-  is_activate_ = false;
 
   // Set manager status
   task_cancle_callback_();
+
+  INFO("Laser localization stoped success");
+  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -281,7 +278,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   return result;
 }
 
-bool ExecutorLaserLocalization::DisenableRelocalization()
+bool ExecutorLaserLocalization::DisableRelocalization()
 {
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
