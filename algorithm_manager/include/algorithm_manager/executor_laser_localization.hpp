@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
@@ -85,13 +86,6 @@ private:
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
 
   /**
-   * @brief Handle some request stop location module
-   *
-   * @param msg Request command
-   */
-  void HandleStopTriggerCommandMessages(const std_msgs::msg::Bool::SharedPtr msg);
-
-  /**
   * @brief Check `camera/camera` real sense sensor status
   *
   * @return true Return success
@@ -133,8 +127,6 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
-  void StopLocalization();
-
   /**
  * @brief Set all lifecycle default state
  *
@@ -144,18 +136,21 @@ private:
   bool ResetLifecycleDefaultValue();
   void ResetFlags();
 
-  void HandleStopResetCallback(
-    const std::shared_ptr<rmw_request_id_t>,
-    const std::shared_ptr<std_msgs::msg::Bool> request,
-    std::shared_ptr<std_msgs::msg::Bool> respose);
-
   bool ResetAllLifecyceNodes();
+
+  bool SendServerRequest(
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const std_srvs::srv::SetBool::Request::SharedPtr & request,
+    std_srvs::srv::SetBool::Response::SharedPtr & response);
+
+
+  bool IfRobotNavigationRunningAndStop();
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
   // Control localization_node lifecycle
-  std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+  // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
@@ -165,12 +160,11 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
-  // serice reset(reset_stop_lidar_localization)
-  rclcpp::Service<std_msgs::msg::Bool>::SharedPtr service_stop_lidar_localization_ {nullptr}; 
+  // serice reset(stop current robot running)
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_trigger_sub_{nullptr};
 
   // Record relocalization result
   bool relocalization_success_ {false};
@@ -181,6 +175,10 @@ private:
 
   // in service
   bool is_activate_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

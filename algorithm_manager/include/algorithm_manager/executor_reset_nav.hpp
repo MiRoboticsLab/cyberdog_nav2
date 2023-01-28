@@ -63,31 +63,32 @@ public:
     (void)request;
     INFO("Nav Reset");
 
-    // 1 Stop robot navigation and deactive all lifecycle nodes
-    bool is_stop_navgation = StopRobotNavgation();
-    if (!is_stop_navgation) {
-      ERROR("Stop current robot navigation failed.");
-      response->result = StopTaskSrv::Response::FAILED;
-      task_abort_callback_();
-      return;
-    }
-    INFO("Stop current robot navigation success.");
+    // // 1 Stop robot navigation and deactive all lifecycle nodes
+    // bool is_stop_navgation = StopRobotNavgation();
+    // if (!is_stop_navgation) {
+    //   ERROR("Stop current robot navigation failed.");
+    //   response->result = StopTaskSrv::Response::FAILED;
+    //   task_abort_callback_();
+    //   return;
+    // }
+    // INFO("Stop current robot navigation success.");
 
-    // 2 Stop current SLAM Localizaiton(lidar or vision) and deactive all lifecycle nodes
-    bool is_stop_slam = StopSLAMLocalization();
-    if (!is_stop_slam) {
-      ERROR("Stop current slam localization failed.");
-      response->result = StopTaskSrv::Response::FAILED;
-      task_abort_callback_();
-      return;
-    }
-    INFO("Stop current slam localization success.");
+    // // 2 Stop current SLAM Localizaiton(lidar or vision) and deactive all lifecycle nodes
+    // bool is_stop_slam = StopSLAMLocalization();
+    // if (!is_stop_slam) {
+    //   ERROR("Stop current slam localization failed.");
+    //   response->result = StopTaskSrv::Response::FAILED;
+    //   task_abort_callback_();
+    //   return;
+    // }
+    // INFO("Stop current slam localization success.");
   
-    // 3 Return manager status and call callback function
-    response->result = StopTaskSrv::Response::SUCCESS;
-    task_cancle_callback_();
-    INFO("[Nav Reset]: Nav Reset success.");
+    // // 3 Return manager status and call callback function
+    // response->result = StopTaskSrv::Response::SUCCESS;
+    // task_cancle_callback_();
+    // INFO("[Nav Reset]: Nav Reset success.");
   }
+
   void Cancel() override
   {
     ERROR("Error: Cancel ExecutorResetNav should never be called");

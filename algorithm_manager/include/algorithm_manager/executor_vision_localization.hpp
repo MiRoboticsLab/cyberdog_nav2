@@ -137,9 +137,16 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   void ResetFlags();
+
+  bool SendServerRequest(
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const std_srvs::srv::SetBool::Request::SharedPtr & request,
+    std_srvs::srv::SetBool::Response::SharedPtr & response);
+
+  bool IfRobotNavigationRunningAndStop();
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
@@ -158,6 +165,9 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
+  // serice reset(stop current robot running)
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};
+
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_trigger_sub_{nullptr};
@@ -171,6 +181,10 @@ private:
 
   // in service
   bool is_activate_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

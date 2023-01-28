@@ -47,6 +47,9 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       &ExecutorVisionLocalization::HandleStopTriggerCommandMessages, this,
       std::placeholders::_1));
 
+  stop_robot_nav_client_ = this->create_client<std_srvs::srv::SetBool>(
+    "stop_running_robot_navigation", rmw_qos_profile_services_default);
+
   // // Control vision relocalization turn on
   // start_client_ = create_client<std_srvs::srv::SetBool>(
   //   "start_vins_location", rmw_qos_profile_services_default);
@@ -89,7 +92,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
   if (!ready) {
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     ERROR("Vision localization lifecycle depend start up failed.");
     // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
@@ -121,7 +124,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!success) {
     ERROR("Turn on relocalization failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -132,7 +135,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!success) {
     ERROR("Vision localization failed.");
     UpdateFeedback(relocalization::kSLAMTimeout);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -141,7 +144,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!relocalization_success_) {
     ERROR("Vision relocalization failed.");
     UpdateFeedback(relocalization::kSLAMError);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -171,7 +174,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
-          ResetLifecycleDefaultValue();
+          ResetAllLifecyceNodes();
           task_abort_callback_();
           return;
         }
@@ -196,13 +199,20 @@ void ExecutorVisionLocalization::Stop(
   Timer timer_;
   timer_.Start();
 
+  // Stop current running navigation robot.
+  bool stop_navigation_running = IfRobotNavigationRunningAndStop();
+  if (!stop_navigation_running) {
+    ERROR("Stop robot navigation running failed.");
+    response->result = StopTaskSrv::Response::FAILED;
+  }
+
   // Disenable Relocalization
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Vision relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     return;
   }
 
@@ -215,27 +225,12 @@ void ExecutorVisionLocalization::Stop(
     return;
   }
 
-  // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
+  success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
   }
-
-  // RGB-D camera lifecycle(dectivate state)
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
-  }
-
-  response->result = localization_lifecycle_->Pause() ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
 
   ResetFlags();
   INFO("Vision Localization stoped success");
@@ -289,67 +284,13 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  Timer timer_;
-  timer_.Start();
-
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-  } else {
-    INFO("RealSense Camera Sensor is activate.");
-  }
-
-  INFO("[Vision Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    // RGB-D camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      return false;
-    }
-
-    // RGB-D camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RGBCameraSensor);
-    if (!success) {
-      return false;
-    }
-  } else {
-    INFO("RGB-D Camera Sensor is activate.");
-  }
-
-  INFO("[Vision Mapping] RGB-G camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  success = localization_lifecycle_->IsActivate();
-  if (!success) {
-    // localization_node lifecycle(configure state)
-    if (!localization_lifecycle_->Configure()) {
-      return false;
-    }
-
-    // localization_node lifecycle(activate state)
-    if (!localization_lifecycle_->Startup()) {
-      return false;
-    }
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  if (!acivate_success) {
+    return false;
   }
 
   is_activate_ = true;
-  INFO("[Vision Mapping] mivinslocalization elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return true;
 }
 
@@ -485,31 +426,52 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
   return result;
 }
 
-bool ExecutorVisionLocalization::ResetLifecycleDefaultValue()
+bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    ERROR("Release RealSense failed.");
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  return DeactivateDepsLifecycleNodes();
+}
+
+bool ExecutorVisionLocalization::SendServerRequest(
+  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+  const std_srvs::srv::SetBool::Request::SharedPtr & request,
+  std_srvs::srv::SetBool::Response::SharedPtr & response)
+{
+  auto future = client->async_send_request(request);
+  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
+    return false;
   }
 
-  LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
-  if (!success) {
-    ERROR("Release RGBCamera failed.");
+  if (future.get()->success) {
+    INFO("Success to call stop service : %s.", client->get_service_name());
+  } else {
+    ERROR("Get error when call stop service : %s.", client->get_service_name());
   }
-
-  localization_lifecycle_->Pause();
-  if (!success) {
-    ERROR("Release localization failed.");
-  }
-  return success;
+  return true;
 }
 
 void ExecutorVisionLocalization::ResetFlags()
 {
   relocalization_success_ = false;
   relocalization_failure_ = false;
+  is_activate_ = false;
+}
+
+bool ExecutorVisionLocalization::IfRobotNavigationRunningAndStop()
+{
+  bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
+  if (!is_connect) {
+    ERROR("Connect stop robot navigation server timeout.");
+    return false;
+  }
+
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+  request->data = true;
+
+  bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+  return success;
 }
 
 }  // namespace algorithm

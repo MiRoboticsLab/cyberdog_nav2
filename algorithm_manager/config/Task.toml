@@ -11,14 +11,14 @@ TaskName = "LaserMapping"
 Id = 5
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["camera/camera", "map_builder"]
 
 [[task]]
 TaskName = "LaserLocalization"
 Id = 7
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["camera/camera", "localization_node"]
 
 [[task]]
 TaskName = "VisionMapping"
@@ -26,13 +26,13 @@ Id = 5
 OutDoor = true
 DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = []
-
+W
 [[task]]
 TaskName = "VisionLocalization"
 Id = 7
 OutDoor = true
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = []
+DepsLifecycleNodes = ["camera/camera", "stereo_camera", "mivinslocalization"]
 
 [[task]]
 TaskName = "NavAB"

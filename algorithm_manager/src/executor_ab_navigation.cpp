@@ -69,26 +69,27 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     this, "navigate_to_pose");
 
   // trigger slam
-  stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
-  stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
+  // stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
+  // stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
 
   // trigger navigation
-  stop_nav_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "stop_nav_trigger",
-    rclcpp::SystemDefaultsQoS(),
-    std::bind(
-      &ExecutorAbNavigation::HandleTriggerStopCallback, this,
-      std::placeholders::_1));
+  // stop_nav_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+  //   "stop_nav_trigger",
+  //   rclcpp::SystemDefaultsQoS(),
+  //   std::bind(
+  //     &ExecutorAbNavigation::HandleTriggerStopCallback, this,
+  //     std::placeholders::_1));
 
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
 
   // Reset navigation service
-  service_stop_robot_nav_ = create_service<std_msgs::msg::Bool>(
-    "reset_stop_robot_navigation", std::bind(
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  stop_running_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "stop_running_robot_navigation", std::bind(
       &ExecutorAbNavigation::HandleStopRobotNavCallback, this,
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-      rmw_qos_profile_services_default);
+    rmw_qos_profile_default, callback_group_);
 
   // spin
   std::thread{[this]() {
@@ -121,10 +122,10 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   UpdateFeedback(kMapCheckingSuccess);
 
   // Set vision and lidar flag
-  bool outdoor = false;
-  if (CheckUseOutdoor(outdoor)) {
-    SetLocationType(outdoor);
-  }
+  // bool outdoor = false;
+  // if (CheckUseOutdoor(outdoor)) {
+  //   SetLocationType(outdoor);
+  // }
 
   // Check all depends is ok
   // 1 正在激活依赖节点
@@ -321,7 +322,7 @@ bool ExecutorAbNavigation::IsDependsReady()
   }
 
   // start_lifecycle_depend_finished_ = true;
-  INFO("Call function IsDependsReady() finished.");
+  INFO("Call function IsDependsReady() finished success.");
   return true;
 }
 
@@ -604,10 +605,10 @@ void ExecutorAbNavigation::PublishZeroPath()
 bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 {
   bool success = DeactivateDepsLifecycleNodes();
-  return true;
+  return success;
 }
 
-bool ExecutorAbNavigation::StopRobotNavigation()
+bool ExecutorAbNavigation::StopRunningRobot()
 {
   if (nav_goal_handle_ == nullptr) {
     return false;
@@ -636,9 +637,9 @@ bool ExecutorAbNavigation::StopRobotNavigation()
 }
 
 void ExecutorAbNavigation::HandleStopRobotNavCallback(
-  const std::shared_ptr<rmw_request_id_t>,
-  const std::shared_ptr<std_msgs::msg::Bool> request,
-  std::shared_ptr<std_msgs::msg::Bool> respose)
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
 {
   // 1 Check current in navigation state
   if (!request->data) {
@@ -648,15 +649,15 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   // check robot shoud can call cancel and stop.
   bool can_cancel = ShouldCancelGoal();
   if (!can_cancel) {
-    respose->data = true;
+    respose->success = true;
     return;
   }
 
   // 2 stop current robot navgation
-  bool success = StopRobotNavigation();
+  bool success = StopRunningRobot();
   if (!success) {
     ERROR("Stop robot success.");
-    respose->data = false;
+    respose->success = false;
     return;
   }
 
@@ -664,10 +665,10 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   success = ResetAllLifecyceNodes();
   if (success) {
     ERROR("Reset all lifecyce nodes failed.");
-    respose->data = false;
+    respose->success = false;
   }
 
-  respose->data = true;
+  respose->success = true;
 }
 
 }  // namespace algorithm

@@ -29,8 +29,8 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   // Initialize all ros parameters
   DeclareParameters();
 
-  localization_client_ = std::make_unique<LifecycleController>("localization_node");
-  mapping_client_ = std::make_unique<LifecycleController>("map_builder");
+  // localization_client_ = std::make_unique<LifecycleController>("localization_node");
+  // mapping_client_ = std::make_unique<LifecycleController>("map_builder");
 
   // mapping build type
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
@@ -81,7 +81,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     return;
   }
 
@@ -107,7 +107,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     return;
   }
 
@@ -127,7 +127,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     return;
   }
 
@@ -155,7 +155,7 @@ void ExecutorLaserMapping::Stop(
     response->result = StopTaskSrv::Response::FAILED;
     // use topic stop robot realtime pose
     EnableReportRealtimePose(false, true);
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
@@ -170,25 +170,19 @@ void ExecutorLaserMapping::Stop(
   if (!success) {
     ERROR("[Laser Mapping] Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
 
-  // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
+  success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ERROR("[Laser Mapping] Laser Mapping stop failed.");
-    ResetLifecycleDefaultValue();
     task_abort_callback_();
     return;
   }
 
-  response->result = mapping_client_->Pause() ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
-
+  response->result = StopTaskSrv::Response::SUCCESS;
   task_cancle_callback_();
   INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("[Laser Mapping] Laser Mapping stoped success");
@@ -221,46 +215,12 @@ void ExecutorLaserMapping::GetParameters()
 
 bool ExecutorLaserMapping::IsDependsReady()
 {
-  Timer timer_;
-  timer_.Start();
-
-  // RealSense camera
-  bool success = LifecycleNodeManager::GetSingleton()->IsActivate(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    // RealSense camera lifecycle(configure state)
-    success = LifecycleNodeManager::GetSingleton()->Configure(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-
-    // RealSense camera lifecycle(activate state)
-    success = LifecycleNodeManager::GetSingleton()->Startup(
-      LifeCycleNodeType::RealSenseCameraSensor);
-    if (!success) {
-      return false;
-    }
-
-    is_open_realsense_camera_ = success;
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  if (!acivate_success) {
+    return false;
   }
 
-  INFO("[Laser Mapping] RealSense camera elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  // Laser mapping  lifecycle
-  if (!mapping_client_->IsActivate()) {
-    bool ok = mapping_client_->Configure();
-    if (!ok) {
-      return false;
-    }
-    ok = mapping_client_->Startup();
-    if (!ok) {
-      return false;
-    }
-  }
-
-  INFO("[Laser Mapping] map_builder elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  INFO("[Laser Mapping] Start all depends lifecycle nodes success.");
   return true;
 }
 
@@ -364,17 +324,17 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
 
 bool ExecutorLaserMapping::CheckAvailable()
 {
-  INFO("Check Laser localization is activating ?");
-  if (!localization_client_->IsActivate()) {
-    INFO("[Laser Mapping] Laser localization lifecycle is not activate state.");
-    return true;
-  }
+  // INFO("Check Laser localization is activating ?");
+  // if (!localization_client_->IsActivate()) {
+  //   INFO("[Laser Mapping] Laser localization lifecycle is not activate state.");
+  //   return true;
+  // }
 
-  if (!localization_client_->Pause()) {
-    return false;
-  }
+  // if (!localization_client_->Pause()) {
+  //   return false;
+  // }
 
-  INFO("[Laser Mapping] Laser localization lifecycle set deactivate state success.");
+  // INFO("[Laser Mapping] Laser localization lifecycle set deactivate state success.");
   return true;
 }
 
@@ -436,16 +396,6 @@ void ExecutorLaserMapping::PublishBuildMapType()
   lidar_mapping_trigger_pub_->publish(state);
 }
 
-bool ExecutorLaserMapping::ResetLifecycleDefaultValue()
-{
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return success;
-  }
-  return success;
-}
-
 bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
 {
   // Wait service
@@ -478,6 +428,12 @@ bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
     ERROR("%s", e.what());
   }
   return result;
+}
+
+bool ExecutorLaserMapping::ResetAllLifecyceNodes()
+{
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  return DeactivateDepsLifecycleNodes();
 }
 
 }  // namespace algorithm

@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
@@ -130,7 +131,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   /**
    * @brief Delete all vision in background viosn building data
@@ -162,8 +163,8 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Control realsense camera lifecycle
-  std::shared_ptr<LifecycleController> localization_client_ {nullptr};
-  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
+  // std::shared_ptr<LifecycleController> localization_client_ {nullptr};
+  // std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
 
   // lidar mapping alive
@@ -182,6 +183,10 @@ private:
 
   // record this sensor is open
   bool is_open_realsense_camera_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

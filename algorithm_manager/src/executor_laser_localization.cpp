@@ -29,7 +29,7 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name),
   location_status_(LocationStatus::Unknown)
 {
-  localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
+  // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
 
   location_status_service_ = create_service<std_srvs::srv::SetBool>(
     "slam_location_status",
@@ -45,18 +45,8 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
       &ExecutorLaserLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
-  stop_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "stop_lidar_relocation",
-    rclcpp::SystemDefaultsQoS(),
-    std::bind(
-      &ExecutorLaserLocalization::HandleStopTriggerCommandMessages, this,
-      std::placeholders::_1));
-
-  service_stop_lidar_localization_ =  create_service<std_msgs::msg::Bool>(
-    "reset_stop_lidar_localization", std::bind(
-      &ExecutorLaserLocalization::HandleStopResetCallback, this,
-      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-      rmw_qos_profile_services_default);
+  stop_robot_nav_client_ = this->create_client<std_srvs::srv::SetBool>(
+    "stop_running_robot_navigation", rmw_qos_profile_services_default);
 
   // spin
   std::thread{[this]() {
@@ -99,7 +89,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -114,7 +104,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Turn on relocalization failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
     task_abort_callback_();
-    ResetLifecycleDefaultValue();
+    ResetAllLifecyceNodes();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -126,17 +116,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Laser localization wait timeout, stop socalization.");
     UpdateFeedback(relocalization::kSLAMTimeout);
     location_status_ = LocationStatus::FAILURE;
-    StopLocalization();
-    return;
-  }
-
-  // Check relocalization success
-  if (!relocalization_success_) {
-    ERROR("Lidar relocalization failed.");
-    UpdateFeedback(relocalization::kSLAMError);
-    task_abort_callback_();
-    location_status_ = LocationStatus::FAILURE;
-    StopLocalization();
     return;
   }
 
@@ -147,7 +126,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     UpdateFeedback(relocalization::kSLAMError);
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
-    StopLocalization();
     return;
   }
 
@@ -169,18 +147,17 @@ void ExecutorLaserLocalization::Stop(
   Timer timer_;
   timer_.Start();
 
+  // Stop current running navigation robot.
+  bool stop_navigation_running = IfRobotNavigationRunningAndStop();
+  if (!stop_navigation_running) {
+    ERROR("Stop robot navigation running failed.");
+    response->result = StopTaskSrv::Response::FAILED;
+  }
+  
   // Disenable Relocalization
   bool success = DisenableRelocalization();
   if (!success) {
     ERROR("Turn off Laser relocalization failed.");
-    response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
-  }
-
-  // RealSense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
     task_abort_callback_();
     return;
@@ -195,16 +172,22 @@ void ExecutorLaserLocalization::Stop(
     return;
   }
 
-  // Nav lifecycle
-  response->result = localization_lifecycle_->Pause() ?
-    StopTaskSrv::Response::SUCCESS :
-    StopTaskSrv::Response::FAILED;
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    response->result = StopTaskSrv::Response::FAILED;
+    task_abort_callback_();
+    return;
+  }
 
   ResetFlags();
+  response->result = StopTaskSrv::Response::SUCCESS;
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   location_status_ = LocationStatus::Unknown;
   is_activate_ = false;
+
+  // Set manager status
+  task_cancle_callback_();
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -222,6 +205,10 @@ void ExecutorLaserLocalization::HandleLocationServiceCallback(
 void ExecutorLaserLocalization::HandleRelocalizationCallback(
   const std_msgs::msg::Int32::SharedPtr msg)
 {
+  if (!is_activate_) {
+    return;
+  }
+
   INFO("Relocalization result: %d", msg->data);
   if (msg->data == 0) {
     relocalization_success_ = true;
@@ -236,63 +223,15 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
   }
 }
 
-void ExecutorLaserLocalization::HandleStopTriggerCommandMessages(
-  const std_msgs::msg::Bool::SharedPtr msg)
-{
-  INFO("Handle stop laser relocalization module.");
-  if (msg == nullptr) {
-    return;
-  }
-
-  if (!is_activate_) {
-    INFO("Current laser localization not in activate, not need stop.");
-    return;
-  }
-
-  if (msg->data) {
-    auto request = std::make_shared<StopTaskSrv::Request>();
-    auto response = std::make_shared<StopTaskSrv::Response>();
-    Stop(request, response);
-  }
-}
-
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  Timer timer_;
-  timer_.Start();
-
-  // RealSense camera lifecycle(configure state)
-  bool success = LifecycleNodeManager::GetSingleton()->Configure(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
-
-  // RealSense camera lifecycle(activate state)
-  success = LifecycleNodeManager::GetSingleton()->Startup(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    return false;
-  }
-
-  INFO(
-    "[Laser Localization] RealSense camera elapsed time: %.5f [seconds]",
-    timer_.ElapsedSeconds());
-
-  // localization_node lifecycle(configure state)
-  if (!localization_lifecycle_->Configure()) {
-    return false;
-  }
-
-  // localization_node lifecycle(activate state)
-  if (!localization_lifecycle_->Startup()) {
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  if (!acivate_success) {
     return false;
   }
 
   is_activate_ = true;
-  INFO(
-    "[Laser Localization] localization_node elapsed time: %.5f [seconds]",
-    timer_.ElapsedSeconds());
   return true;
 }
 
@@ -333,6 +272,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -358,6 +298,7 @@ bool ExecutorLaserLocalization::DisenableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -398,11 +339,6 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
   return result;
 }
 
-void ExecutorLaserLocalization::StopLocalization()
-{
-  //TODO： 不能调用manager的类似函数 task_abort_callback_();
-}
-
 bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
 {
   bool success = LifecycleNodeManager::GetSingleton()->Pause(
@@ -418,39 +354,48 @@ void ExecutorLaserLocalization::ResetFlags()
 {
   relocalization_success_ = false;
   relocalization_failure_ = false;
-}
-
-void ExecutorLaserLocalization::HandleStopResetCallback(
-    const std::shared_ptr<rmw_request_id_t>,
-    const std::shared_ptr<std_msgs::msg::Bool> request,
-    std::shared_ptr<std_msgs::msg::Bool> respose)
-{
-  // 1 Check current lidar slan in running state
-  if (!request->data) {
-    return;
-  }
-
-  if (!is_activate_) {
-    respose->data = true;
-    return;
-  }
-
-  // 2 stop current robot navgation
-  StopLocalization();
-
-  // 3 deactivate all navigation lifecycle nodes
-  bool success = ResetAllLifecyceNodes();
-  if (success) {
-    ERROR("[Laser Localization] Reset all lifecyce nodes failed.");
-    respose->data = false;
-  }
-
-  respose->data = true;
+  is_activate_ = false;
 }
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  return DeactivateDepsLifecycleNodes();
+}
+
+bool ExecutorLaserLocalization::SendServerRequest(
+  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+  const std_srvs::srv::SetBool::Request::SharedPtr & request,
+  std_srvs::srv::SetBool::Response::SharedPtr & response)
+{
+  auto future = client->async_send_request(request);
+  if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
+    return false;
+  }
+
+  if (future.get()->success) {
+    INFO("Success to call stop service : %s.", client->get_service_name());
+  } else {
+    ERROR("Get error when call stop service : %s.", client->get_service_name());
+  }
   return true;
+}
+
+bool ExecutorLaserLocalization::IfRobotNavigationRunningAndStop()
+{
+  bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
+  if (!is_connect) {
+    ERROR("Connect stop robot navigation server timeout.");
+    return false;
+  }
+
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+  request->data = true;
+
+  bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+  return success;
 }
 
 }  // namespace algorithm
