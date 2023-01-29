@@ -475,6 +475,7 @@ void ExecutorVisionLocalization::HandleStopCallback(
 
   if (!is_activate_) {
     respose->success = true;
+    WARN("Vision localization not activate.");
     return;
   }
 

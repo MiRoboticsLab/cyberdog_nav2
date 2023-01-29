@@ -401,6 +401,7 @@ void ExecutorLaserLocalization::HandleStopCallback(
 
   if (!is_activate_) {
     respose->success = true;
+    WARN("Laser localization not activate.");
     return;
   }
 
