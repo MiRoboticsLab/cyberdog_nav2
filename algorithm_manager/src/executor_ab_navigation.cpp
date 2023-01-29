@@ -293,7 +293,7 @@ bool ExecutorAbNavigation::IsDependsReady()
 {
   INFO("[Nav AB] IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("[Nav AB] IsDependsReady(): Success to get service_mutex_");
+  INFO("[Nav AB] IsDependsReady(): Success to get lifecycle_mutex_");
   // Nav lifecycle
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
@@ -594,7 +594,7 @@ bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 {
   INFO("[Nav AB] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("[Nav AB] ResetAllLifecyceNodes(): Success to get service_mutex_");
+  INFO("[Nav AB] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   bool success = DeactivateDepsLifecycleNodes();
   return success;
 }

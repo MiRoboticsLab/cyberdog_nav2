@@ -188,10 +188,14 @@ private:
   // in service
   bool is_activate_ {false};
   bool is_exit_ {false};
+  bool is_lifecycle_activate_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
 
   // mutex
   std::mutex lifecycle_mutex_;
   std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

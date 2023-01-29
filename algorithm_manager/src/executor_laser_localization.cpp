@@ -228,6 +228,7 @@ bool ExecutorLaserLocalization::IsDependsReady()
 {
   INFO("[Laser Loc] IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  is_lifecycle_activate_ = true;
   INFO("[Laser Loc] IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
@@ -287,6 +288,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   try {
     INFO("[Laser Loc] EnableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
+    is_slam_service_activate_ = true;
     INFO("[Laser Loc] EnableRelocalization(): Success to get service_mutex_");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
@@ -319,9 +321,10 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("[Laser Loc] DisableRelocalization(), Trying to get service_mutex_");
+    INFO("[Laser Loc] DisableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("[Laser Loc] DisableRelocalization() Success to get service_mutex_");
+    is_slam_service_activate_ = false;
+    INFO("[Laser Loc] DisableRelocalization(): Success to get service_mutex_");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -359,6 +362,11 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    INFO("[Laser Loc] EnableReportRealtimePose(): Trying to get realtime_pose_mutex_");
+    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
+    is_realtime_pose_service_activate_ = enable;
+    INFO("[Laser Loc] EnableReportRealtimePose(): Success to get realtime_pose_mutex_");
+
     auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -390,6 +398,7 @@ bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
   INFO("[Laser Loc] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  is_lifecycle_activate_ = false;
   INFO("[Laser Loc] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   return DeactivateDepsLifecycleNodes();
 }
@@ -440,12 +449,6 @@ void ExecutorLaserLocalization::HandleStopCallback(
     return;
   }
 
-  if (!is_activate_) {
-    respose->success = true;
-    WARN("Laser localization not activate.");
-    return;
-  }
-
   respose->success = StopLocalizationFunctions();
 }
 
@@ -456,27 +459,35 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
+  bool success = false;
   // Trigger stop localization exit flag
   is_exit_ = true;
 
-  // Disenable Relocalization
-  bool success = DisableRelocalization();
-  if (!success) {
-    ERROR("Turn off Laser relocalization failed.");
+  if (is_slam_service_activate_) {
+    // Disenable Relocalization
+    success = DisableRelocalization();
+    if (!success) {
+      ERROR("Turn off Laser relocalization failed.");
+    }
   }
 
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
+  if (is_realtime_pose_service_activate_) {
+    // Disenable report realtime robot pose
+    success = EnableReportRealtimePose(false);
+    if (!success) {
+      ERROR("Disenable report realtime robot pose failed.");
+    }
+  }
+  
+  if (is_lifecycle_activate_) {
+    success = ResetAllLifecyceNodes();
+    if (!success) {
+      ERROR("Reset all lifecyce nodes failed.");
+    }
   }
 
   // Reset all flags for localization
   ResetFlags();
-  success = ResetAllLifecyceNodes();
-  if (!success) {
-    ERROR("Reset all lifecyce nodes failed.");
-  }
 
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
