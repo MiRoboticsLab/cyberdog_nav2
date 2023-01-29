@@ -126,12 +126,7 @@ private:
     if (is_connect_vision) {
       success = SendServerRequest(stop_vison_slam_client_, request, response);
     }
-
-    if (!success) {
-      return false;
-    }
-    INFO("Stop SLAM Localization success.");
-    return true;
+    return success;
   }
 
   bool ConnectStopNavigationServer()

@@ -49,7 +49,7 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
 
   callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   stop_running_server_ = this->create_service<std_srvs::srv::SetBool>(
-    "reset_stop_lidar_localization", std::bind(
+    "reset_stop_vision_localization", std::bind(
       &ExecutorVisionLocalization::HandleStopCallback, this,
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
