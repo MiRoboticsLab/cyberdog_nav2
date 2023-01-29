@@ -39,8 +39,10 @@ public:
     // Publish trigger signal message for navigation module, Let's stop all depend other
     // modules and some sensors
     stop_robot_nav_client_ = create_client<std_srvs::srv::SetBool>("stop_running_robot_navigation");
-    stop_lidar_slam_client_ = create_client<std_srvs::srv::SetBool>("reset_stop_lidar_localization");
-    stop_vison_slam_client_ = create_client<std_srvs::srv::SetBool>("reset_stop_vision_localization");
+    stop_lidar_slam_client_ =
+      create_client<std_srvs::srv::SetBool>("reset_stop_lidar_localization");
+    stop_vison_slam_client_ =
+      create_client<std_srvs::srv::SetBool>("reset_stop_vision_localization");
 
     // spin
     std::thread{[this]() {
@@ -78,7 +80,7 @@ public:
       response->result = StopTaskSrv::Response::FAILED;
     }
     INFO("Stop current slam localization success.");
-  
+
     // 3 Return manager status and call callback function
     task_cancle_callback_();
     INFO("[Nav Reset]: Nav Reset success.");
@@ -90,7 +92,6 @@ public:
   }
 
 private:
-
   bool StopRobotRunningNavgation()
   {
     bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
@@ -149,7 +150,7 @@ private:
   }
 
   bool SendServerRequest(
-    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
     const std_srvs::srv::SetBool::Request::SharedPtr & request,
     std_srvs::srv::SetBool::Response::SharedPtr & response)
   {
@@ -165,7 +166,7 @@ private:
       ERROR("Get error when call stop service : %s.", client->get_service_name());
     }
     return true;
-  } 
+  }
 
   // vision mapping alive
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};

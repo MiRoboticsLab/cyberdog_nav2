@@ -321,6 +321,8 @@ private:
   std::mutex cancel_goal_mutex_;
   std::condition_variable cancel_goal_cv_;
   bool cancel_goal_result_{true};
+  std::mutex lifecycle_mutex_;
+  std::mutex action_mutex_;
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

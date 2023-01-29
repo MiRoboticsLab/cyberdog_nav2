@@ -139,7 +139,7 @@ private:
   bool ResetAllLifecyceNodes();
 
   bool SendServerRequest(
-    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
     const std_srvs::srv::SetBool::Request::SharedPtr & request,
     std_srvs::srv::SetBool::Response::SharedPtr & response);
 

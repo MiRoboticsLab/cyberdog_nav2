@@ -133,7 +133,7 @@ void ExecutorLaserLocalization::Stop(
 
   Timer timer_;
   timer_.Start();
-  
+
   // Disenable Relocalization
   bool success = DisableRelocalization();
   if (!success) {
@@ -356,7 +356,7 @@ bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 }
 
 bool ExecutorLaserLocalization::SendServerRequest(
-  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
   const std_srvs::srv::SetBool::Request::SharedPtr & request,
   std_srvs::srv::SetBool::Response::SharedPtr & response)
 {

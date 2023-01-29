@@ -47,20 +47,12 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       &ExecutorVisionLocalization::HandleStopTriggerCommandMessages, this,
       std::placeholders::_1));
 
-  stop_robot_nav_client_ = this->create_client<std_srvs::srv::SetBool>(
-    "stop_running_robot_navigation", rmw_qos_profile_services_default);
-
-  // // Control vision relocalization turn on
-  // start_client_ = create_client<std_srvs::srv::SetBool>(
-  //   "start_vins_location", rmw_qos_profile_services_default);
-
-  // // Control vision relocalization turn off
-  // stop_client_ = create_client<std_srvs::srv::SetBool>(
-  //   "stop_vins_location", rmw_qos_profile_services_default);
-
-  // // Control vision mapping report realtime pose turn on and turn off
-  // realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
-  //   "PoseEnable", rmw_qos_profile_services_default);
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  stop_running_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "reset_stop_lidar_localization", std::bind(
+      &ExecutorVisionLocalization::HandleStopCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
 
   // spin
   std::thread{[this]() {
@@ -102,21 +94,6 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
-  if (start_client_ == nullptr) {
-    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "start_vins_location", shared_from_this());
-  }
-
-  if (stop_client_ == nullptr) {
-    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "stop_vins_location", shared_from_this());
-  }
-
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
 
   // Enable Relocalization
   UpdateFeedback(relocalization::kServiceStarting);
@@ -310,6 +287,11 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 
 bool ExecutorVisionLocalization::EnableRelocalization()
 {
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_vins_location", shared_from_this());
+  }
+
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -325,6 +307,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -335,6 +318,11 @@ bool ExecutorVisionLocalization::EnableRelocalization()
 
 bool ExecutorVisionLocalization::DisableRelocalization()
 {
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_location", shared_from_this());
+  }
+
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -350,6 +338,7 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -360,6 +349,11 @@ bool ExecutorVisionLocalization::DisableRelocalization()
 
 bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 {
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
+  }
+
   bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
     ERROR("Waiting for the service. but cannot connect the service.");
@@ -427,7 +421,7 @@ bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 }
 
 bool ExecutorVisionLocalization::SendServerRequest(
-  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+  const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
   const std_srvs::srv::SetBool::Request::SharedPtr & request,
   std_srvs::srv::SetBool::Response::SharedPtr & response)
 {
@@ -454,17 +448,65 @@ void ExecutorVisionLocalization::ResetFlags()
 
 bool ExecutorVisionLocalization::IfRobotNavigationRunningAndStop()
 {
-  bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
-  if (!is_connect) {
-    ERROR("Connect stop robot navigation server timeout.");
-    return false;
+  // bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
+  // if (!is_connect) {
+  //   ERROR("Connect stop robot navigation server timeout.");
+  //   return false;
+  // }
+
+  // auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  // auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+  // request->data = true;
+
+  // bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+  // return success;
+
+  return true;
+}
+
+void ExecutorVisionLocalization::HandleStopCallback(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
+{
+  if (!request->data) {
+    return;
   }
 
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
-  request->data = true;
+  if (!is_activate_) {
+    respose->success = true;
+  }
 
-  bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+  respose->success = StopLocalizationFunctions();
+}
+
+bool ExecutorVisionLocalization::StopLocalizationFunctions()
+{
+  INFO("Vision localization will stop without task callback");
+
+  Timer timer_;
+  timer_.Start();
+
+  // Disenable Relocalization
+  bool success = DisableRelocalization();
+  if (!success) {
+    ERROR("Turn off Vision relocalization failed.");
+  }
+
+  // Disenable report realtime robot pose
+  success = EnableReportRealtimePose(false);
+  if (!success) {
+    ERROR("Disenable report realtime robot pose failed.");
+  }
+
+  ResetFlags();
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    ERROR("Reset all lifecyce nodes failed.");
+  }
+
+  INFO("Vision Localization stoped success");
+  INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return success;
 }
 

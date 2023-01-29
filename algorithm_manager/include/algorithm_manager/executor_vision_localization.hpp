@@ -142,11 +142,18 @@ private:
   void ResetFlags();
 
   bool SendServerRequest(
-    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client, 
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
     const std_srvs::srv::SetBool::Request::SharedPtr & request,
     std_srvs::srv::SetBool::Response::SharedPtr & response);
 
   bool IfRobotNavigationRunningAndStop();
+
+  void HandleStopCallback(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> respose);
+
+  bool StopLocalizationFunctions();
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
@@ -166,7 +173,8 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // serice reset(stop current robot running)
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
