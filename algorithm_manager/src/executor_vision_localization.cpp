@@ -475,6 +475,7 @@ void ExecutorVisionLocalization::HandleStopCallback(
 
   if (!is_activate_) {
     respose->success = true;
+    return;
   }
 
   respose->success = StopLocalizationFunctions();

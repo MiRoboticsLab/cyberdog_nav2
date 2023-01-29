@@ -643,6 +643,9 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   INFO("Handle stop current robot nav running.");
   (void)request_header;
 
+  respose->success = true;
+  bool success = false;
+
   // 1 Check current in navigation state
   if (!request->data) {
     return;
@@ -650,27 +653,21 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
 
   // check robot shoud can call cancel and stop.
   bool can_cancel = ShouldCancelGoal();
-  if (!can_cancel) {
-    respose->success = true;
-    return;
-  }
-
-  // 2 stop current robot navgation
-  bool success = StopRunningRobot();
-  if (!success) {
-    ERROR("Stop robot success.");
-    respose->success = false;
-    return;
-  }
+  if (can_cancel) {
+    // 2 stop current robot navgation
+    success = StopRunningRobot();
+    if (!success) {
+      ERROR("Stop robot success.");
+      respose->success = false;
+    }
+  } 
 
   // 3 deactivate all navigation lifecycle nodes
   success = ResetAllLifecyceNodes();
-  if (success) {
+  if (!success) {
     ERROR("Reset all lifecyce nodes failed.");
     respose->success = false;
   }
-
-  respose->success = true;
 }
 
 }  // namespace algorithm
