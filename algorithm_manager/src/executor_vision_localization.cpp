@@ -266,9 +266,9 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  INFO("ExecutorVisionLocalization::IsDependsReady() before");
+  INFO("[Vision Loc] IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorVisionLocalization::IsDependsReady() after");
+ INFO("[Vision Loc] IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -324,7 +324,9 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    INFO("[Vision Loc] EnableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
+    INFO("[Vision Loc] EnableRelocalization(): Success to get service_mutex_");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -355,9 +357,9 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorVisionLocalization::DisableRelocalization() before");
+    INFO("[Vision Loc] DisableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("ExecutorVisionLocalization::DisableRelocalization() after");
+    INFO("[Vision Loc] DisableRelocalization(): Success to get service_mutex_");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -435,9 +437,9 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
 bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() before");
+  INFO("[Vision Loc] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() after");
+  INFO("[Vision Loc] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   return DeactivateDepsLifecycleNodes();
 }
 

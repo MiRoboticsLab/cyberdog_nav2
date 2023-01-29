@@ -291,9 +291,9 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
 
 bool ExecutorAbNavigation::IsDependsReady()
 {
-  INFO("ExecutorAbNavigation::IsDependsReady() before");
+  INFO("[Nav AB] IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorAbNavigation::IsDependsReady() after");
+  INFO("[Nav AB] IsDependsReady(): Success to get service_mutex_");
   // Nav lifecycle
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
@@ -592,9 +592,9 @@ void ExecutorAbNavigation::PublishZeroPath()
 
 bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() before");
+  INFO("[Nav AB] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() after");
+  INFO("[Nav AB] ResetAllLifecyceNodes(): Success to get service_mutex_");
   bool success = DeactivateDepsLifecycleNodes();
   return success;
 }

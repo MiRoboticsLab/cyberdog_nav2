@@ -226,9 +226,9 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  INFO("ExecutorLaserLocalization::IsDependsReady() before");
+  INFO("[Laser Loc] IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorLaserLocalization::IsDependsReady() after");
+  INFO("[Laser Loc] IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -285,9 +285,9 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorLaserLocalization::EnableRelocalization() before");
+    INFO("[Laser Loc] EnableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("ExecutorLaserLocalization::EnableRelocalization() after");
+    INFO("[Laser Loc] EnableRelocalization(): Success to get service_mutex_");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -319,9 +319,9 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorLaserLocalization class DisableRelocalization() function call  mutex before");
+    INFO("[Laser Loc] DisableRelocalization(), Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("ExecutorLaserLocalization class DisableRelocalization() function call  mutex after");
+    INFO("[Laser Loc] DisableRelocalization() Success to get service_mutex_");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -388,9 +388,9 @@ void ExecutorLaserLocalization::ResetFlags()
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorLaserLocalization::ResetAllLifecyceNodes() before");
+  INFO("[Laser Loc] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorLaserLocalization::ResetAllLifecyceNodes() after");
+  INFO("[Laser Loc] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   return DeactivateDepsLifecycleNodes();
 }
 
