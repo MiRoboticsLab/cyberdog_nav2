@@ -125,6 +125,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     ERROR("Vision localization failed.");
     UpdateFeedback(relocalization::kSLAMTimeout);
     ResetAllLifecyceNodes();
+    DisableRelocalization();
     task_abort_callback_();
     return;
   }
@@ -174,6 +175,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
           ResetAllLifecyceNodes();
+          DisableRelocalization();
           task_abort_callback_();
           return;
         }

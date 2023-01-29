@@ -111,6 +111,9 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
     UpdateFeedback(relocalization::kSLAMTimeout);
+    ResetAllLifecyceNodes();
+    DisableRelocalization();
+    task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -126,6 +129,8 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     UpdateFeedback(relocalization::kSLAMError);
+    DisableRelocalization();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
