@@ -262,6 +262,8 @@ private:
 
   bool CheckExit();
 
+  bool CancelGoal();
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 

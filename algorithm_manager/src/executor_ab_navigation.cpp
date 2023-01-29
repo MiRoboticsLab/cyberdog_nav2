@@ -193,46 +193,21 @@ void ExecutorAbNavigation::Stop(
   if (!cancel) {
     WARN("Current robot can't stop, due to navigation status is not available.");
     nav_goal_handle_.reset();
-    // task_cancle_callback_();
     return;
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  if (nav_goal_handle_ != nullptr) {
-    auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
-    if (!server_ready) {
-      ERROR("Navigation action server is not available.");
-      return;
-    }
-
-    try {
-      // 判断future_cancel的结果和等待
-      std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
-      auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
-      if (cancel_goal_cv_.wait_for(lock, 5s) == std::cv_status::timeout) {
-        cancel_goal_result_ = false;
-      } else {
-        cancel_goal_result_ = true;
-      }
-      PublishZeroPath();
-    } catch (const std::exception & e) {
-      ERROR("%s", e.what());
-      response->result = StopTaskSrv::Response::FAILED;
-      return;
-    }
-  } else {
-    task_abort_callback_();
-    ERROR("Navigation AB will stop failed.");
+  if (nav_goal_handle_ == nullptr) {
+    response->result = StopTaskSrv::Response::FAILED;
     return;
   }
 
+  bool success = CancelGoal();
+  if (!success) {
+    ERROR("Navigation AB will stop timeout.");
+  }
   nav_goal_handle_.reset();
-  if (response == nullptr) {
-    return;
-  }
-  response->result = cancel_goal_result_ ?
-    StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
 
+  response->result = success ? StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped success");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -630,26 +605,24 @@ bool ExecutorAbNavigation::StopRunningRobot()
     return false;
   }
 
-  auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
-  if (!server_ready) {
-    ERROR("Navigation action server is not available.");
-    return false;
-  }
+  // auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+  // if (!server_ready) {
+  //   ERROR("Navigation action server is not available.");
+  //   return false;
+  // }
 
-  try {
-    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
-    if (future_cancel.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-      ERROR("Cannot get response from service(navigate_to_pose) in 2s");
-      return false;
-    }
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-    return false;
-  }
+  // try {
+  //   auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+  //   if (future_cancel.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+  //     ERROR("Cannot get response from service(navigate_to_pose) in 2s");
+  //     return false;
+  //   }
+  // } catch (const std::exception & e) {
+  //   ERROR("%s", e.what());
+  //   return false;
+  // }
 
-  // clear robot path
-  PublishZeroPath();
-  return true;
+  return CancelGoal();
 }
 
 void ExecutorAbNavigation::HandleStopRobotNavCallback(
@@ -676,7 +649,7 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
     // 2 stop current robot navgation
     success = StopRunningRobot();
     if (!success) {
-      ERROR("Stop robot success.");
+      ERROR("Stop robot exception.");
       respose->success = false;
     }
   }
@@ -692,6 +665,32 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
 bool ExecutorAbNavigation::CheckExit()
 {
   return is_exit_;
+}
+
+bool ExecutorAbNavigation::CancelGoal()
+{
+  auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+  if (!server_ready) {
+    ERROR("Navigation action server(navigate_to_pose) is not available.");
+    return false;
+  }
+
+  try {
+    // 判断future_cancel的结果和等待
+    std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
+    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+    if (cancel_goal_cv_.wait_for(lock, 5s) == std::cv_status::timeout) {
+      cancel_goal_result_ = false;
+    } else {
+      cancel_goal_result_ = true;
+    }
+  } catch (const std::exception & e) {
+      ERROR("%s", e.what());
+  }
+
+  // clear robot path
+  PublishZeroPath();
+  return cancel_goal_result_;
 }
 
 }  // namespace algorithm
