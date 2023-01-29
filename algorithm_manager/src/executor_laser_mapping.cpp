@@ -29,9 +29,6 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   // Initialize all ros parameters
   DeclareParameters();
 
-  // localization_client_ = std::make_unique<LifecycleController>("localization_node");
-  // mapping_client_ = std::make_unique<LifecycleController>("map_builder");
-
   // mapping build type
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
   robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
@@ -58,62 +55,27 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
   INFO("[Laser Mapping] Laser Mapping started");
-  // ReportPreparationStatus();
 
   Timer timer_;
   timer_.Start();
 
-  // Set Laser Localization in deactivate state
-  // bool ready = CheckAvailable();
-  // if (!ready) {
-  //   ERROR("[Laser Mapping] Laser Localization is running, Laser Mapping is not available.");
-  //   // ReportPreparationFinished(
-  //   //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   task_abort_callback_();
-  //   return;
-  // }
-
   bool ready = IsDependsReady();
   if (!ready) {
     ERROR("[Laser Mapping] Laser Mapping lifecycle depend start up failed.");
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
     ResetAllLifecyceNodes();
+    task_abort_callback_();
     return;
   }
-
-  if (start_ == nullptr) {
-    start_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "start_mapping", shared_from_this());
-  }
-
-  // miloc manager for map delete
-  if (miloc_client_ == nullptr) {
-    miloc_client_ = std::make_shared<nav2_util::ServiceClient<MilocMapHandler>>(
-      "delete_reloc_map", shared_from_this());
-  }
-
-  // Get all ros parameters
-  // GetParameters();
 
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
     ERROR("[Laser Mapping] Start laser mapping failed.");
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
     ResetAllLifecyceNodes();
+    task_abort_callback_();
     return;
-  }
-
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
   }
 
   // Smoother walk
@@ -123,11 +85,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
-    // ReportPreparationFinished(
-    //   AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
     ResetAllLifecyceNodes();
+    task_abort_callback_();
     return;
   }
 
@@ -218,6 +178,11 @@ bool ExecutorLaserMapping::IsDependsReady()
 
 bool ExecutorLaserMapping::StartBuildMapping()
 {
+  if (start_ == nullptr) {
+    start_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_mapping", shared_from_this());
+  }
+
   // Wait service
   bool connect = start_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -324,17 +289,6 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
 
 bool ExecutorLaserMapping::CheckAvailable()
 {
-  // INFO("Check Laser localization is activating ?");
-  // if (!localization_client_->IsActivate()) {
-  //   INFO("[Laser Mapping] Laser localization lifecycle is not activate state.");
-  //   return true;
-  // }
-
-  // if (!localization_client_->Pause()) {
-  //   return false;
-  // }
-
-  // INFO("[Laser Mapping] Laser localization lifecycle set deactivate state success.");
   return true;
 }
 
@@ -362,6 +316,11 @@ bool ExecutorLaserMapping::DisenableLocalization()
 
 bool ExecutorLaserMapping::VelocitySmoother()
 {
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
   bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
     ERROR("[Laser Mapping] Connect velocity adaptor service timeout");

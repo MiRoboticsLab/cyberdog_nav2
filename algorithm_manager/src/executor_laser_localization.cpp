@@ -29,8 +29,6 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
 : ExecutorBase(node_name),
   location_status_(LocationStatus::Unknown)
 {
-  // localization_lifecycle_ = std::make_shared<LifecycleController>("localization_node");
-
   location_status_service_ = create_service<std_srvs::srv::SetBool>(
     "slam_location_status",
     std::bind(
@@ -45,8 +43,12 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
       &ExecutorLaserLocalization::HandleRelocalizationCallback, this,
       std::placeholders::_1));
 
-  stop_robot_nav_client_ = this->create_client<std_srvs::srv::SetBool>(
-    "stop_running_robot_navigation", rmw_qos_profile_services_default);
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  stop_running_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "reset_stop_lidar_localization", std::bind(
+      &ExecutorLaserLocalization::HandleStopCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
 
   // spin
   std::thread{[this]() {
@@ -62,24 +64,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   Timer timer_;
   timer_.Start();
-
-  // Control lidar relocalization turn on
-  if (start_client_ == nullptr) {
-    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "start_location", shared_from_this());
-  }
-
-  // Control lidar relocalization turn off
-  if (stop_client_ == nullptr) {
-    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "stop_location", shared_from_this());
-  }
-
-  // Control lidar mapping report realtime pose turn on and turn off
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
 
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
@@ -108,6 +92,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
+
   UpdateFeedback(relocalization::kServiceStartingSuccess);
 
   // Send request and wait relocalization result success
@@ -148,13 +133,6 @@ void ExecutorLaserLocalization::Stop(
 
   Timer timer_;
   timer_.Start();
-
-  // Stop current running navigation robot.
-  bool stop_navigation_running = IfRobotNavigationRunningAndStop();
-  if (!stop_navigation_running) {
-    ERROR("Stop robot navigation running failed.");
-    response->result = StopTaskSrv::Response::FAILED;
-  }
   
   // Disenable Relocalization
   bool success = DisableRelocalization();
@@ -254,6 +232,12 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
 
 bool ExecutorLaserLocalization::EnableRelocalization()
 {
+  // Control lidar relocalization turn on
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_location", shared_from_this());
+  }
+
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -280,6 +264,12 @@ bool ExecutorLaserLocalization::EnableRelocalization()
 
 bool ExecutorLaserLocalization::DisableRelocalization()
 {
+  // Control lidar relocalization turn off
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_location", shared_from_this());
+  }
+
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -306,11 +296,16 @@ bool ExecutorLaserLocalization::DisableRelocalization()
 
 bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
 {
-  while (!realtime_pose_client_->wait_for_service(std::chrono::seconds(5s))) {
-    if (!rclcpp::ok()) {
-      ERROR("Waiting for the service. but cannot connect the service.");
-      return false;
-    }
+  // Control lidar mapping report realtime pose turn on and turn off
+  if (realtime_pose_client_ == nullptr) {
+    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "PoseEnable", shared_from_this());
+  }
+
+  bool is_connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5));
+  if (!is_connect) {
+    ERROR("Waiting for the service. but cannot connect the service.");
+    return false;
   }
 
   // Set request data
@@ -392,6 +387,52 @@ bool ExecutorLaserLocalization::IfRobotNavigationRunningAndStop()
   request->data = true;
 
   bool success = SendServerRequest(stop_robot_nav_client_, request, response);
+  return success;
+}
+
+void ExecutorLaserLocalization::HandleStopCallback(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
+{
+  if (!request->data) {
+    return;
+  }
+
+  if (!is_activate_) {
+    respose->success = true;
+  }
+
+  respose->success = StopLocalizationFunctions();
+}
+
+bool ExecutorLaserLocalization::StopLocalizationFunctions()
+{
+  INFO("Laser localization will stop without task callback");
+
+  Timer timer_;
+  timer_.Start();
+
+  // Disenable Relocalization
+  bool success = DisableRelocalization();
+  if (!success) {
+    ERROR("Turn off Laser relocalization failed.");
+  }
+
+  // Disenable report realtime robot pose
+  success = EnableReportRealtimePose(false);
+  if (!success) {
+    ERROR("Disenable report realtime robot pose failed.");
+  }
+
+  ResetFlags();
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    ERROR("Reset all lifecyce nodes failed.");
+  }
+
+  INFO("Laser localization stoped success");
+  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return success;
 }
 

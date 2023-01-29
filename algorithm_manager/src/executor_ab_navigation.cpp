@@ -68,18 +68,6 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
 
-  // trigger slam
-  // stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
-  // stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
-
-  // trigger navigation
-  // stop_nav_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-  //   "stop_nav_trigger",
-  //   rclcpp::SystemDefaultsQoS(),
-  //   std::bind(
-  //     &ExecutorAbNavigation::HandleTriggerStopCallback, this,
-  //     std::placeholders::_1));
-
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
 
@@ -121,12 +109,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   UpdateFeedback(kMapCheckingSuccess);
 
-  // Set vision and lidar flag
-  // bool outdoor = false;
-  // if (CheckUseOutdoor(outdoor)) {
-  //   SetLocationType(outdoor);
-  // }
-
   // Check all depends is ok
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
@@ -163,11 +145,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
-  }
-
   // Smoother walk
   VelocitySmoother();
 
@@ -177,8 +154,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
     ERROR("Send navigation AB point send target goal request failed.");
-    // Reset lifecycle nodes
-    // LifecycleNodesReinitialize();
     DeactivateDepsLifecycleNodes();
     UpdateFeedback(kErrorSendGoalTarget);
     task_abort_callback_();
@@ -198,6 +173,7 @@ void ExecutorAbNavigation::Stop(
   (void)request;
   Timer timer_;
   timer_.Start();
+  response->result = StopTaskSrv::Response::SUCCESS;
 
   INFO("Navigation AB will stop");
   bool cancel = ShouldCancelGoal();
@@ -216,13 +192,19 @@ void ExecutorAbNavigation::Stop(
       return;
     }
 
-    // async_cancel_goal will throw exceptions::UnknownGoalHandleError()
     try {
+      // 判断future_cancel的结果和等待
+      std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
       auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
-      // TODO: 判断future_cancel的结果和等待
+      if (cancel_goal_cv_.wait_for(lock, 5s) == std::cv_status::timeout) {
+        cancel_goal_result_ = false;
+      } else {
+        cancel_goal_result_ = true;
+      }
       PublishZeroPath();
     } catch (const std::exception & e) {
       ERROR("%s", e.what());
+      response->result = StopTaskSrv::Response::FAILED;
       return;
     }
   } else {
@@ -232,7 +214,12 @@ void ExecutorAbNavigation::Stop(
   }
 
   nav_goal_handle_.reset();
-  response->result = StopTaskSrv::Response::SUCCESS;
+  if (response == nullptr) {
+    return;
+  }
+  response->result = cancel_goal_result_ ?
+    StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
+
   INFO("Navigation AB Stoped success");
   INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
@@ -275,6 +262,7 @@ void ExecutorAbNavigation::HandleResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
+      cancel_goal_cv_.notify_one();
       // task_cancle_callback_();
       break;
     default:
@@ -420,6 +408,7 @@ bool ExecutorAbNavigation::CheckTimeout()
       return true;
     }
   }
+  return false;
 }
 
 bool ExecutorAbNavigation::IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed)
@@ -457,6 +446,11 @@ bool ExecutorAbNavigation::VelocitySmoother()
   if (start_velocity_smoother_finished_) {
     INFO("Current start velocity smoother finished.");
     return true;
+  }
+
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
   }
 
   bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
@@ -641,6 +635,9 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
 {
+  INFO("Handle stop current robot nav running.");
+  (void)request_header;
+
   // 1 Check current in navigation state
   if (!request->data) {
     return;

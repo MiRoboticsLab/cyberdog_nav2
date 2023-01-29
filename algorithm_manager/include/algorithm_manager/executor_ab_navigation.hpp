@@ -17,8 +17,10 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 #include <atomic>
 #include <unordered_map>
+#include <condition_variable>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -314,6 +316,11 @@ private:
   bool connect_server_finished_ {false};
   bool start_lifecycle_depend_finished_ {false};
   bool start_velocity_smoother_finished_ {false};
+
+  // mutex
+  std::mutex cancel_goal_mutex_;
+  std::condition_variable cancel_goal_cv_;
+  bool cancel_goal_result_{true};
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog
