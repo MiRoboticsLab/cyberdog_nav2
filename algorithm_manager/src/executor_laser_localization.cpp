@@ -459,7 +459,7 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
-  bool success = false;
+  bool success = true;
   // Trigger stop localization exit flag
   is_exit_ = true;
 
