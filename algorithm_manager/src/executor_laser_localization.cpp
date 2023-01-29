@@ -77,9 +77,14 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
-
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
+
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser localization is stop, not need enable relocalization.");
+    return;
+  }
 
   // Enable Relocalization
   UpdateFeedback(relocalization::kServiceStarting);
@@ -95,12 +100,24 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   UpdateFeedback(relocalization::kServiceStartingSuccess);
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser localization is stop, not need wait relocalization.");
+    return;
+  }
+
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
     UpdateFeedback(relocalization::kSLAMTimeout);
     location_status_ = LocationStatus::FAILURE;
+    return;
+  }
+
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser localization is stop, not need enable report realtime pose.");
     return;
   }
 
@@ -133,6 +150,9 @@ void ExecutorLaserLocalization::Stop(
 
   Timer timer_;
   timer_.Start();
+
+  // exit flag
+  is_exit_ = true;
 
   // Disenable Relocalization
   bool success = DisableRelocalization();
@@ -216,6 +236,10 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
 {
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
+    if (is_exit_) {
+      return false;
+    }
+
     auto now = std::chrono::steady_clock::now();
     auto time_left = end - now;
     if (time_left <= std::chrono::seconds(0)) {
@@ -353,6 +377,7 @@ void ExecutorLaserLocalization::ResetFlags()
   relocalization_success_ = false;
   relocalization_failure_ = false;
   is_activate_ = false;
+  is_exit_ = false;
 }
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
@@ -423,6 +448,8 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
+  is_exit_ = true;
+
   // Disenable Relocalization
   bool success = DisableRelocalization();
   if (!success) {
@@ -444,6 +471,11 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   INFO("Laser localization stoped success");
   INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return success;
+}
+
+bool ExecutorLaserLocalization::CheckExit()
+{
+  return is_exit_;
 }
 
 }  // namespace algorithm

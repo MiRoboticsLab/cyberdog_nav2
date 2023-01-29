@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 #include <mutex>
+#include <condition_variable>
 
 #include "algorithm_manager/executor_base.hpp"
 #include "algorithm_manager/lifecycle_node_manager.hpp"
@@ -153,6 +154,8 @@ private:
 
   bool StopLocalizationFunctions();
 
+  bool CheckExit();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -184,10 +187,11 @@ private:
 
   // in service
   bool is_activate_ {false};
+  bool is_exit_ {false};
 
   // mutex
   std::mutex lifecycle_mutex_;
-  std::mutex service_mutex_;
+  std::mutex service_mutex_;;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

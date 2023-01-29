@@ -95,6 +95,12 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Vision localization is stop, not need enable relocalization.");
+    return;
+  }
+
   // Enable Relocalization
   UpdateFeedback(relocalization::kServiceStarting);
   bool success = EnableRelocalization();
@@ -106,6 +112,12 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
   UpdateFeedback(relocalization::kServiceStartingSuccess);
+
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser localization is stop, not need wait relocalization.");
+    return;
+  }
 
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
@@ -126,6 +138,12 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser localization is stop, not need enable report realtime pose.");
+    return;
+  }
+
   // Enable report realtime robot pose
   auto pose_thread = std::make_shared<std::thread>(
     [&]() {
@@ -138,6 +156,10 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
         if (!relocalization_success_) {
           std::this_thread::sleep_for(std::chrono::seconds(1));
           continue;
+        }
+
+        if (CheckExit()) {
+          break;
         }
 
         try_count++;
@@ -176,6 +198,9 @@ void ExecutorVisionLocalization::Stop(
 
   Timer timer_;
   timer_.Start();
+
+  // exit flag
+  is_exit_ = true;
 
   // Stop current running navigation robot.
   bool stop_navigation_running = IfRobotNavigationRunningAndStop();
@@ -271,6 +296,10 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
 {
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
+    if (is_exit_) {
+      return false;
+    }
+
     auto now = std::chrono::steady_clock::now();
     auto time_left = end - now;
     if (time_left <= std::chrono::seconds(0)) {
@@ -450,6 +479,7 @@ void ExecutorVisionLocalization::ResetFlags()
   relocalization_success_ = false;
   relocalization_failure_ = false;
   is_activate_ = false;
+  is_exit_ = false; 
 }
 
 bool ExecutorVisionLocalization::IfRobotNavigationRunningAndStop()
@@ -495,6 +525,9 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
+  // exit flag
+  is_exit_ = true;
+
   // Disenable Relocalization
   bool success = DisableRelocalization();
   if (!success) {
@@ -516,6 +549,11 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   INFO("Vision Localization stoped success");
   INFO("[Vision Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return success;
+}
+
+bool ExecutorVisionLocalization::CheckExit()
+{
+  return is_exit_;
 }
 
 }  // namespace algorithm
