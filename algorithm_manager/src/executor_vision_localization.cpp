@@ -255,9 +255,9 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  INFO("ExecutorVisionLocalization class IsDependsReady() function call  mutex before");
+  INFO("ExecutorVisionLocalization::IsDependsReady() function call mutex before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorVisionLocalization class IsDependsReady() function call  mutex after");
+  INFO("ExecutorVisionLocalization::IsDependsReady() function call mutex after");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;

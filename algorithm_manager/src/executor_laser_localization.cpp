@@ -200,9 +200,9 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  INFO("ExecutorLaserLocalization class IsDependsReady() function call  mutex before");
+  INFO("ExecutorLaserLocalization::IsDependsReady() function call mutex before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorLaserLocalization class IsDependsReady() function call  mutex after");
+  INFO("ExecutorLaserLocalization::IsDependsReady() function call mutex after");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -255,10 +255,10 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorLaserLocalization class EnableRelocalization() function call  mutex before");
+    INFO("ExecutorLaserLocalization::EnableRelocalization() function call mutex before");
     std::lock_guard<std::mutex> lock(service_mutex_);
+    INFO("ExecutorLaserLocalization::EnableRelocalization() function call mutex after");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
-    INFO("ExecutorLaserLocalization class EnableRelocalization() function call  mutex after");
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
