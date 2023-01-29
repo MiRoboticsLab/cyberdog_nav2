@@ -72,8 +72,8 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Laser localization lifecycle depend start up failed.");
     // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    task_abort_callback_();
     ResetAllLifecyceNodes();
+    task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -92,8 +92,8 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Turn on relocalization failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
-    task_abort_callback_();
     ResetAllLifecyceNodes();
+    task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -111,8 +111,8 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Laser localization wait timeout, stop socalization.");
     UpdateFeedback(relocalization::kSLAMTimeout);
-    ResetAllLifecyceNodes();
     DisableRelocalization();
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
@@ -453,6 +453,7 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
+  // Trigger stop localization exit flag
   is_exit_ = true;
 
   // Disenable Relocalization
@@ -467,6 +468,7 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
     ERROR("Disenable report realtime robot pose failed.");
   }
 
+  // Reset all flags for localization
   ResetFlags();
   success = ResetAllLifecyceNodes();
   if (!success) {

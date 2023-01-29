@@ -260,6 +260,8 @@ private:
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> respose);
 
+  bool CheckExit();
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
@@ -311,6 +313,9 @@ private:
   // Record lidar or vision flag
   bool use_vision_slam_ {false};
   bool use_lidar_slam_ {false};
+
+  // check current navigation is exit trigger
+  bool is_exit_ {false};
 
   // Preprocessing flag
   bool connect_server_finished_ {false};

@@ -98,6 +98,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   Timer timer_;
   timer_.Start();
 
+  is_exit_ = false;
+
   // Check current map exits
   UpdateFeedback(kMapChecking);
   bool exist = CheckMapAvailable();
@@ -123,6 +125,12 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Navigation AB is stop, not need connect action server.");
+    return;
+  }
+
   INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // Check action client connect server
@@ -142,6 +150,11 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     UpdateFeedback(kErrorTargetGoalIsEmpty);
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
+    return;
+  }
+
+  if (CheckExit()) {
+    WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");;
     return;
   }
 
@@ -655,6 +668,8 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
     return;
   }
 
+  is_exit_ = true;
+
   // check robot shoud can call cancel and stop.
   bool can_cancel = ShouldCancelGoal();
   if (can_cancel) {
@@ -672,6 +687,11 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
     ERROR("Reset all lifecyce nodes failed.");
     respose->success = false;
   }
+}
+
+bool ExecutorAbNavigation::CheckExit()
+{
+  return is_exit_;
 }
 
 }  // namespace algorithm
