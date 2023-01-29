@@ -255,7 +255,9 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
+  INFO("ExecutorVisionLocalization class IsDependsReady() function call  mutex before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  INFO("ExecutorVisionLocalization class IsDependsReady() function call  mutex after");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -338,7 +340,9 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    INFO("ExecutorVisionLocalization::DisableRelocalization() function call mutex before");
     std::lock_guard<std::mutex> lock(service_mutex_);
+    INFO("ExecutorVisionLocalization::DisableRelocalization() function call mutex after");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -416,7 +420,9 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
 bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
+  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() function call mutex before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() function call mutex after");
   return DeactivateDepsLifecycleNodes();
 }
 
