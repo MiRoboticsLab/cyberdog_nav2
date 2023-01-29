@@ -199,7 +199,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("[Vision Mapping] Waiting for the service(start_vins_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -229,7 +229,7 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("[Vision Mapping] Waiting for the service(stop_vins_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -263,7 +263,7 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
 
   bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Vision Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("[Vision Mapping] Waiting for the service(PoseEnable). but cannot connect the service.");
     return false;
   }
 

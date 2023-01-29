@@ -111,8 +111,8 @@ private:
   bool StopSLAMLocalization()
   {
     // lidar
-    bool is_connect_lidar = stop_lidar_slam_client_->wait_for_service(std::chrono::seconds(10));
-    bool is_connect_vision = stop_vison_slam_client_->wait_for_service(std::chrono::seconds(10));
+    bool is_connect_lidar = stop_lidar_slam_client_->wait_for_service(std::chrono::seconds(2));
+    bool is_connect_vision = stop_vison_slam_client_->wait_for_service(std::chrono::seconds(2));
 
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
@@ -150,7 +150,7 @@ private:
     std_srvs::srv::SetBool::Response::SharedPtr & response)
   {
     auto future = client->async_send_request(request);
-    if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+    if (future.wait_for(std::chrono::seconds(10)) == std::future_status::timeout) {
       ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
       return false;
     }

@@ -316,9 +316,9 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
 
 bool ExecutorAbNavigation::IsDependsReady()
 {
-  INFO("ExecutorAbNavigation::IsDependsReady() function call mutex before");
+  INFO("ExecutorAbNavigation::IsDependsReady() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorAbNavigation::IsDependsReady() function call mutex after");
+  INFO("ExecutorAbNavigation::IsDependsReady() after");
   // Nav lifecycle
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
@@ -474,7 +474,7 @@ bool ExecutorAbNavigation::VelocitySmoother()
 
   bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(velocity_adaptor_gait). but cannot connect the service.");
     return false;
   }
 
@@ -617,9 +617,9 @@ void ExecutorAbNavigation::PublishZeroPath()
 
 bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() function call mutex before");
+  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() function call mutex after");
+  INFO("ExecutorAbNavigation::ResetAllLifecyceNodes() after");
   bool success = DeactivateDepsLifecycleNodes();
   return success;
 }

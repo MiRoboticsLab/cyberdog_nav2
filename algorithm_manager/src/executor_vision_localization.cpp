@@ -266,9 +266,9 @@ void ExecutorVisionLocalization::HandleStopTriggerCommandMessages(
 
 bool ExecutorVisionLocalization::IsDependsReady()
 {
-  INFO("ExecutorVisionLocalization::IsDependsReady() function call mutex before");
+  INFO("ExecutorVisionLocalization::IsDependsReady() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorVisionLocalization::IsDependsReady() function call mutex after");
+  INFO("ExecutorVisionLocalization::IsDependsReady() after");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -312,7 +312,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(start_vins_location). but cannot connect the service.");
     return false;
   }
 
@@ -343,7 +343,7 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(stop_vins_location). but cannot connect the service.");
     return false;
   }
 
@@ -355,9 +355,9 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorVisionLocalization::DisableRelocalization() function call mutex before");
+    INFO("ExecutorVisionLocalization::DisableRelocalization() before");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("ExecutorVisionLocalization::DisableRelocalization() function call mutex after");
+    INFO("ExecutorVisionLocalization::DisableRelocalization() after");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -375,7 +375,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 
   bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
     return false;
   }
 
@@ -411,7 +411,7 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
   bool connect = map_result_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    ERROR("Waiting for miloc map handler the service(get_miloc_status). but cannot connect the service.");
     return false;
   }
 
@@ -435,9 +435,9 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
 bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() function call mutex before");
+  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() function call mutex after");
+  INFO("ExecutorVisionLocalization::ResetAllLifecyceNodes() after");
   return DeactivateDepsLifecycleNodes();
 }
 

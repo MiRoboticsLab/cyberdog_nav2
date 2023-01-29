@@ -226,9 +226,9 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  INFO("ExecutorLaserLocalization::IsDependsReady() function call mutex before");
+  INFO("ExecutorLaserLocalization::IsDependsReady() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorLaserLocalization::IsDependsReady() function call mutex after");
+  INFO("ExecutorLaserLocalization::IsDependsReady() after");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -273,7 +273,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(start_location). but cannot connect the service.");
     return false;
   }
 
@@ -285,9 +285,9 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("ExecutorLaserLocalization::EnableRelocalization() function call mutex before");
+    INFO("ExecutorLaserLocalization::EnableRelocalization() before");
     std::lock_guard<std::mutex> lock(service_mutex_);
-    INFO("ExecutorLaserLocalization::EnableRelocalization() function call mutex after");
+    INFO("ExecutorLaserLocalization::EnableRelocalization() after");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -307,7 +307,7 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(stop_location). but cannot connect the service.");
     return false;
   }
 
@@ -340,7 +340,7 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
 
   bool is_connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2));
   if (!is_connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
     return false;
   }
 
@@ -388,9 +388,9 @@ void ExecutorLaserLocalization::ResetFlags()
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ExecutorLaserLocalization class ResetAllLifecyceNodes() function call  mutex before");
+  INFO("ExecutorLaserLocalization::ResetAllLifecyceNodes() before");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ExecutorLaserLocalization class ResetAllLifecyceNodes() function call  mutex after");
+  INFO("ExecutorLaserLocalization::ResetAllLifecyceNodes() after");
   return DeactivateDepsLifecycleNodes();
 }
 

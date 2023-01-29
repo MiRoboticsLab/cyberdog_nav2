@@ -186,7 +186,7 @@ bool ExecutorLaserMapping::StartBuildMapping()
   // Wait service
   bool connect = start_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("[Laser Mapping] Waiting for the service(start_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -218,7 +218,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   // Wait service
   bool connect = stop_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("[Laser Mapping] Waiting for the service(stop_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -255,7 +255,7 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
     // Wait service
     bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
     if (!connect) {
-      ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+      ERROR("[Laser Mapping] Waiting for the service(PoseEnable). but cannot connect the service.");
       return false;
     }
 
