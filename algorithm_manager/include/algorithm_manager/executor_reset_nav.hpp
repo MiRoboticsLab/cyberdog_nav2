@@ -156,9 +156,9 @@ private:
     }
 
     if (future.get()->success) {
-      INFO("Success to call stop service : %s.", client->get_service_name());
+      INFO("Service [%s] return true.", client->get_service_name());
     } else {
-      ERROR("Get error when call stop service : %s.", client->get_service_name());
+      ERROR("Service [%s] return false.", client->get_service_name());
     }
     return true;
   }
