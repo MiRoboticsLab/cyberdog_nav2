@@ -154,8 +154,8 @@ private:
     std_srvs::srv::SetBool::Response::SharedPtr & response)
   {
     auto future = client->async_send_request(request);
-    if (future.wait_for(std::chrono::seconds(30)) == std::future_status::timeout) {
-      ERROR("Cannot get response from service(%s) in 30s.", client->get_service_name());
+    if (future.wait_for(std::chrono::seconds(60)) == std::future_status::timeout) {
+      ERROR("Cannot get response from service(%s) in 60s.", client->get_service_name());
       return false;
     }
 
