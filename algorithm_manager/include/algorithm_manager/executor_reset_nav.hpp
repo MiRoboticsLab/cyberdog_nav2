@@ -151,7 +151,7 @@ private:
   {
     auto future = client->async_send_request(request);
     if (future.wait_for(std::chrono::seconds(10)) == std::future_status::timeout) {
-      ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
+      ERROR("Cannot get response from service(%s) in 10s.", client->get_service_name());
       return false;
     }
 
