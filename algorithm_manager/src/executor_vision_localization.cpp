@@ -195,13 +195,6 @@ void ExecutorVisionLocalization::Stop(
   // exit flag
   is_exit_ = true;
 
-  // Stop current running navigation robot.
-  bool stop_navigation_running = IfRobotNavigationRunningAndStop();
-  if (!stop_navigation_running) {
-    ERROR("Stop robot navigation running failed.");
-    response->result = StopTaskSrv::Response::FAILED;
-  }
-
   // Disenable Relocalization
   bool success = DisableRelocalization();
   if (!success) {
@@ -380,7 +373,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
       "PoseEnable", shared_from_this());
   }
 
-  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service. but cannot connect the service.");
     return false;
@@ -472,7 +465,7 @@ void ExecutorVisionLocalization::ResetFlags()
   relocalization_success_ = false;
   relocalization_failure_ = false;
   is_activate_ = false;
-  is_exit_ = false; 
+  is_exit_ = false;
 }
 
 bool ExecutorVisionLocalization::IfRobotNavigationRunningAndStop()

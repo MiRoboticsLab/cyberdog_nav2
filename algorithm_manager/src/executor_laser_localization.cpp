@@ -199,6 +199,7 @@ void ExecutorLaserLocalization::HandleLocationServiceCallback(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
+  (void)request;
   response->success = location_status_ == LocationStatus::SUCCESS ? true : false;
 }
 
@@ -337,7 +338,7 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
       "PoseEnable", shared_from_this());
   }
 
-  bool is_connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5));
+  bool is_connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2));
   if (!is_connect) {
     ERROR("Waiting for the service. but cannot connect the service.");
     return false;
@@ -398,6 +399,7 @@ bool ExecutorLaserLocalization::SendServerRequest(
   const std_srvs::srv::SetBool::Request::SharedPtr & request,
   std_srvs::srv::SetBool::Response::SharedPtr & response)
 {
+  (void)response;
   auto future = client->async_send_request(request);
   if (future.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
     ERROR("Cannot get response from service(%s) in 2s.", client->get_service_name());
@@ -433,6 +435,7 @@ void ExecutorLaserLocalization::HandleStopCallback(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
 {
+  (void)request_header;
   if (!request->data) {
     return;
   }

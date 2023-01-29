@@ -111,8 +111,8 @@ private:
   bool StopSLAMLocalization()
   {
     // lidar
-    bool is_connect_lidar = stop_lidar_slam_client_->wait_for_service(std::chrono::seconds(2));
-    bool is_connect_vision = stop_vison_slam_client_->wait_for_service(std::chrono::seconds(2));
+    bool is_connect_lidar = stop_lidar_slam_client_->wait_for_service(std::chrono::seconds(10));
+    bool is_connect_vision = stop_vison_slam_client_->wait_for_service(std::chrono::seconds(10));
 
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     auto response = std::make_shared<std_srvs::srv::SetBool::Response>();

@@ -191,7 +191,7 @@ private:
 
   // mutex
   std::mutex lifecycle_mutex_;
-  std::mutex service_mutex_;;
+  std::mutex service_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

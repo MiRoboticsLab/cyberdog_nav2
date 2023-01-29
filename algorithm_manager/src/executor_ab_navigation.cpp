@@ -154,7 +154,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   if (CheckExit()) {
-    WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");;
+    WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");
     return;
   }
 
@@ -386,7 +386,7 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     ERROR("Wait navigation server timeout.");
     return false;
   }
-  
+
   nav_goal_handle_ = future_goal_handle.get();
 
   if (!nav_goal_handle_) {
@@ -679,7 +679,7 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
       ERROR("Stop robot success.");
       respose->success = false;
     }
-  } 
+  }
 
   // 3 deactivate all navigation lifecycle nodes
   success = ResetAllLifecyceNodes();
