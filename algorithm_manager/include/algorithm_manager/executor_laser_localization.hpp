@@ -144,9 +144,6 @@ private:
     const std_srvs::srv::SetBool::Request::SharedPtr & request,
     std_srvs::srv::SetBool::Response::SharedPtr & response);
 
-
-  bool IfRobotNavigationRunningAndStop();
-
   void HandleStopCallback(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,

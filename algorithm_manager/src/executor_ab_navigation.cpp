@@ -131,7 +131,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // Check action client connect server
   bool connect = IsConnectServer();
@@ -176,7 +176,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 结束激活进度的上报
   UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
-  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Stop(
@@ -209,7 +209,7 @@ void ExecutorAbNavigation::Stop(
 
   response->result = success ? StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped success");
-  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Cancel()
@@ -291,9 +291,9 @@ void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::
 
 bool ExecutorAbNavigation::IsDependsReady()
 {
-  INFO("[Nav AB] IsDependsReady(): Trying to get lifecycle_mutex_");
+  INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("[Nav AB] IsDependsReady(): Success to get lifecycle_mutex_");
+  INFO("IsDependsReady(): Success to get lifecycle_mutex_");
   // Nav lifecycle
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
@@ -592,9 +592,9 @@ void ExecutorAbNavigation::PublishZeroPath()
 
 bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 {
-  INFO("[Nav AB] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
+  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("[Nav AB] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
+  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   bool success = DeactivateDepsLifecycleNodes();
   return success;
 }
@@ -685,7 +685,7 @@ bool ExecutorAbNavigation::CancelGoal()
       cancel_goal_result_ = true;
     }
   } catch (const std::exception & e) {
-      ERROR("%s", e.what());
+    ERROR("%s", e.what());
   }
 
   // clear robot path

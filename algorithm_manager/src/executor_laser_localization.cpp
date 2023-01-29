@@ -136,12 +136,11 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     return;
   }
 
-  // 结束激活进度的上报
   UpdateFeedback(relocalization::kSLAMSuccess);
 
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
-  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -150,7 +149,6 @@ void ExecutorLaserLocalization::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  INFO("Laser localization will stop");
   response->result = StopTaskSrv::Response::SUCCESS;
 
   Timer timer_;
@@ -162,14 +160,12 @@ void ExecutorLaserLocalization::Stop(
   // Disenable Relocalization
   bool success = DisableRelocalization();
   if (!success) {
-    ERROR("Turn off Laser relocalization failed.");
     response->result = StopTaskSrv::Response::FAILED;
   }
 
   // Disenable report realtime robot pose
   success = EnableReportRealtimePose(false);
   if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
     response->result = StopTaskSrv::Response::FAILED;
   }
 
@@ -187,7 +183,7 @@ void ExecutorLaserLocalization::Stop(
   task_cancle_callback_();
 
   INFO("Laser localization stoped success");
-  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -226,10 +222,10 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
 
 bool ExecutorLaserLocalization::IsDependsReady()
 {
-  INFO("[Laser Loc] IsDependsReady(): Trying to get lifecycle_mutex_");
+  INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   is_lifecycle_activate_ = true;
-  INFO("[Laser Loc] IsDependsReady(): Success to get lifecycle_mutex_");
+  INFO("[IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
@@ -286,10 +282,10 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("[Laser Loc] EnableRelocalization(): Trying to get service_mutex_");
+    INFO("EnableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
     is_slam_service_activate_ = true;
-    INFO("[Laser Loc] EnableRelocalization(): Success to get service_mutex_");
+    INFO("EnableRelocalization(): Success to get service_mutex_");
     auto future_result = start_client_->invoke(request, std::chrono::seconds(50s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -321,10 +317,10 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("[Laser Loc] DisableRelocalization(): Trying to get service_mutex_");
+    INFO("DisableRelocalization(): Trying to get service_mutex_");
     std::lock_guard<std::mutex> lock(service_mutex_);
     is_slam_service_activate_ = false;
-    INFO("[Laser Loc] DisableRelocalization(): Success to get service_mutex_");
+    INFO("DisableRelocalization(): Success to get service_mutex_");
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -353,25 +349,27 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
 
   // Print enable and disenable message
   if (enable) {
-    INFO("Start report robot's realtime pose");
+    INFO("Robot starting report realtime pose");
   } else {
-    INFO("Stop report robot's realtime pose.");
+    INFO("Robot stopping report realtime pose.");
   }
 
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
   try {
-    INFO("[Laser Loc] EnableReportRealtimePose(): Trying to get realtime_pose_mutex_");
+    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex_");
     std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
     is_realtime_pose_service_activate_ = enable;
-    INFO("[Laser Loc] EnableReportRealtimePose(): Success to get realtime_pose_mutex_");
+    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex_");
 
     auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
+
+
   return result;
 }
 
@@ -396,10 +394,10 @@ void ExecutorLaserLocalization::ResetFlags()
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
-  INFO("[Laser Loc] ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
+  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   is_lifecycle_activate_ = false;
-  INFO("[Laser Loc] ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
+  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   return DeactivateDepsLifecycleNodes();
 }
 
@@ -423,22 +421,6 @@ bool ExecutorLaserLocalization::SendServerRequest(
   return true;
 }
 
-bool ExecutorLaserLocalization::IfRobotNavigationRunningAndStop()
-{
-  bool is_connect = stop_robot_nav_client_->wait_for_service(std::chrono::seconds(2));
-  if (!is_connect) {
-    ERROR("Connect stop robot navigation server timeout.");
-    return false;
-  }
-
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
-  request->data = true;
-
-  bool success = SendServerRequest(stop_robot_nav_client_, request, response);
-  return success;
-}
-
 void ExecutorLaserLocalization::HandleStopCallback(
   const std::shared_ptr<rmw_request_id_t> request_header,
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
@@ -454,7 +436,7 @@ void ExecutorLaserLocalization::HandleStopCallback(
 
 bool ExecutorLaserLocalization::StopLocalizationFunctions()
 {
-  INFO("Laser localization will stop without task callback");
+  INFO("Laser localization will stop");
 
   Timer timer_;
   timer_.Start();
@@ -467,7 +449,7 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
     // Disenable Relocalization
     success = DisableRelocalization();
     if (!success) {
-      ERROR("Turn off Laser relocalization failed.");
+      ERROR("Close laser relocalization service(stop_location) failed.");
     }
   }
 
@@ -475,10 +457,10 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
     // Disenable report realtime robot pose
     success = EnableReportRealtimePose(false);
     if (!success) {
-      ERROR("Disenable report realtime robot pose failed.");
+      ERROR("Robot stop report realtime pose failed");
     }
   }
-  
+
   if (is_lifecycle_activate_) {
     success = ResetAllLifecyceNodes();
     if (!success) {
@@ -489,8 +471,8 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   // Reset all flags for localization
   ResetFlags();
 
-  INFO("Laser localization stoped success");
-  INFO("[Lidar Localization] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Laser Localization stoped success");
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   return success;
 }
 

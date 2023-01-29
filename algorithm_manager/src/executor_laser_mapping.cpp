@@ -54,14 +54,14 @@ ExecutorLaserMapping::~ExecutorLaserMapping()
 void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
-  INFO("[Laser Mapping] Laser Mapping started");
+  INFO("Laser Mapping started");
 
   Timer timer_;
   timer_.Start();
 
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("[Laser Mapping] Laser Mapping lifecycle depend start up failed.");
+    ERROR("Laser Mapping lifecycle depend start up failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
@@ -71,7 +71,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Start build mapping
   bool success = StartBuildMapping();
   if (!success) {
-    ERROR("[Laser Mapping] Start laser mapping failed.");
+    ERROR("Start laser mapping failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
@@ -84,7 +84,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
-    ERROR("[Laser Mapping] Enable report realtime robot pose failed.");
+    ERROR("Enable report realtime robot pose failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
@@ -92,15 +92,15 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  INFO("[Laser Mapping] Laser Mapping success.");
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Laser Mapping success.");
 }
 
 void ExecutorLaserMapping::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
-  INFO("[Laser Mapping] Laser Mapping will stop");
+  INFO("Laser Mapping will stop");
   response->result = StopTaskSrv::Response::SUCCESS;
 
   Timer timer_;
@@ -109,7 +109,7 @@ void ExecutorLaserMapping::Stop(
   // Disenable report realtime robot pose
   bool success = EnableReportRealtimePose(false);
   if (!success) {
-    ERROR("[Laser Mapping] Disenable report realtime robot pose failed.");
+    ERROR("Disenable report realtime robot pose failed.");
     response->result = StopTaskSrv::Response::FAILED;
     // use topic stop robot realtime pose
     EnableReportRealtimePose(false, true);
@@ -121,7 +121,7 @@ void ExecutorLaserMapping::Stop(
   // MapServer
   success = StopBuildMapping(request->map_name);
   if (!success) {
-    ERROR("[Laser Mapping] Laser Mapping stop failed.");
+    ERROR("Laser Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
     ResetAllLifecyceNodes();
     task_abort_callback_();
@@ -136,13 +136,13 @@ void ExecutorLaserMapping::Stop(
   }
 
   task_cancle_callback_();
-  INFO("[Lidar Mapping] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-  INFO("[Laser Mapping] Laser Mapping stoped success");
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Laser Mapping stoped success");
 }
 
 void ExecutorLaserMapping::Cancel()
 {
-  INFO("[Laser Mapping] Laser Mapping will cancel");
+  INFO("Laser Mapping will cancel");
 }
 
 void ExecutorLaserMapping::DeclareParameters()
@@ -186,7 +186,7 @@ bool ExecutorLaserMapping::StartBuildMapping()
   // Wait service
   bool connect = start_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Waiting for the service(start_mapping). but cannot connect the service.");
+    ERROR("Waiting for the service(start_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -218,7 +218,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   // Wait service
   bool connect = stop_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Waiting for the service(stop_mapping). but cannot connect the service.");
+    ERROR("Waiting for the service(stop_mapping). but cannot connect the service.");
     return false;
   }
 
@@ -230,7 +230,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     request->finish = true;
     request->map_name = map_filename;
   }
-  INFO("[Laser Mapping] Saved lidar map building filename: %s", map_filename.c_str());
+  INFO("Saved lidar map building filename: %s", map_filename.c_str());
 
   // Send request
   // return stop_->invoke(request, response);
@@ -255,7 +255,7 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
     // Wait service
     bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
     if (!connect) {
-      ERROR("[Laser Mapping] Waiting for the service(PoseEnable). but cannot connect the service.");
+      ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
       return false;
     }
 
@@ -265,15 +265,15 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
 
     // Print enable and disenable message
     if (enable) {
-      INFO("[Laser Mapping] Start report robot's realtime pose");
+      INFO("Robot starting report realtime pose");
     } else {
-      INFO("[Laser Mapping] Stop report robot's realtime pose.");
+      INFO("Robot stopping report realtime pose.");
     }
 
     // Send request
     auto future = realtime_pose_client_->async_send_request(request);
     if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
-      ERROR("[Laser Mapping] Connect position checker service timeout");
+      ERROR("Connect position checker service timeout");
       return false;
     }
 
@@ -323,7 +323,7 @@ bool ExecutorLaserMapping::VelocitySmoother()
 
   bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Connect velocity adaptor service timeout");
+    ERROR("Connect velocity adaptor service timeout");
     return false;
   }
 
@@ -360,7 +360,7 @@ bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
   // Wait service
   bool connect = miloc_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
-    ERROR("[Laser Mapping] Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service. but cannot connect the service.");
     return false;
   }
 

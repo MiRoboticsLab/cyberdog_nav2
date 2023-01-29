@@ -70,16 +70,20 @@ public:
     if (!is_stop_navgation) {
       ERROR("Stop current robot navigation failed.");
       response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Stop current robot navigation success.");
     }
-    INFO("Stop current robot navigation success.");
+    INFO("Stop robot navigation finished.");
 
     // 2 Stop current SLAM Localizaiton(lidar or vision) and deactive all lifecycle nodes
     bool is_stop_slam = StopSLAMLocalization();
     if (!is_stop_slam) {
       ERROR("Stop current slam localization failed.");
       response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Stop current slam localization success.");
     }
-    INFO("Stop current slam localization success.");
+    INFO("Stop robot slam localization finished.");
 
     // 3 Return manager status and call callback function
     task_cancle_callback_();
