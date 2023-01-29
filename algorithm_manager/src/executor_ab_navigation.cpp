@@ -361,20 +361,18 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     &ExecutorAbNavigation::HandleResultCallback,
     this, std::placeholders::_1);
 
-  {
-    std::lock_guard<std::mutex> lock(action_mutex_);
-    auto future_goal_handle = action_client_->async_send_goal(
-      target_goal_, send_goal_options);
-    time_goal_sent_ = this->now();
 
-    std::chrono::seconds timeout{5};
-    if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
-      ERROR("Wait navigation server timeout.");
-      return false;
-    }
+  auto future_goal_handle = action_client_->async_send_goal(
+    target_goal_, send_goal_options);
+  time_goal_sent_ = this->now();
 
-    nav_goal_handle_ = future_goal_handle.get();
+  std::chrono::seconds timeout{5};
+  if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
+    ERROR("Wait navigation server timeout.");
+    return false;
   }
+  
+  nav_goal_handle_ = future_goal_handle.get();
 
   if (!nav_goal_handle_) {
     ERROR("Navigation AB Goal was rejected by server");
@@ -622,7 +620,6 @@ bool ExecutorAbNavigation::StopRunningRobot()
   }
 
   try {
-    std::lock_guard<std::mutex> lock(action_mutex_);
     auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
     if (future_cancel.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
       ERROR("Cannot get response from service(navigate_to_pose) in 2s");
