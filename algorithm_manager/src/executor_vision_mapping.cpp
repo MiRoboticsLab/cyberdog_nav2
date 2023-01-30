@@ -214,9 +214,9 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
     ERROR("%s", e.what());
   }
 
-  // if (map_filename.empty()) {
-  //   return true;
-  // }
+  if (map_filename.empty()) {
+    return DeleteMap();
+  }
 
   if (result) {
     PublishBuildMapType();
@@ -304,43 +304,36 @@ bool ExecutorVisionMapping::CheckBuildMappingAvailable()
 
 bool ExecutorVisionMapping::DeleteMap()
 {
-  // if (map_delete_client_ == nullptr) {
-  //   map_delete_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
-  //     "delete_reloc_map", shared_from_this());
-  // }
+  if (map_delete_client_ == nullptr) {
+    map_delete_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "delete_reloc_map", shared_from_this());
+  }
 
-  // bool connect = map_delete_client_->wait_for_service(std::chrono::seconds(5s));
-  // if (!connect) {
-  //   ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
-  //   return false;
-  // }
+  bool connect = map_delete_client_->wait_for_service(std::chrono::seconds(5s));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+    return false;
+  }
 
-  // // Set request data
-  // auto request = std::make_shared<MapAvailableResult::Request>();
-  // request->map_id = 1;
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  request->map_id = 1;
 
-  // // Send request
-  // // bool success = map_delete_client_->invoke(request, response);
-  // bool result = false;
-  // try {
-  //   auto future_result = map_delete_client_->invoke(request, std::chrono::seconds(5s));
+  // Send request
+  bool result = false;
+  try {
+    auto future_result = map_delete_client_->invoke(request);
+    if (future_result->code == 0) {
+      return true;
+    } else if (future_result->code == 100) {
+      INFO("delete map exception");
+      return false;
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
 
-  //   if (future_result->code == 0) {
-  //     return true;
-  //   } else if (future_result->code == 100) {
-  //     INFO("Relocation map not available, under construction.");
-  //     return false;
-  //   } else if (future_result->code == 301) {
-  //     INFO(
-  //       "There was an error in the last offline map building, and the map needs to be rebuilt"); // NOLINT
-  //     return false;
-  //   }
-  // } catch (const std::exception & e) {
-  //   ERROR("%s", e.what());
-  // }
-
-  // return result;
-  return true;
+  return result;
 }
 
 bool ExecutorVisionMapping::VelocitySmoother()

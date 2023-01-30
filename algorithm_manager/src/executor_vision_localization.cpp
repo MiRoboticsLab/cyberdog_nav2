@@ -299,14 +299,13 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
-  const int timeout = 50000;
 
   try {
     INFO("EnableRelocalization(): Trying to get service mutex");
     std::lock_guard<std::mutex> lock(service_mutex_);
     is_slam_service_activate_ = true;
     INFO("EnableRelocalization(): Success to get service mutex");
-    auto future_result = start_client_->invoke(request, timeout);
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(50));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
@@ -335,14 +334,13 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
-  const int timeout = 10000;
 
   try {
     INFO("DisableRelocalization(): Trying to get service mutex");
     std::lock_guard<std::mutex> lock(service_mutex_);
     is_slam_service_activate_ = false;
     INFO("DisableRelocalization(): Success to get service mutex");
-    auto future_result = stop_client_->invoke(request, timeout);
+    auto future_result = stop_client_->invoke(request, std::chrono::seconds(10));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
@@ -377,7 +375,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
-  const int timeout = 5000;
+  const int timeout = 5000; // 5s
 
   try {
     INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
@@ -385,7 +383,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
     is_realtime_pose_service_activate_ = enable;
     INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
 
-    auto future_result = realtime_pose_client_->invoke(request, timeout);
+    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
@@ -414,9 +412,8 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
   // bool success = map_result_client_->invoke(request, response);
 
   bool result = false;
-  const int timeout = 10000;
   try {
-    auto future_result = map_result_client_->invoke(request, timeout);
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
     result = future_result->code == 0;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
