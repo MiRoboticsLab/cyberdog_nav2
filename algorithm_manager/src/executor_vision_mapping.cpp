@@ -204,6 +204,13 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = true;
 
+  // if (map_filename.empty()) {
+  //   request->finish = false;
+  // } else {
+  //   request->finish = true;
+  //   request->map_name = map_filename;
+  // }
+
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
@@ -322,17 +329,17 @@ bool ExecutorVisionMapping::DeleteMap()
   // Send request
   bool result = false;
   try {
-    auto future_result = map_delete_client_->invoke(request);
+    auto future_result = map_delete_client_->invoke(request, std::chrono::seconds(10s));
     if (future_result->code == 0) {
+      INFO("Delete map success");
       return true;
     } else if (future_result->code == 100) {
-      INFO("delete map exception");
+      ERROR("Delete map exception");
       return false;
     }
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
-
   return result;
 }
 
