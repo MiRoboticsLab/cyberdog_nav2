@@ -139,9 +139,9 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       } else {
         INFO("Start: Trying call reset all lifecyce nodes success");
       }
+      task_abort_callback_();
     }
     
-    task_abort_callback_();
     return;
   }
   INFO("Waiting relocalization success");
@@ -448,9 +448,9 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
 
 bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex");
+  INFO("Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex");
+  INFO("Success to get lifecycle_mutex");
   return DeactivateDepsLifecycleNodes();
 }
 

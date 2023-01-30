@@ -128,10 +128,11 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
       } else {
         INFO("Start: Trying call reset all lifecyce nodes success");
       }
+
+      ResetFlags();
+      task_abort_callback_();
     }
 
-    ResetFlags();
-    task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
   }
@@ -418,9 +419,9 @@ void ExecutorLaserLocalization::ResetFlags()
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
-  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
+  INFO("Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
+  INFO("Success to get lifecycle_mutex");
   return DeactivateDepsLifecycleNodes();
 }
 
