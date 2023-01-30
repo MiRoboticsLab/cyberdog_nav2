@@ -419,9 +419,9 @@ void ExecutorLaserLocalization::ResetFlags()
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
-  INFO("Trying to get lifecycle_mutex");
+  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  INFO("Success to get lifecycle_mutex");
+  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex");
   return DeactivateDepsLifecycleNodes();
 }
 
