@@ -96,14 +96,18 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   // Enable Relocalization
   UpdateFeedback(relocalization::kServiceStarting);
+
+  INFO("Calling enable relocalization service.");
   bool success = EnableRelocalization();
   if (!success) {
-    ERROR("Turn on relocalization failed.");
+    ERROR("Enable relocalization service failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Call enable relocalization service success.");
+
   UpdateFeedback(relocalization::kServiceStartingSuccess);
 
   // Realtime response user stop operation
@@ -113,22 +117,35 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   }
 
   // Send request and wait relocalization result success
+  INFO("Waiting relocalization");
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
-    ERROR("Vision localization failed.");
     UpdateFeedback(relocalization::kSLAMTimeout);
 
     if (is_slam_service_activate_) {
-      DisableRelocalization();
+      INFO("Start: Trying call disable relocalization service.");
+      bool ret = DisableRelocalization();
+      if (!ret) {
+        ERROR("Start: Trying call disable relocalization service failed");
+      } else {
+        INFO("Start: Trying call disable relocalization service success");
+      }
     }
 
     if (is_lifecycle_activate_) {
-      ResetAllLifecyceNodes();
+      INFO("Start: Trying call reset all lifecyce nodes");
+      bool ret = ResetAllLifecyceNodes();
+      if (!ret) {
+        ERROR("Start: Trying call reset all lifecyce nodes failed");
+      } else {
+        INFO("Start: Trying call reset all lifecyce nodes success");
+      }
     }
     
     task_abort_callback_();
     return;
   }
+  INFO("Waiting relocalization success");
 
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -271,6 +288,7 @@ bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
     if (is_exit_) {
+      WARN("Relocalization force quit");
       return false;
     }
 
@@ -497,25 +515,33 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
 
   if (is_slam_service_activate_) {
     // Disenable Relocalization
+    INFO("Stop: Trying close vision relocalization service(stop_vins_location)");
     success = DisableRelocalization();
     if (!success) {
-      ERROR("Close vision relocalization service(stop_vins_location) failed.");
+      ERROR("Stop: Close vision relocalization service(stop_vins_location) failed.");
+    } else {
+      INFO("Stop: Close vision relocalization service(stop_vins_location) success");
     }
   }
 
   if (is_realtime_pose_service_activate_) {
     // Disenable report realtime robot pose
+    INFO("Stop: Trying stop report realtime pose");
     success = EnableReportRealtimePose(false);
     if (!success) {
-      ERROR("Robot stop report realtime pose failed");
+      ERROR("Stop: Robot stop report realtime pose failed");
+    } else {
+      INFO("Stop: Robot stop report realtime pose success");
     }
   }
 
-
   if (is_lifecycle_activate_) {
+    INFO("Stop: Trying close all lifecycle nodes");
     success = ResetAllLifecyceNodes();
     if (!success) {
-      ERROR("Reset all lifecyce nodes failed.");
+      ERROR("Stop: Close all lifecyce nodes failed.");
+    } else {
+      INFO("Stop: Close all lifecyce nodes success.");
     }
   }
 
