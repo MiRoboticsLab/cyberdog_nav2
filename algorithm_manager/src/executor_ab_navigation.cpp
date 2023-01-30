@@ -683,6 +683,7 @@ bool ExecutorAbNavigation::CancelGoal()
   try {
     // 判断future_cancel的结果和等待
     std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
+    INFO("CancelGoal: run async_cancel_goal request");
     auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
     if (cancel_goal_cv_.wait_for(lock, 5s) == std::cv_status::timeout) {
       INFO("Get cancel_goal_cv_ value: false");
