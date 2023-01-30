@@ -146,7 +146,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       ResetFlags();
       task_abort_callback_();
     }
-    
+
     return;
   }
   INFO("Waiting relocalization success");
@@ -543,7 +543,7 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   } else {
     INFO("Stop: Close all lifecyce nodes success.");
   }
-  
+
   // Reset all flags for localization
   ResetFlags();
 

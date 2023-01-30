@@ -150,7 +150,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     UpdateFeedback(relocalization::kSLAMError);
-    
+
     if (is_slam_service_activate_) {
       DisableRelocalization();
     }
