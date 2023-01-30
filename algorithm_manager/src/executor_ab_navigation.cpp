@@ -375,6 +375,7 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
 {
   // No need to cancel the goal if goal handle is invalid
   if (!nav_goal_handle_) {
+    WARN("Handle ShouldCancelGoal() error");
     return false;
   }
 
@@ -602,6 +603,7 @@ bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 bool ExecutorAbNavigation::StopRunningRobot()
 {
   if (nav_goal_handle_ == nullptr) {
+    ERROR("nav_goal_handle_ == nullptr");
     return false;
   }
 
@@ -647,10 +649,13 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   bool can_cancel = ShouldCancelGoal();
   if (can_cancel) {
     // 2 stop current robot navgation
+    INFO("Trying to stop running robot.");
     success = StopRunningRobot();
     if (!success) {
       ERROR("Stop robot exception.");
       respose->success = false;
+    } else {
+      INFO("Stop running robot success");
     }
   }
 
@@ -680,9 +685,11 @@ bool ExecutorAbNavigation::CancelGoal()
     std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
     auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
     if (cancel_goal_cv_.wait_for(lock, 5s) == std::cv_status::timeout) {
+      INFO("Get cancel_goal_cv_ value: false");
       cancel_goal_result_ = false;
     } else {
       cancel_goal_result_ = true;
+      INFO("Get cancel_goal_cv_ value: true");
     }
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
