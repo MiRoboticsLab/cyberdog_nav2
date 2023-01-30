@@ -318,7 +318,7 @@ bool ExecutorVisionLocalization::EnableRelocalization()
   }
 
   // Wait service
-  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(start_vins_location) timeout");
     return false;
@@ -353,7 +353,7 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   }
 
   // Wait service
-  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(stop_vins_location) timeout");
     return false;
@@ -423,12 +423,13 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
 
 bool ExecutorVisionLocalization::CheckMapAvailable()
 {
+  std::lock_guard<std::mutex> lock(task_mutex_);
   if (map_result_client_ == nullptr) {
     map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
       "get_miloc_status", shared_from_this());
   }
 
-  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for miloc map handler the service(get_miloc_status) timeout");
     return false;
@@ -498,6 +499,7 @@ void ExecutorVisionLocalization::HandleStopCallback(
     return;
   }
 
+  std::lock_guard<std::mutex> lock(task_mutex_);
   respose->success = StopLocalizationFunctions();
 }
 

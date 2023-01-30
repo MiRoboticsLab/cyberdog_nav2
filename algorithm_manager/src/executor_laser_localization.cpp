@@ -295,7 +295,7 @@ bool ExecutorLaserLocalization::EnableRelocalization()
   }
 
   // Wait service
-  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(start_location). but cannot connect the service.");
     return false;
@@ -330,7 +330,7 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   }
 
   // Wait service
-  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(stop_location). but cannot connect the service.");
     return false;

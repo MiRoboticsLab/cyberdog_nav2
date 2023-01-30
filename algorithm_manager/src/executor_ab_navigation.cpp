@@ -447,7 +447,7 @@ bool ExecutorAbNavigation::VelocitySmoother()
       "velocity_adaptor_gait", shared_from_this());
   }
 
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(velocity_adaptor_gait). but cannot connect the service.");
     return false;

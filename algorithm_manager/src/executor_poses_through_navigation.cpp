@@ -269,7 +269,7 @@ bool ExecutorPosesThroughNavigation::StartNavThroughPoses(
 
 bool ExecutorPosesThroughNavigation::VelocitySmoother()
 {
-  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(5s))) {
+  while (!velocity_smoother_->wait_for_service(std::chrono::seconds(2s))) {
     if (!rclcpp::ok()) {
       ERROR("Connect velocity adaptor service timeout");
       return false;

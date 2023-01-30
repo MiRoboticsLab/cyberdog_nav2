@@ -155,7 +155,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
   }
 
   // Wait service
-  bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = start_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(start_vins_mapping). but cannot connect the service.");
     return false;
@@ -189,7 +189,7 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   // Wait service
-  bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(stop_vins_mapping). but cannot connect the service.");
     return false;
@@ -234,7 +234,7 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
       "PoseEnable", shared_from_this());
   }
 
-  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
     return false;
@@ -270,7 +270,7 @@ bool ExecutorVisionMapping::CheckBuildMappingAvailable()
       "get_miloc_status", shared_from_this());
   }
 
-  bool connect = mapping_available_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = mapping_available_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
     return false;
@@ -311,7 +311,7 @@ bool ExecutorVisionMapping::DeleteMap()
       "delete_reloc_map", shared_from_this());
   }
 
-  bool connect = map_delete_client_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = map_delete_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
     return false;
@@ -345,7 +345,7 @@ bool ExecutorVisionMapping::VelocitySmoother()
       "velocity_adaptor_gait", shared_from_this());
   }
 
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
     ERROR("Connect velocity adaptor service timeout.");
     return false;
