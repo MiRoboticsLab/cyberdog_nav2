@@ -204,8 +204,6 @@ void ExecutorVisionLocalization::Stop(
   success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
   }
   task_success_callback_();
 

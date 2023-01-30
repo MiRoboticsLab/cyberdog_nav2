@@ -119,16 +119,11 @@ void ExecutorVisionMapping::Stop(
   if (!success) {
     ERROR("Vision Mapping stop failed.");
     response->result = StopTaskSrv::Response::FAILED;
-    ResetAllLifecyceNodes();
-    task_abort_callback_();
-    return;
   }
 
   success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
   }
 
   task_cancle_callback_();
