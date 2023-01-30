@@ -118,11 +118,12 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   // Send request and wait relocalization result success
   INFO("Waiting relocalization");
-  success = WaitRelocalization(std::chrono::seconds(120s));
+  bool force_quit = false;
+  success = WaitRelocalization(std::chrono::seconds(120s), force_quit);
   if (!success) {
     UpdateFeedback(relocalization::kSLAMTimeout);
 
-    if (is_slam_service_activate_) {
+    if (force_quit) {
       INFO("Start: Trying call disable relocalization service.");
       bool ret = DisableRelocalization();
       if (!ret) {
@@ -277,12 +278,13 @@ bool ExecutorVisionLocalization::IsDependsReady()
   return true;
 }
 
-bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout)
+bool ExecutorVisionLocalization::WaitRelocalization(std::chrono::seconds timeout, bool & force_quit)
 {
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
     if (is_exit_) {
       WARN("Relocalization force quit");
+      force_quit = true;
       return false;
     }
 

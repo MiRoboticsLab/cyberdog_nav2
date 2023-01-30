@@ -101,7 +101,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool WaitRelocalization(std::chrono::seconds timeout);
+  bool WaitRelocalization(std::chrono::seconds timeout, bool & force_quit);
 
   /**
    * @brief Enable Lidar Relocalization turn on

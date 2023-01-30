@@ -107,11 +107,12 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   // Send request and wait relocalization result success
-  success = WaitRelocalization(std::chrono::seconds(120s));
+  bool force_quit = false;
+  success = WaitRelocalization(std::chrono::seconds(120s), force_quit);
   if (!success) {
     UpdateFeedback(relocalization::kSLAMTimeout);
 
-    if (is_slam_service_activate_) {
+    if (force_quit) {
       INFO("Start: Trying call disable relocalization service.");
       bool ret = DisableRelocalization();
       if (!ret) {
@@ -151,9 +152,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
       DisableRelocalization();
     }
 
-    if (is_lifecycle_activate_) {
-      ResetAllLifecyceNodes();
-    }
+    ResetAllLifecyceNodes();
 
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
@@ -248,7 +247,6 @@ bool ExecutorLaserLocalization::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  is_lifecycle_activate_ = true;
   INFO("[IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
@@ -259,12 +257,13 @@ bool ExecutorLaserLocalization::IsDependsReady()
   return true;
 }
 
-bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
+bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout, bool & force_quit)
 {
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
     if (is_exit_) {
       WARN("Relocalization force quit");
+      force_quit = true;
       return false;
     }
 
@@ -421,7 +420,6 @@ bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
 {
   INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  is_lifecycle_activate_ = false;
   INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
   return DeactivateDepsLifecycleNodes();
 }
@@ -486,12 +484,11 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
     }
   }
 
-  if (is_lifecycle_activate_) {
-    success = ResetAllLifecyceNodes();
-    if (!success) {
-      ERROR("Reset all lifecyce nodes failed.");
-    }
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    ERROR("Reset all lifecyce nodes failed.");
   }
+
 
   // Reset all flags for localization
   ResetFlags();
