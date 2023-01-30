@@ -109,17 +109,27 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   // Send request and wait relocalization result success
   success = WaitRelocalization(std::chrono::seconds(120s));
   if (!success) {
-    ERROR("Laser localization wait timeout, stop socalization.");
     UpdateFeedback(relocalization::kSLAMTimeout);
 
     if (is_slam_service_activate_) {
-      DisableRelocalization();
+      INFO("Start: Trying call disable relocalization service.");
+      bool ret = DisableRelocalization();
+      if (!ret) {
+        ERROR("Start: Trying call disable relocalization service failed");
+      } else {
+        INFO("Start: Trying call disable relocalization service success");
+      }
+
+      INFO("Start: Trying call reset all lifecyce nodes");
+      ret = ResetAllLifecyceNodes();
+      if (!ret) {
+        ERROR("Start: Trying call reset all lifecyce nodes failed");
+      } else {
+        INFO("Start: Trying call reset all lifecyce nodes success");
+      }
     }
 
-    if (is_lifecycle_activate_) {
-      ResetAllLifecyceNodes();
-    }
-
+    ResetFlags();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
@@ -254,6 +264,7 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout)
   auto end = std::chrono::steady_clock::now() + timeout;
   while (rclcpp::ok() && !relocalization_success_) {
     if (is_exit_) {
+      WARN("Relocalization force quit");
       return false;
     }
 

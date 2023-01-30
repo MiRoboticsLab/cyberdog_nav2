@@ -175,7 +175,6 @@ private:
   // in service
   bool is_activate_ {false};
   bool is_exit_ {false};
-  bool is_lifecycle_activate_ {false};
   bool is_slam_service_activate_ {false};
   bool is_realtime_pose_service_activate_ {false};
 

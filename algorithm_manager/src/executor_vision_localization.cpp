@@ -130,11 +130,9 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       } else {
         INFO("Start: Trying call disable relocalization service success");
       }
-    }
 
-    if (is_lifecycle_activate_) {
       INFO("Start: Trying call reset all lifecyce nodes");
-      bool ret = ResetAllLifecyceNodes();
+      ret = ResetAllLifecyceNodes();
       if (!ret) {
         ERROR("Start: Trying call reset all lifecyce nodes failed");
       } else {
@@ -187,10 +185,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
             DisableRelocalization();
           }
 
-          if (is_lifecycle_activate_) {
-            ResetAllLifecyceNodes();
-          }
-          
+          ResetAllLifecyceNodes();
           task_abort_callback_();
           return;
         }
@@ -272,7 +267,6 @@ bool ExecutorVisionLocalization::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  is_lifecycle_activate_ = true;
   INFO("IsDependsReady(): Success to get lifecycle_mutex");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
@@ -405,8 +399,6 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
-  const int timeout = 5000; // 5s
-
   try {
     INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
     std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
@@ -456,7 +448,6 @@ bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
 {
   INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  is_lifecycle_activate_ = false;
   INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex");
   return DeactivateDepsLifecycleNodes();
 }
@@ -535,15 +526,14 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
     }
   }
 
-  if (is_lifecycle_activate_) {
-    INFO("Stop: Trying close all lifecycle nodes");
-    success = ResetAllLifecyceNodes();
-    if (!success) {
-      ERROR("Stop: Close all lifecyce nodes failed.");
-    } else {
-      INFO("Stop: Close all lifecyce nodes success.");
-    }
+  INFO("Stop: Trying close all lifecycle nodes");
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    ERROR("Stop: Close all lifecyce nodes failed.");
+  } else {
+    INFO("Stop: Close all lifecyce nodes success.");
   }
+  
 
   // Reset all flags for localization
   ResetFlags();
