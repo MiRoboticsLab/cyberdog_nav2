@@ -139,6 +139,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       } else {
         INFO("Start: Trying call reset all lifecyce nodes success");
       }
+
+      ResetFlags();
       task_abort_callback_();
     }
     
