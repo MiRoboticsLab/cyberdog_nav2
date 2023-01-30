@@ -123,7 +123,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!success) {
     UpdateFeedback(relocalization::kSLAMTimeout);
 
-    if (force_quit) {
+    if (!force_quit) {
       INFO("Start: Trying call disable relocalization service.");
       bool ret = DisableRelocalization();
       if (!ret) {
