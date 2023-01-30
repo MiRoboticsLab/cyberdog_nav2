@@ -90,6 +90,13 @@ private:
   bool CheckBuildMappingAvailable();
 
   /**
+   * @brief Delete maps
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool DeleteMap();
+
+  /**
    * @brief When robot mapping it's should walk smoother
    *
    * @return true Return success
@@ -113,14 +120,6 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // Control mivinsmapping lifecycle
-  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
-
-  // service client
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
-
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
@@ -130,6 +129,7 @@ private:
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_delete_client_ {nullptr};
 
   // vision mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};

@@ -28,9 +28,6 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   // Mapping build type
   vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
 
-  // Control `mivinsmapping` lifecycle turn on and turn off
-  mapping_client_ = std::make_shared<LifecycleController>("mivinsmapping");
-
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
 }
@@ -42,15 +39,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   (void)goal;
   INFO("Vision Mapping started");
 
-  // If current slam mapping in background, it's not available build mapping now
-  // bool available = CheckBuildMappingAvailable();
-  // if (!available) {
-  //   ERROR("Vision Mapping can't start, due to miloc creating map data.");
-  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   task_cancle_callback_();
-  //   return;
-  // }
-
   // Check all sensors turn on
   bool ready = IsDependsReady();
   if (!ready) {
@@ -59,16 +47,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
-  }
-
-  if (start_client_ == nullptr) {
-    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "start_vins_mapping", shared_from_this());
-  }
-
-  if (stop_client_ == nullptr) {
-    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "stop_vins_mapping", shared_from_this());
   }
 
   // Start build mapping
@@ -124,56 +102,36 @@ void ExecutorVisionMapping::Stop(
   const StopTaskSrv::Request::SharedPtr request,
   StopTaskSrv::Response::SharedPtr response)
 {
+  INFO("Vision Mapping will stop");
+  response->result = StopTaskSrv::Response::SUCCESS;
+
   Timer timer_;
   timer_.Start();
-  INFO("Vision Mapping will stop");
 
   // Disenable report realtime robot pose
   bool success = EnableReportRealtimePose(false);
   if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    task_abort_callback_();
-    return;
+    ERROR("Disable report realtime robot pose failed.");
   }
 
   // MapServer
   success = StopBuildMapping(request->map_name);
   if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
     ERROR("Vision Mapping stop failed.");
+    response->result = StopTaskSrv::Response::FAILED;
+    ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
 
-  // RGB-G camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RGBCameraSensor);
+  success = ResetAllLifecyceNodes();
   if (!success) {
     response->result = StopTaskSrv::Response::FAILED;
-    ERROR("Vision Mapping stop failed, deactivate RGB-D sensor failed");
     task_abort_callback_();
     return;
   }
 
-  // realsense camera lifecycle
-  success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    ERROR("Vision Mapping stop failed, deactivate realsense sensor failed.");
-    task_abort_callback_();
-    return;
-  }
-
-  // mivins lifecycle
-  success = mapping_client_->Pause();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    ERROR("Vision Mapping stop failed.");
-    task_abort_callback_();
-    return;
-  }
-
+  task_cancle_callback_();
   INFO("Vision Mapping stoped success");
   INFO("Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
 }
@@ -196,6 +154,11 @@ bool ExecutorVisionMapping::IsDependsReady()
 
 bool ExecutorVisionMapping::StartBuildMapping()
 {
+  if (start_client_ == nullptr) {
+    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "start_vins_mapping", shared_from_this());
+  }
+
   // Wait service
   bool connect = start_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -225,7 +188,11 @@ bool ExecutorVisionMapping::StartBuildMapping()
 
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
-  (void)map_filename;
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_mapping", shared_from_this());
+  }
+
   // Wait service
   bool connect = stop_client_->wait_for_service(std::chrono::seconds(5s));
   if (!connect) {
@@ -246,6 +213,10 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
+
+  // if (map_filename.empty()) {
+  //   return true;
+  // }
 
   if (result) {
     PublishBuildMapType();
@@ -329,6 +300,47 @@ bool ExecutorVisionMapping::CheckBuildMappingAvailable()
   }
 
   return result;
+}
+
+bool ExecutorVisionMapping::DeleteMap()
+{
+  // if (map_delete_client_ == nullptr) {
+  //   map_delete_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+  //     "delete_reloc_map", shared_from_this());
+  // }
+
+  // bool connect = map_delete_client_->wait_for_service(std::chrono::seconds(5s));
+  // if (!connect) {
+  //   ERROR("Waiting for miloc map handler the service. but cannot connect the service.");
+  //   return false;
+  // }
+
+  // // Set request data
+  // auto request = std::make_shared<MapAvailableResult::Request>();
+  // request->map_id = 1;
+
+  // // Send request
+  // // bool success = map_delete_client_->invoke(request, response);
+  // bool result = false;
+  // try {
+  //   auto future_result = map_delete_client_->invoke(request, std::chrono::seconds(5s));
+
+  //   if (future_result->code == 0) {
+  //     return true;
+  //   } else if (future_result->code == 100) {
+  //     INFO("Relocation map not available, under construction.");
+  //     return false;
+  //   } else if (future_result->code == 301) {
+  //     INFO(
+  //       "There was an error in the last offline map building, and the map needs to be rebuilt"); // NOLINT
+  //     return false;
+  //   }
+  // } catch (const std::exception & e) {
+  //   ERROR("%s", e.what());
+  // }
+
+  // return result;
+  return true;
 }
 
 bool ExecutorVisionMapping::VelocitySmoother()
