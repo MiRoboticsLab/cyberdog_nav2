@@ -117,8 +117,15 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!success) {
     ERROR("Vision localization failed.");
     UpdateFeedback(relocalization::kSLAMTimeout);
-    DisableRelocalization();
-    ResetAllLifecyceNodes();
+
+    if (is_slam_service_activate_) {
+      DisableRelocalization();
+    }
+
+    if (is_lifecycle_activate_) {
+      ResetAllLifecyceNodes();
+    }
+    
     task_abort_callback_();
     return;
   }
