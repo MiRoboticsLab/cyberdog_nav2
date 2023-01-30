@@ -68,6 +68,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   if (!available) {
     ERROR("Vision build map file not available, you must wait a while or map file error");
     UpdateFeedback(relocalization::kMapCheckingError);
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -81,6 +82,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     ERROR("Vision localization lifecycle depend start up failed.");
     // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -103,6 +105,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     ERROR("Enable relocalization service failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -189,6 +192,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
           }
 
           ResetAllLifecyceNodes();
+          ResetFlags();
           task_abort_callback_();
           return;
         }
@@ -538,7 +542,6 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
     INFO("Stop: Close all lifecyce nodes success.");
   }
   
-
   // Reset all flags for localization
   ResetFlags();
 

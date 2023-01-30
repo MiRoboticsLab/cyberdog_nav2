@@ -73,6 +73,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     // 2 激活依赖节点失败
     UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
@@ -93,6 +94,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     ERROR("Turn on relocalization failed.");
     UpdateFeedback(relocalization::kServiceStartingError);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
@@ -154,7 +156,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     }
 
     ResetAllLifecyceNodes();
-
+    ResetFlags();
     task_abort_callback_();
     location_status_ = LocationStatus::FAILURE;
     return;
