@@ -165,8 +165,15 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
-          DisableRelocalization();
-          ResetAllLifecyceNodes();
+
+          if (is_slam_service_activate_) {
+            DisableRelocalization();
+          }
+
+          if (is_lifecycle_activate_) {
+            ResetAllLifecyceNodes();
+          }
+          
           task_abort_callback_();
           return;
         }
