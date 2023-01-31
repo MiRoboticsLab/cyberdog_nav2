@@ -16,6 +16,7 @@
 #include <vector>
 #include <string>
 #include "algorithm_manager/executor_vision_mapping.hpp"
+#include "nav2_util/robot_utils.hpp"
 
 namespace cyberdog
 {
@@ -33,6 +34,10 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 
   // TF2 checker
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+    get_node_base_interface(), get_node_timers_interface());
+  tf_buffer_->setCreateTimerInterface(timer_interface);
+  tf_buffer_->setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // spin
@@ -512,14 +517,11 @@ bool ExecutorVisionMapping::CloseMappingService()
 bool ExecutorVisionMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
-  bool result = false;
-  try {
-    result = tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now());
-  } catch (const tf2::TransformException & ex) {
-    INFO( "Could not transform %s to %s: %s",
-      clild_link.c_str(), parent_link.c_str(), ex.what());
+  geometry_msgs::msg::PoseStamped global_pose;
+  if (!nav2_util::getCurrentPose(global_pose, *tf_buffer_, "map", "base_link", 1.0)) {
+    return false;
   }
-  return result;
+  return true;
 }
 
 void ExecutorVisionMapping::ResetFlags()
