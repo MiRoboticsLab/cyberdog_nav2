@@ -73,6 +73,12 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   INFO("Start up all lifecycle nodes success");
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser mapping is stop, not need start mapping service.");
+    return;
+  }
+
   // Start build mapping
   INFO("Trying start laser mapping service(start_mapping)");
   bool success = StartBuildMapping();
@@ -85,14 +91,28 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   INFO("Start laser mapping service(start_mapping) success");
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser mapping is stop, not need start velocity smoother service.");
+    return;
+  }
   // Smoother walk
   VelocitySmoother();
+
+   // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser mapping is stop, not need start report realtime pose service.");
+    return;
+  }
 
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    if (is_slam_service_activate_) {
+      CloseMappingService();
+    }
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
@@ -113,38 +133,42 @@ void ExecutorLaserMapping::Stop(
   Timer timer_;
   timer_.Start();
 
-  // Disenable report realtime robot pose
-  bool success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    response->result = StopTaskSrv::Response::FAILED;
-    // use topic stop robot realtime pose
-    EnableReportRealtimePose(false, true);
-    ResetAllLifecyceNodes();
-    task_abort_callback_();
-    return;
-  }
+  is_exit_ = true;
+  bool success = true;
 
-  // MapServer
-  INFO("Trying close laser mapping service(stop_mapping)");
-  success = StopBuildMapping(request->map_name);
-  if (!success) {
-    ERROR("Close laser mapping service(stop_mapping) failed");
-    response->result = StopTaskSrv::Response::FAILED;
-    ResetAllLifecyceNodes();
-    task_abort_callback_();
-    return;
+  // Disenable report realtime robot pose
+  if (is_realtime_pose_service_activate_) {
+    INFO("Trying close report realtime robot pose service(PoseEnable)");
+    success = EnableReportRealtimePose(false);
+    if (!success) {
+      ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+      response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Close report realtime robot pose service(PoseEnable) success");
+    }
   }
-  INFO("Close laser mapping service(stop_mapping) success");
+ 
+  // MapServer
+  if (is_slam_service_activate_) {
+    INFO("Trying close laser mapping service(stop_mapping)");
+    success = StopBuildMapping(request->map_name);
+    if (!success) {
+      ERROR("Close laser mapping service(stop_mapping) failed");
+      response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Close laser mapping service(stop_mapping) success");
+    }
+  }
 
   INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
     ERROR("Close all lifecycle nodes failed");
     response->result = StopTaskSrv::Response::FAILED;
+  } else {
+    INFO("Close all lifecycle nodes success");
   }
-  INFO("Close all lifecycle nodes success");
-
+  
   task_cancle_callback_();
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("Laser Mapping stoped success");
@@ -210,6 +234,7 @@ bool ExecutorLaserMapping::StartBuildMapping()
   bool result = false;
   try {
     std::lock_guard<std::mutex> lock(service_mutex_);
+    is_slam_service_activate_ = true;
     auto future_result = start_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -247,6 +272,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   bool result = false;
   try {
     std::lock_guard<std::mutex> lock(service_mutex_);
+    is_slam_service_activate_ = false;
     auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -281,6 +307,11 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
     }
 
     // Send request
+    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
+    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
+    is_realtime_pose_service_activate_ = enable;
+    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
+
     auto future = realtime_pose_client_->async_send_request(request);
     if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
       ERROR("Connect position checker service timeout");
@@ -300,28 +331,6 @@ bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
 bool ExecutorLaserMapping::CheckAvailable()
 {
   return true;
-}
-
-bool ExecutorLaserMapping::DisenableLocalization()
-{
-  bool connect = stop_client_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for Localization stop the service. but cannot connect the service.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
-
-  // Send request
-  auto future = stop_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
-    ERROR("Connect Localization stop service timeout");
-    return false;
-  }
-
-  return future.get()->success;
 }
 
 bool ExecutorLaserMapping::VelocitySmoother()
@@ -344,10 +353,6 @@ bool ExecutorLaserMapping::VelocitySmoother()
   request->value = 2;
   request->step_height = step_height;
 
-  // Send request
-  // velocity_smoother_->invoke(request, std::chrono::seconds(5s))
-
-  // return velocity_smoother_->invoke(request, response);
   bool result = false;
   try {
     auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
@@ -425,6 +430,42 @@ bool ExecutorLaserMapping::ResetAllLifecyceNodes()
 {
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   return DeactivateDepsLifecycleNodes();
+}
+
+bool ExecutorLaserMapping::CheckExit()
+{
+  return is_exit_;
+}
+
+bool ExecutorLaserMapping::CloseMappingService()
+{
+  if (stop_ == nullptr) {
+    stop_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
+      "stop_mapping", shared_from_this());
+  }
+
+  // Wait service
+  bool connect = stop_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for the service(stop_mapping). but cannot connect the service.");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<visualization::srv::Stop::Request>();
+  request->finish = false;
+
+  // Send request
+  // return stop_->invoke(request, response);
+  bool result = false;
+  try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
+    auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result;
 }
 
 }  // namespace algorithm

@@ -105,14 +105,6 @@ private:
   bool CheckAvailable();
 
   /**
-   * @brief Enable Lidar Localization turn off
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool DisenableLocalization();
-
-  /**
    * @brief When robot mapping it's should walk smoother
    *
    * @return true Return success
@@ -149,6 +141,10 @@ private:
    */
   bool InvokeOutdoorFlag();
 
+  bool CheckExit();
+
+  bool CloseMappingService();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -169,11 +165,6 @@ private:
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-
-  // Control realsense camera lifecycle
-  // std::shared_ptr<LifecycleController> localization_client_ {nullptr};
-  // std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
@@ -190,12 +181,15 @@ private:
   int pose_report_service_timeout_;
   int velocity_smoother_service_timeout_;
 
-  // record this sensor is open
-  bool is_open_realsense_camera_ {false};
+
+  bool is_exit_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
 
   // mutex
   std::mutex lifecycle_mutex_;
   std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

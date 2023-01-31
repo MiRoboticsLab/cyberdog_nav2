@@ -125,6 +125,10 @@ private:
   */
   bool ResetAllLifecyceNodes();
 
+  bool CheckExit();
+
+  bool CloseMappingService();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -143,9 +147,16 @@ private:
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr outdoor_client_ {nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
 
+  // record this sensor is open
+  bool is_open_realsense_camera_ {false};
+  bool is_exit_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
+
   // mutex
   std::mutex lifecycle_mutex_;
   std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

@@ -54,6 +54,12 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   INFO("Start up all lifecycle nodes success");
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Vision mapping is stop, not need start mapping service.");
+    return;
+  }
+
   // Start build mapping
   INFO("Trying start vision mapping service(start_vins_mapping)");
   bool success = StartBuildMapping();
@@ -66,8 +72,20 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   INFO("Start vision mapping service(start_vins_mapping) success");
 
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Vision mapping is stop, not need start velocity smoother service.");
+    return;
+  }
+
   // Smoother walk
   VelocitySmoother();
+
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Laser mapping is stop, not need start report realtime pose service.");
+    return;
+  }
 
   // Enable report realtime robot pose
   auto pose_thread = std::make_shared<std::thread>(
@@ -86,6 +104,10 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
         if (try_count >= 3 && !success) {
           ERROR("Enable report realtime robot pose failed.");
           UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+
+          if (is_slam_service_activate_) {
+            CloseMappingService();
+          }
           ResetAllLifecyceNodes();
           task_abort_callback_();
           return;
@@ -99,10 +121,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("Vision Mapping success.");
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
-  // invaild feedback code for send app
-  const int32_t kInvalidFeedbackCode = -1;
-  UpdateFeedback(kInvalidFeedbackCode);
 }
 
 void ExecutorVisionMapping::Stop(
@@ -115,28 +133,40 @@ void ExecutorVisionMapping::Stop(
   Timer timer_;
   timer_.Start();
 
-  // Disenable report realtime robot pose
-  bool success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disable report realtime robot pose failed.");
-  }
+  is_exit_ = true;
+  bool success = true;
 
-  // MapServer
-  INFO("Trying stop vision mapping service(stop_vins_mapping)");
-  success = StopBuildMapping(request->map_name);
-  if (!success) {
-    ERROR("Stop vision mapping service(stop_vins_mapping) failed");
-    response->result = StopTaskSrv::Response::FAILED;
+  // Disenable report realtime robot pose
+  if (is_realtime_pose_service_activate_) {
+    success = EnableReportRealtimePose(false);
+    if (!success) {
+      ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+      response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Close report realtime robot pose service(PoseEnable) success");
+    }
   }
-  INFO("Stop vision mapping service(stop_vins_mapping) success");
+  
+  // MapServer
+  if (is_slam_service_activate_) {
+    INFO("Trying stop vision mapping service(stop_vins_mapping)");
+    success = StopBuildMapping(request->map_name);
+    if (!success) {
+      ERROR("Stop vision mapping service(stop_vins_mapping) failed");
+      response->result = StopTaskSrv::Response::FAILED;
+    } else {
+      INFO("Stop vision mapping service(stop_vins_mapping) success");
+    }
+  }
 
   INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
     ERROR("Close all lifecycle nodes failed");
     response->result = StopTaskSrv::Response::FAILED;
+  } else {
+    INFO("Close all lifecycle nodes success");
   }
-  INFO("Close all lifecycle nodes success");
 
   task_cancle_callback_();
   INFO("Vision Mapping stoped success");
@@ -181,6 +211,8 @@ bool ExecutorVisionMapping::StartBuildMapping()
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
+    is_slam_service_activate_ = true;
     auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -222,6 +254,8 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
+    is_slam_service_activate_ = false;
     auto future_result = stop_client_->invoke(request, std::chrono::seconds(5s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -267,6 +301,10 @@ bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
   // return start_->invoke(request, response);
   bool result = false;
   try {
+    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
+    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
+    is_realtime_pose_service_activate_ = enable;
+    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
     auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(10s));
     result = future_result->success;
   } catch (const std::exception & e) {
@@ -415,6 +453,42 @@ bool ExecutorVisionMapping::ResetAllLifecyceNodes()
 {
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   return DeactivateDepsLifecycleNodes();
+}
+
+bool ExecutorVisionMapping::CheckExit()
+{
+  return is_exit_;
+}
+
+bool ExecutorVisionMapping::CloseMappingService()
+{
+  if (stop_client_ == nullptr) {
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "stop_vins_mapping", shared_from_this());
+  }
+
+  // Wait service
+  bool connect = stop_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for the service(stop_vins_mapping) timeout");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+
+  // Send request
+  // return start_->invoke(request, response);
+  bool result = false;
+  try {
+    std::lock_guard<std::mutex> lock(service_mutex_);
+    auto future_result = stop_client_->invoke(request, std::chrono::seconds(5s));
+    result = future_result->success;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+  return result && DeleteMap();
 }
 
 }  // namespace algorithm
