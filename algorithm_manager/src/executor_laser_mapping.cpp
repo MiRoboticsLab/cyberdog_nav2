@@ -40,6 +40,10 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
     "PoseEnable", rmw_qos_profile_services_default);
 
+  // TF2 checker
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
 }
@@ -57,6 +61,15 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   Timer timer_;
   timer_.Start();
+
+  // Check current from map to base_link tf exist, if exit `Laser Localization` 
+  // in acitate, so that this error case
+  bool tf_exist = CanTransform("map", "base_link");
+  if (tf_exist) {
+    ERROR("Check current from map to base_link tf exist, should never happen");
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    return;
+  }
 
   INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
@@ -464,6 +477,19 @@ bool ExecutorLaserMapping::CloseMappingService()
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
+  }
+  return result;
+}
+
+bool ExecutorLaserMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
+{
+  // Look up for the transformation between parent_link and clild_link frames
+  bool result = false;
+  try {
+    result = tf_buffer_->canTransform(parent_link, clild_link, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    INFO( "Could not transform %s to %s: %s",
+      clild_link.c_str(), parent_link.c_str(), ex.what());
   }
   return result;
 }

@@ -27,6 +27,8 @@
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "algorithm_manager/timer.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
 
 namespace cyberdog
 {
@@ -145,6 +147,8 @@ private:
 
   bool CloseMappingService();
 
+  bool CanTransform(const std::string & parent_link, const std::string & clild_link);
+
   void ResetFlags();
 
   // feedback data
@@ -192,6 +196,10 @@ private:
   std::mutex lifecycle_mutex_;
   std::mutex service_mutex_;
   std::mutex realtime_pose_mutex_;
+
+  // tf
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog
