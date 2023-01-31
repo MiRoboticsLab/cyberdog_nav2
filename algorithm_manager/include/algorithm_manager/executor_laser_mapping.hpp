@@ -141,6 +141,14 @@ private:
    */
   bool DeleteBackgroundVisionMapDatasets();
 
+  /**
+   * @brief Record outdoor flag
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool InvokeOutdoorFlag();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
@@ -166,6 +174,7 @@ private:
   // std::shared_ptr<LifecycleController> localization_client_ {nullptr};
   // std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};

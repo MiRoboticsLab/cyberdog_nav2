@@ -273,6 +273,7 @@ private:
 
   // navigation target goal
   nav2_msgs::action::NavigateToPose::Goal target_goal_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
 
   // nav client as request
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_ {nullptr};
@@ -281,7 +282,7 @@ private:
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; \
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; 
   rclcpp::Time time_goal_sent_;
 
   // Control localization_node lifecycle
@@ -310,7 +311,6 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   std::atomic_bool navigation_reset_trigger_{false};
-
 
   // Record lidar or vision flag
   bool use_vision_slam_ {false};

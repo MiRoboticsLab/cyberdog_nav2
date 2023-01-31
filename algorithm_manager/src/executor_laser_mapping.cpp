@@ -37,6 +37,9 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   stop_client_ = create_client<std_srvs::srv::SetBool>(
     "stop_location", rmw_qos_profile_services_default);
 
+  outdoor_client_ = create_client<std_srvs::srv::SetBool>(
+    "lidar_outdoor", rmw_qos_profile_services_default);
+
   // Control lidar mapping report realtime pose turn on and turn off
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
     "PoseEnable", rmw_qos_profile_services_default);
@@ -387,6 +390,28 @@ bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
     ERROR("%s", e.what());
   }
   return result;
+}
+
+bool ExecutorLaserMapping::InvokeOutdoorFlag()
+{
+  bool connect = outdoor_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for service(%s) timeout", outdoor_client_->get_service_name());
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+
+  // Send request
+  auto future = outdoor_client_->async_send_request(request);
+  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+    ERROR("Send request service(%s) timeout", outdoor_client_->get_service_name());
+    return false;
+  }
+
+  return future.get()->success;
 }
 
 bool ExecutorLaserMapping::ResetAllLifecyceNodes()

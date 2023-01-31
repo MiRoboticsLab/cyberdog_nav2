@@ -64,6 +64,9 @@ constexpr int kMapErrorNotExist = 311;
 ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(this->get_node_base_interface());
+
   action_client_ =
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
@@ -80,10 +83,7 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
     rmw_qos_profile_default, callback_group_);
 
   // spin
-  std::thread{[this]() {
-      rclcpp::spin(this->get_node_base_interface());
-    }
-  }.detach();
+  std::thread{[this] {this->executor_->spin();}}.detach();
 }
 
 ExecutorAbNavigation::~ExecutorAbNavigation()

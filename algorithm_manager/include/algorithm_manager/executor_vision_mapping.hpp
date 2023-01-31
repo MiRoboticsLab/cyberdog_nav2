@@ -110,6 +110,14 @@ private:
   void PublishBuildMapType();
 
   /**
+   * @brief Record outdoor flag
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool InvokeOutdoorFlag();
+
+  /**
   * @brief Set all lifecycle default state
   *
   * @return true Return success
@@ -132,6 +140,7 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_delete_client_ {nullptr};
 
   // vision mapping alive
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr outdoor_client_ {nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
 
   // mutex

@@ -28,6 +28,9 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   // Mapping build type
   vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
 
+  outdoor_client_ = create_client<std_srvs::srv::SetBool>(
+    "vision_outdoor", rmw_qos_profile_services_default);
+
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
 }
@@ -375,6 +378,28 @@ void ExecutorVisionMapping::PublishBuildMapType()
   std_msgs::msg::Bool state;
   state.data = true;
   vision_mapping_trigger_pub_->publish(state);
+}
+
+bool ExecutorVisionMapping::InvokeOutdoorFlag()
+{
+  bool connect = outdoor_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for service(%s) timeout", outdoor_client_->get_service_name());
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = true;
+
+  // Send request
+  auto future = outdoor_client_->async_send_request(request);
+  if (future.wait_for(std::chrono::seconds(5s)) == std::future_status::timeout) {
+    ERROR("Send request service(%s) timeout", outdoor_client_->get_service_name());
+    return false;
+  }
+
+  return future.get()->success;
 }
 
 bool ExecutorVisionMapping::ResetAllLifecyceNodes()
