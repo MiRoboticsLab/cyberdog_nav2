@@ -64,6 +64,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Start up all lifecycle nodes failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -82,6 +83,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Start laser mapping service(start_mapping) failed");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -110,6 +112,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       CloseMappingService();
     }
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -165,6 +168,7 @@ void ExecutorLaserMapping::Stop(
     INFO("Close all lifecycle nodes success");
   }
   
+  ResetFlags();
   task_cancle_callback_();
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
   INFO("Laser Mapping stoped success");
@@ -462,6 +466,11 @@ bool ExecutorLaserMapping::CloseMappingService()
     ERROR("%s", e.what());
   }
   return result;
+}
+
+void ExecutorLaserMapping::ResetFlags()
+{
+  is_exit_ = false;
 }
 
 }  // namespace algorithm

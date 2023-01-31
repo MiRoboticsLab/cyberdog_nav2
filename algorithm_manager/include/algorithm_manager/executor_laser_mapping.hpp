@@ -145,6 +145,8 @@ private:
 
   bool CloseMappingService();
 
+  void ResetFlags();
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 

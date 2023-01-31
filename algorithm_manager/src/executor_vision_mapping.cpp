@@ -49,6 +49,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Start up all lifecycle nodes failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -67,6 +68,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     ERROR("Start vision mapping service(start_vins_mapping) failed");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
+    ResetFlags();
     task_abort_callback_();
     return;
   }
@@ -109,6 +111,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
             CloseMappingService();
           }
           ResetAllLifecyceNodes();
+          ResetFlags();
           task_abort_callback_();
           return;
         }
@@ -168,6 +171,7 @@ void ExecutorVisionMapping::Stop(
     INFO("Close all lifecycle nodes success");
   }
 
+  ResetFlags();
   task_cancle_callback_();
   INFO("Vision Mapping stoped success");
   INFO("Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
@@ -489,6 +493,11 @@ bool ExecutorVisionMapping::CloseMappingService()
     ERROR("%s", e.what());
   }
   return result && DeleteMap();
+}
+
+void ExecutorVisionMapping::ResetFlags()
+{
+  is_exit_ = false;
 }
 
 }  // namespace algorithm
