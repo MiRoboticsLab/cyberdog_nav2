@@ -52,6 +52,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (tf_exist) {
     ERROR("Check current from map to base_link tf exist, should never happen");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    task_abort_callback_();
     return;
   }
 
@@ -513,7 +514,7 @@ bool ExecutorVisionMapping::CanTransform(const std::string & parent_link, const 
   // Look up for the transformation between parent_link and clild_link frames
   bool result = false;
   try {
-    result = tf_buffer_->canTransform(parent_link, clild_link, tf2::TimePointZero);
+    result = tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now());
   } catch (const tf2::TransformException & ex) {
     INFO( "Could not transform %s to %s: %s",
       clild_link.c_str(), parent_link.c_str(), ex.what());
