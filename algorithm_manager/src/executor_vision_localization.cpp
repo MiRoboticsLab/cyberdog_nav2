@@ -212,36 +212,37 @@ void ExecutorVisionLocalization::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
+  WARN("Vision localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  Timer timer_;
-  timer_.Start();
+  // Timer timer_;
+  // timer_.Start();
 
-  // exit flag
-  is_exit_ = true;
+  // // exit flag
+  // is_exit_ = true;
 
-  // Disenable Relocalization
-  bool success = DisableRelocalization();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-  }
+  // // Disenable Relocalization
+  // bool success = DisableRelocalization();
+  // if (!success) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  // }
 
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    ERROR("Disenable report realtime robot pose failed.");
-    response->result = StopTaskSrv::Response::FAILED;
-  }
+  // // Disenable report realtime robot pose
+  // success = EnableReportRealtimePose(false);
+  // if (!success) {
+  //   ERROR("Disenable report realtime robot pose failed.");
+  //   response->result = StopTaskSrv::Response::FAILED;
+  // }
 
-  ResetFlags();
-  success = ResetAllLifecyceNodes();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-  }
-  task_success_callback_();
+  // ResetFlags();
+  // success = ResetAllLifecyceNodes();
+  // if (!success) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  // }
+  // task_success_callback_();
 
-  INFO("Vision Localization stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  // INFO("Vision Localization stoped success");
+  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorVisionLocalization::Cancel()

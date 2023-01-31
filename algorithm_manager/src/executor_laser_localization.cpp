@@ -175,41 +175,42 @@ void ExecutorLaserLocalization::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
+  WARN("Laser localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  Timer timer_;
-  timer_.Start();
+  // Timer timer_;
+  // timer_.Start();
 
-  // exit flag
-  is_exit_ = true;
+  // // exit flag
+  // is_exit_ = true;
 
-  // Disenable Relocalization
-  bool success = DisableRelocalization();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-  }
+  // // Disenable Relocalization
+  // bool success = DisableRelocalization();
+  // if (!success) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  // }
 
-  // Disenable report realtime robot pose
-  success = EnableReportRealtimePose(false);
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-  }
+  // // Disenable report realtime robot pose
+  // success = EnableReportRealtimePose(false);
+  // if (!success) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  // }
 
-  ResetFlags();
-  success = ResetAllLifecyceNodes();
-  if (!success) {
-    response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
-  }
+  // ResetFlags();
+  // success = ResetAllLifecyceNodes();
+  // if (!success) {
+  //   response->result = StopTaskSrv::Response::FAILED;
+  //   task_abort_callback_();
+  //   return;
+  // }
 
-  location_status_ = LocationStatus::Unknown;
+  // location_status_ = LocationStatus::Unknown;
 
-  // Set manager status
-  task_cancle_callback_();
+  // // Set manager status
+  // task_cancle_callback_();
 
-  INFO("Laser localization stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  // INFO("Laser localization stoped success");
+  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorLaserLocalization::Cancel()

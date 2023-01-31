@@ -375,7 +375,7 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
 {
   // No need to cancel the goal if goal handle is invalid
   if (!nav_goal_handle_) {
-    WARN("Handle ShouldCancelGoal() error");
+    WARN("No need to cancel the goal because goal handle is null");
     return false;
   }
 
@@ -603,7 +603,7 @@ bool ExecutorAbNavigation::ResetAllLifecyceNodes()
 bool ExecutorAbNavigation::StopRunningRobot()
 {
   if (nav_goal_handle_ == nullptr) {
-    ERROR("nav_goal_handle_ == nullptr");
+    ERROR("nav_goal_handle is null when trying to stop NavAB");
     return false;
   }
 
