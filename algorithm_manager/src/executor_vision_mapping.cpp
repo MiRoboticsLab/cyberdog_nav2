@@ -516,7 +516,7 @@ bool ExecutorVisionMapping::CloseMappingService()
 bool ExecutorVisionMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
-  return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now());
+  return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now(), tf2::durationFromSec(1));
 }
 
 void ExecutorVisionMapping::ResetFlags()
