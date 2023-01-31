@@ -468,31 +468,39 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   Timer timer_;
   timer_.Start();
 
-  bool success = true;
   // Trigger stop localization exit flag
   is_exit_ = true;
+  bool success = true;
 
-  if (is_slam_service_activate_) {
+   if (is_slam_service_activate_) {
     // Disenable Relocalization
+    INFO("Stop: Trying close laser relocalization service(stop_location)");
     success = DisableRelocalization();
     if (!success) {
-      ERROR("Close laser relocalization service(stop_location) failed.");
+      ERROR("Stop: Close laser relocalization service(stop_location) failed.");
+    } else {
+      INFO("Stop: Close laser relocalization service(stop_location) success");
     }
   }
 
   if (is_realtime_pose_service_activate_) {
     // Disenable report realtime robot pose
+    INFO("Stop: Trying stop report realtime pose");
     success = EnableReportRealtimePose(false);
     if (!success) {
-      ERROR("Robot stop report realtime pose failed");
+      ERROR("Stop: Robot stop report realtime pose failed");
+    } else {
+      INFO("Stop: Robot stop report realtime pose success");
     }
   }
 
+  INFO("Stop: Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
-    ERROR("Reset all lifecyce nodes failed.");
+    ERROR("Stop: Close all lifecyce nodes failed.");
+  } else {
+    INFO("Stop: Close all lifecyce nodes success.");
   }
-
 
   // Reset all flags for localization
   ResetFlags();
