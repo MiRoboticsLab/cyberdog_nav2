@@ -33,10 +33,6 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
   robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
 
-  // Control lidar relocalization turn off
-  stop_client_ = create_client<std_srvs::srv::SetBool>(
-    "stop_location", rmw_qos_profile_services_default);
-
   outdoor_client_ = create_client<std_srvs::srv::SetBool>(
     "lidar_outdoor", rmw_qos_profile_services_default);
 
