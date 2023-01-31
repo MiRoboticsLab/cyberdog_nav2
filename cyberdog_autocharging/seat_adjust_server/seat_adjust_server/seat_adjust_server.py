@@ -464,7 +464,7 @@ class SeatAdjustServer(Node):
         self.get_logger().info(
                 'need_adjust_points: %d' % (need_adjust_points)
         )
-        if (need_adjust_points > 2):
+        if (need_adjust_points > 4):
             delta_yaw = need_adjust_points / 2
             if (
                 deviation_right_num > deviation_left_num
@@ -547,7 +547,7 @@ class SeatAdjustServer(Node):
             self.timer_count = self.timer_count + 1
             self.motion_req.pos_des[0] = 0
             self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = -0.07
+            self.motion_req.pos_des[2] = -0.08
             self.motion_req.rpy_des[2] = 0
             self.motion_req.motion_id = 212
             self.motion_req.duration = (int)(timer_period * 1000 - 10)
