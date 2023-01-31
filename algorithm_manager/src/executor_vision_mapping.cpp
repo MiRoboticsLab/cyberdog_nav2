@@ -518,7 +518,7 @@ bool ExecutorVisionMapping::CanTransform(const std::string & parent_link, const 
 {
   // Look up for the transformation between parent_link and clild_link frames
   geometry_msgs::msg::PoseStamped global_pose;
-  if (!nav2_util::getCurrentPose(global_pose, *tf_buffer_, "map", "base_link", 1.0)) {
+  if (!nav2_util::getCurrentPose(global_pose, *tf_buffer_, parent_link, clild_link, 1.0)) {
     return false;
   }
   return true;
