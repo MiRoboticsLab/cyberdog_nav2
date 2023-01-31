@@ -63,7 +63,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   timer_.Start();
 
   // Check current from map to base_link tf exist, if exit `Laser Localization` 
-  // in acitate, so that this error case
+  // in activate, so that this error case
   bool tf_exist = CanTransform("map", "base_link");
   if (tf_exist) {
     ERROR("Check current from map to base_link tf exist, should never happen");

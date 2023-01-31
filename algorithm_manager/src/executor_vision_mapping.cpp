@@ -46,8 +46,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   (void)goal;
   INFO("Vision Mapping started");
 
-  // Check current from map to base_link tf exist, if exit `Laser Localization` 
-  // in acitate, so that this error case
+  // Check current from map to base_link tf exist, if exit `Vision Localization` 
+  // in activate, so that this error case
   bool tf_exist = CanTransform("map", "base_link");
   if (tf_exist) {
     ERROR("Check current from map to base_link tf exist, should never happen");
