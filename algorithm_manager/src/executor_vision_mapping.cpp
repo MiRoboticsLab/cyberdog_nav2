@@ -50,15 +50,17 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   (void)goal;
   INFO("Vision Mapping started");
 
+  // TODO(dyq): This is bug
+  //    when tf transform not exit from A to B frame, tf still check tf exit
   // Check current from map to base_link tf exist, if exit `Vision Localization` 
   // in activate, so that this error case
-  bool tf_exist = CanTransform("map", "base_link");
-  if (tf_exist) {
-    ERROR("Check current from map to base_link tf exist, should never happen");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  // bool tf_exist = CanTransform("map", "base_link");
+  // if (tf_exist) {
+  //   ERROR("Check current from map to base_link tf exist, should never happen");
+  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+  //   task_abort_callback_();
+  //   return;
+  // }
 
   // Check all sensors turn on
   INFO("Trying start up all lifecycle nodes");
