@@ -43,24 +43,28 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Vision Mapping started");
 
   // Check all sensors turn on
+  INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("Vision Mapping lifecycle depend start up failed.");
+    ERROR("Start up all lifecycle nodes failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Start up all lifecycle nodes success");
 
   // Start build mapping
+  INFO("Trying start vision mapping service(start_vins_mapping)");
   bool success = StartBuildMapping();
   if (!success) {
-    ERROR("Start Vision Mapping failed.");
+    ERROR("Start vision mapping service(start_vins_mapping) failed");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Start vision mapping service(start_vins_mapping) success");
 
   // Smoother walk
   VelocitySmoother();
@@ -118,16 +122,21 @@ void ExecutorVisionMapping::Stop(
   }
 
   // MapServer
+  INFO("Trying stop vision mapping service(stop_vins_mapping)");
   success = StopBuildMapping(request->map_name);
   if (!success) {
-    ERROR("Vision Mapping stop failed.");
+    ERROR("Stop vision mapping service(stop_vins_mapping) failed");
     response->result = StopTaskSrv::Response::FAILED;
   }
+  INFO("Stop vision mapping service(stop_vins_mapping) success");
 
+  INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
+    ERROR("Close all lifecycle nodes failed");
     response->result = StopTaskSrv::Response::FAILED;
   }
+  INFO("Close all lifecycle nodes success");
 
   task_cancle_callback_();
   INFO("Vision Mapping stoped success");

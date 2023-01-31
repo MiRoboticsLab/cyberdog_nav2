@@ -62,24 +62,28 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   Timer timer_;
   timer_.Start();
 
+  INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
   if (!ready) {
-    ERROR("Laser Mapping lifecycle depend start up failed.");
+    ERROR("Start up all lifecycle nodes failed.");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Start up all lifecycle nodes success");
 
   // Start build mapping
+  INFO("Trying start laser mapping service(start_mapping)");
   bool success = StartBuildMapping();
   if (!success) {
-    ERROR("Start laser mapping failed.");
+    ERROR("Start laser mapping service(start_mapping) failed");
     UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Start laser mapping service(start_mapping) success");
 
   // Smoother walk
   VelocitySmoother();
@@ -122,21 +126,24 @@ void ExecutorLaserMapping::Stop(
   }
 
   // MapServer
+  INFO("Trying close laser mapping service(stop_mapping)");
   success = StopBuildMapping(request->map_name);
   if (!success) {
-    ERROR("Laser Mapping stop failed.");
+    ERROR("Close laser mapping service(stop_mapping) failed");
     response->result = StopTaskSrv::Response::FAILED;
     ResetAllLifecyceNodes();
     task_abort_callback_();
     return;
   }
+  INFO("Close laser mapping service(stop_mapping) success");
 
+  INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
+    ERROR("Close all lifecycle nodes failed");
     response->result = StopTaskSrv::Response::FAILED;
-    task_abort_callback_();
-    return;
   }
+  INFO("Close all lifecycle nodes success");
 
   task_cancle_callback_();
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
@@ -422,3 +429,5 @@ bool ExecutorLaserMapping::ResetAllLifecyceNodes()
 
 }  // namespace algorithm
 }  // namespace cyberdog
+
+
