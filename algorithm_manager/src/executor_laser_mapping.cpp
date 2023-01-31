@@ -17,7 +17,6 @@
 #include <string>
 
 #include "algorithm_manager/executor_laser_mapping.hpp"
-#include "nav2_util/robot_utils.hpp"
 
 namespace cyberdog
 {
@@ -490,12 +489,7 @@ bool ExecutorLaserMapping::CloseMappingService()
 bool ExecutorLaserMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
-  geometry_msgs::msg::PoseStamped global_pose;
-  if (!nav2_util::getCurrentPose(global_pose, *tf_buffer_, parent_link, clild_link, 1.0)) {
-    return false;
-  }
-
-  return true;
+  return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now());
 }
 
 void ExecutorLaserMapping::ResetFlags()
