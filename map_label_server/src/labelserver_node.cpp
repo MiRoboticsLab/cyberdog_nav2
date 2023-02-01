@@ -86,7 +86,7 @@ void LabelServer::HandleGetLabelServiceCallback(
   std::string map_yaml_config = label_store_->map_label_directory() + request->map_name + ".yaml";
 
   // bool map_status = false;
-  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
+  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, label_filename);
   // if (!ready && !map_status) {
   //   WARN("Current map not available.");
   //   return;
@@ -273,13 +273,12 @@ void LabelServer::SetOutdoorFlag(const std::string & filename, bool outdoor)
 
 bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std::string & map_name)
 {
-  std::string map_json_filename = "/home/mi/mapping/" + map_name + ".json";
-  if (!filesystem::exists(map_json_filename)) {
+  if (!filesystem::exists(map_name)) {
     ERROR("Current map json file is not exist.");
     return false;
   }
   rapidjson::Document document(rapidjson::kObjectType);
-  cyberdog::common::CyberdogJson::ReadJsonFromFile(map_json_filename, document);
+  cyberdog::common::CyberdogJson::ReadJsonFromFile(map_name, document);
   bool outdoor = false;
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     std::string key = it->name.GetString();
