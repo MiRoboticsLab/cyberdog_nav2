@@ -221,9 +221,7 @@ void LabelServer::handle_set_label(
   }
 
   std::string label_filename_suffix = request->label.map_name + ".json";
-  std::string label_filename = label_filename_suffix;
-
-  if (!map_label_store_ptr_->IsExist(label_filename)) {
+  if (!map_label_store_ptr_->IsExist(label_filename_suffix)) {
     bool exist = map_label_store_ptr_->CreateMapLabelFile(
       map_label_store_ptr_->map_label_directory(), label_filename_suffix);
     if (!exist) {
@@ -231,7 +229,7 @@ void LabelServer::handle_set_label(
     }
   }
 
-  // INFO("Current is_outdoor flag : %d", request->label.is_outdoor);
+  INFO("is_outdoor flag : %d", request->label.is_outdoor);
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
   // map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
@@ -248,11 +246,11 @@ void LabelServer::handle_set_label(
     auto label = std::make_shared<protocol::msg::Label>();
     label->set__physic_x(request->label.labels[i].physic_x);
     label->set__physic_y(request->label.labels[i].physic_y);
-    map_label_store_ptr_->AddLabel(label_filename, request->label.labels[i].label_name, label, doc);
+    map_label_store_ptr_->AddLabel(label_filename_suffix, request->label.labels[i].label_name, label, doc);
   }
 
   // save
-  map_label_store_ptr_->Write(label_filename, doc);
+  map_label_store_ptr_->Write(label_filename_suffix, doc);
   response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
 }
 
@@ -525,6 +523,7 @@ bool LabelServer::CheckDuplicateTags(const std::vector<protocol::msg::Label> & l
   std::unordered_multiset<std::string> tags;
   for (const auto & label : labels) {
     if (tags.count(label.label_name)) {
+      INFO("[%s : %lf, %lf]", label.label_name.c_str(), label.physic_x, label.physic_y);
       return false;
     }
     tags.emplace(label.label_name);
