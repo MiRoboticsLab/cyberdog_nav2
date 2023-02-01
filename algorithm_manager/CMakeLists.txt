@@ -82,8 +82,6 @@ set(sources
   src/executor_vision_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
-  src/lifecycle_node_manager.cpp
-  src/lifecycle_controller.cpp
   src/timer.cpp
 )
 

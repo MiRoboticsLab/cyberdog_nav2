@@ -28,7 +28,6 @@
 #include "nav_msgs/msg/path.hpp"
 #include "algorithm_manager/executor_base.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
-#include "algorithm_manager/lifecycle_controller.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 #include "algorithm_manager/timer.hpp"
@@ -193,10 +192,6 @@ private:
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
-  // Navigation lifecycles
-  std::unordered_map<std::string, std::shared_ptr<LifecycleController>>
-  navigation_lifecycle_;
-
   // navigation target goal
   nav2_msgs::action::NavigateToPose::Goal target_goal_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_ {nullptr};
@@ -216,9 +211,6 @@ private:
 
   // Control `map server` lifecycle node
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};
-
-  // Control `map server` lifecycle node
-  std::shared_ptr<LifecycleController> map_server_lifecycle_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};

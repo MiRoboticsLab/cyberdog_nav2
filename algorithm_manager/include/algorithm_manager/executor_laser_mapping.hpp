@@ -21,7 +21,6 @@
 
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/service_client.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
@@ -40,7 +39,6 @@ namespace algorithm
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
   using LabelParam = protocol::srv::SetMapLabel;

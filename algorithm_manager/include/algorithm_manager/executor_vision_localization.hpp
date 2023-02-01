@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
@@ -34,7 +33,6 @@ namespace algorithm
 class ExecutorVisionLocalization : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   /**
@@ -150,9 +148,6 @@ private:
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
-
-  // Control localization_node lifecycle
-  std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};

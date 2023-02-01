@@ -21,7 +21,6 @@
 #include <condition_variable>
 
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/timer.hpp"
@@ -34,8 +33,6 @@ namespace algorithm
 class ExecutorLaserLocalization : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
-
   enum class LocationStatus
   {
     Unknown,
@@ -128,13 +125,6 @@ private:
    */
   bool EnableReportRealtimePose(bool enable);
 
-  /**
- * @brief Set all lifecycle default state
- *
- * @return true Return success
- * @return false Return failure
- */
-  bool ResetLifecycleDefaultValue();
   void ResetFlags();
 
   bool ResetAllLifecyceNodes();

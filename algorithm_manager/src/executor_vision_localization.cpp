@@ -28,10 +28,6 @@ namespace algorithm
 ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
 : ExecutorBase(node_name)
 {
-  localization_lifecycle_ = std::make_shared<LifecycleController>("mivinslocalization");
-  // localization_client_ = std::make_unique<nav2_lifecycle_manager::LifecycleManagerClient>(
-  //   "lifecycle_manager_localization");
-
   // Subscription Vision relocalization result
   relocalization_sub_ = this->create_subscription<std_msgs::msg::Int32>(
     "reloc_result",

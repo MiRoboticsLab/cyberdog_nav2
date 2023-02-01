@@ -401,17 +401,6 @@ bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
   return result;
 }
 
-bool ExecutorLaserLocalization::ResetLifecycleDefaultValue()
-{
-  bool success = LifecycleNodeManager::GetSingleton()->Pause(
-    LifeCycleNodeType::RealSenseCameraSensor);
-  if (!success) {
-    ERROR("Release RealSense failed.");
-  }
-
-  return success;
-}
-
 void ExecutorLaserLocalization::ResetFlags()
 {
   relocalization_success_ = false;

@@ -20,7 +20,6 @@
 
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
@@ -38,7 +37,6 @@ namespace algorithm
 class ExecutorVisionMapping : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
   using LabelParam = protocol::srv::SetMapLabel;
