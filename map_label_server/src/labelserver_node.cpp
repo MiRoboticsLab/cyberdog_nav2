@@ -222,17 +222,19 @@ void LabelServer::handle_set_label(
 
   std::string label_filename_suffix = request->label.map_name + ".json";
   if (!map_label_store_ptr_->IsExist(label_filename_suffix)) {
-    bool exist = map_label_store_ptr_->CreateMapLabelFile(
-      map_label_store_ptr_->map_label_directory(), label_filename_suffix);
-    if (!exist) {
-      WARN("Current map label json file has exist.");
-    }
+    ERROR("map label json file(%s) has exist", label_filename_suffix.c_str());
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
+    return;
   }
 
-  INFO("is_outdoor flag : %d", request->label.is_outdoor);
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
-  // map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
+
+  // outdoor
+  INFO("is_outdoor flag : %d", request->label.is_outdoor);
+  bool outdoor = false;
+  GetOutdoorValue(label_filename_suffix, outdoor);
+  map_label_store_ptr_->SetOutdoor(outdoor, doc);
 
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
@@ -535,6 +537,16 @@ void LabelServer::ResetFlags()
 {
   use_lidar_create_map_ = false;
   use_lidar_create_map_ = false;
+}
+
+bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
+{
+  std::vector<protocol::msg::Label> labels;
+  map_label_store_ptr_->Read(
+    map_label_store_ptr_->map_label_directory() + filename, labels, outdoor);
+  
+  INFO("Read from file %s outdoor value : %d", filename.c_str(), outdoor);
+  return true;
 }
 
 }  // namespace CYBERDOG_NAV

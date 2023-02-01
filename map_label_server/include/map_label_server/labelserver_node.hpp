@@ -143,6 +143,8 @@ private:
 
   void ResetFlags();
 
+  bool GetOutdoorValue(const std::string & filename, bool & outdoor);
+
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
   rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
