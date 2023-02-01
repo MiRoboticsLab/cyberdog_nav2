@@ -300,7 +300,14 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   if (result) {
-    PublishBuildMapType();
+    // PublishBuildMapType();
+    INFO("Trying start lidar mapping outdoor flag service");
+    bool ok = InvokeOutdoorFlag();
+    if (!ok) {
+      ERROR("Start lidar mapping outdoor flag service failed");
+    } else {
+      INFO("Start lidar mapping outdoor flag service success");
+    }
   }
   return result;
 }

@@ -244,7 +244,14 @@ bool ExecutorVisionMapping::StartBuildMapping()
   }
 
   if (result) {
-    PublishBuildMapType();
+    // PublishBuildMapType();
+    INFO("Trying start vision mapping outdoor flag service");
+    bool ok = InvokeOutdoorFlag();
+    if (!ok) {
+      ERROR("Start vision mapping outdoor flag service failed");
+    } else {
+      INFO("Start vision mapping outdoor flag service success");
+    }
   }
   return result;
 }
