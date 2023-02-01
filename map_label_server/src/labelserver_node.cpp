@@ -78,7 +78,7 @@ void LabelServer::HandleGetLabelServiceCallback(
   std::shared_ptr<protocol::srv::GetMapLabel::Response> response)
 {
   std::unique_lock<std::mutex> ulk(mut);
-  INFO("[ handle label server (%s) request ]", get_label_server_->get_service_name());
+  INFO("----------GetLabel----------");
   INFO("request map_name : %s", request->map_name.c_str());
 
   std::string map_filename = label_store_->map_label_directory() + request->map_name + ".pgm";
@@ -134,7 +134,7 @@ void LabelServer::HandleGetLabelServiceCallback(
   response->label.is_outdoor = is_outdoor;
   response->label.map_name = request->map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
-  INFO("Service(%s) get outdoor value : %d", get_label_server_->get_service_name(), is_outdoor);
+  INFO("Get outdoor value : %d", is_outdoor);
 
   // publish map
   occ_pub_->publish(map);
@@ -145,7 +145,7 @@ void LabelServer::HandleSetLabelServiceCallback(
   const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
   std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
-  INFO("[ handle label server (%s) request ]", set_label_server_->get_service_name());
+  INFO("----------SetLabel----------");
   INFO("request map_name: %s", request->label.map_name.c_str());
 
   std::string map_filename = label_store_->map_label_directory() + request->label.map_name + ".pgm";
@@ -160,7 +160,7 @@ void LabelServer::HandleSetLabelServiceCallback(
 
   // remove map and label tag
   if (request->only_delete && request->label.labels.size() == 0) {
-    INFO("Remove map : %s", request->label.map_name.c_str());
+    INFO("Removing map : %s", request->label.map_name.c_str());
     RemoveMap(label_store_->map_label_directory());
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
@@ -176,6 +176,7 @@ void LabelServer::HandleSetLabelServiceCallback(
   // remove label
   if (request->only_delete && request->label.labels.size()) {
     for (auto label : request->label.labels) {
+      INFO("Removing label: %s", label.label_name.c_str());
       label_store_->RemoveLabel(label_filename, label.label_name.c_str());
     }
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
@@ -203,7 +204,7 @@ void LabelServer::HandleSetLabelServiceCallback(
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
     INFO(
-      "label [%s] : [%f, %f]",
+      "Saving label [%s] : [%f, %f]",
       request->label.labels[i].label_name.c_str(),
       request->label.labels[i].physic_x,
       request->label.labels[i].physic_y);
@@ -334,7 +335,7 @@ bool LabelServer::CheckDuplicateTags(const std::vector<protocol::msg::Label> & l
   std::unordered_multiset<std::string> tags;
   for (const auto & label : labels) {
     if (tags.count(label.label_name)) {
-      INFO("[%s : %lf, %lf]", label.label_name.c_str(), label.physic_x, label.physic_y);
+      ERROR("Same tag name: [%s]", label.label_name.c_str());
       return false;
     }
     tags.emplace(label.label_name);

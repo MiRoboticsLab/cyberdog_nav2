@@ -265,14 +265,17 @@ void LabelStore::Read(
     ERROR("Load label json file failed.");
     return;
   }
-
+  INFO("Reading %s.", label_filename.c_str());
+  std::string str;
+  cyberdog::common::CyberdogJson::Document2String(document, str);
+  INFO("\n%s", str.c_str());
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     std::string key = it->name.GetString();
-    INFO("key = %s", key.c_str());
-    if (key == "map_name" || it->value.IsString()) {
-      std::string name = it->value.GetString();
-      INFO("map_name: %s", name.c_str());
-    }
+    // INFO("key = %s", key.c_str());
+    // if (key == "map_name" || it->value.IsString()) {
+    //   std::string name = it->value.GetString();
+    //   INFO("map_name: %s", name.c_str());
+    // }
 
     if (key == "is_outdoor") {
       is_outdoor = it->value.GetBool();
