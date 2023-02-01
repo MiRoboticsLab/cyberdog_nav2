@@ -222,7 +222,7 @@ void LabelServer::handle_set_label(
 
   std::string label_filename_suffix = request->label.map_name + ".json";
   if (!map_label_store_ptr_->IsExist(label_filename_suffix)) {
-    ERROR("map label json file(%s) has exist", label_filename_suffix.c_str());
+    ERROR("map label json file(%s) not exist", label_filename_suffix.c_str());
     response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
     return;
   }
