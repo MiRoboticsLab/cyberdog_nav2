@@ -221,7 +221,7 @@ void LabelServer::handle_set_label(
   }
 
   std::string label_filename_suffix = request->label.map_name + ".json";
-  std::string label_filename = map_label_store_ptr_->map_label_directory() + label_filename_suffix;
+  std::string label_filename = label_filename_suffix;
 
   if (!map_label_store_ptr_->IsExist(label_filename)) {
     bool exist = map_label_store_ptr_->CreateMapLabelFile(
