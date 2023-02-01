@@ -257,7 +257,7 @@ void LabelServer::HandleOutdoor(
     response->success = false;
     return;
   }
-  SetOutdoorFlag(request->label.map_name, request->label.is_outdoor);
+  SetOutdoorFlag(label_store_->map_label_directory() + request->label.map_name, request->label.is_outdoor);
   response->success = true;
 }
 

@@ -68,17 +68,6 @@ private:
    */
   bool RemoveMap(const std::string & map_name_directory);
 
-  /**
-   * @brief Handle user save mapping map's name
-   * @param request_header
-   * @param request If true get current map's name
-   * @param response Return user set map's name
-   */
-  void HandleRequestUserSaveMapName(
-    const std::shared_ptr<rmw_request_id_t> request_header,
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
   void HandleOutdoor(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
