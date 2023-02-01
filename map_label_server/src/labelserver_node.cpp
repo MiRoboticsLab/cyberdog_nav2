@@ -72,20 +72,34 @@ LabelServer::LabelServer()
     rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
   // lidar mapping flag
-  vision_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "lidar_mapping_alive",
-    rclcpp::SystemDefaultsQoS(),
-    std::bind(
-      &LabelServer::HandleLidarIsMappingMessages, this,
-      std::placeholders::_1));
+  // vision_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+  //   "vision_mapping_alive ",
+  //   rclcpp::SystemDefaultsQoS(),
+  //   std::bind(
+  //     &LabelServer::HandleLidarIsMappingMessages, this,
+  //     std::placeholders::_1));
 
-  // vision mapping flag
-  lidar_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "vision_mapping_alive",
-    rclcpp::SystemDefaultsQoS(),
+  vision_outdoor_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "vision_outdoor",
     std::bind(
-      &LabelServer::HandleVisionIsMappingMessages, this,
-      std::placeholders::_1));
+      &LabelServer::HandleVisionOutdoor, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
+
+  // // vision mapping flag
+  // lidar_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+  //   "vision_mapping_alive",
+  //   rclcpp::SystemDefaultsQoS(),
+  //   std::bind(
+  //     &LabelServer::HandleVisionIsMappingMessages, this,
+  //     std::placeholders::_1));
+
+  laser_outdoor_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "lidar_outdoor",
+    std::bind(
+      &LabelServer::HandleLaserOutdoor, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
 }
 
 LabelServer::~LabelServer() {}
@@ -179,6 +193,7 @@ void LabelServer::handle_set_label(
   if (request->only_delete && request->label.labels.size() == 0) {
     INFO("Remove map : %s", request->label.map_name.c_str());
     RemoveMap(map_filename);
+    ResetFlags();
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
@@ -192,7 +207,16 @@ void LabelServer::handle_set_label(
     for (auto label : request->label.labels) {
       map_label_store_ptr_->RemoveLabel(label_filename, label.label_name.c_str());
     }
+    ResetFlags();
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  // Check multi tag, if exit multi label tag return failure
+  bool legality = CheckDuplicateTags(request->label.labels);
+  if (!legality) {
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
+    ERROR("User user entered more than one of the same tags");
     return;
   }
 
@@ -305,7 +329,7 @@ void LabelServer::PrintMapData()
 
     std::cout << "\n\n";
     std::cout << "[" << std::endl;
-    for (int i = 0; i < map.data.size(); i++) {
+    for (long unsigned int i = 0; i < map.data.size(); i++) {
       printf("%d, ", map.data[i]);
     }
     std::cout << "]" << std::endl;
@@ -326,19 +350,20 @@ bool LabelServer::LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::O
   INFO("resolution : %f", map.info.resolution);
   INFO("width : %d", map.info.width);
   INFO("height : %d", map.info.height);
-  INFO("map.data size : %d", map.data.size());
+  INFO("map.data size : %ld", map.data.size());
 
   return true;
 }
 
 bool LabelServer::RemoveMap(const std::string & map_name)
 {
+  (void)map_name;
   filesystem::remove_all(map_label_store_ptr_->map_label_directory());
   return true;
 }
 
 void LabelServer::HandleRequestUserSaveMapName(
-  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
@@ -347,6 +372,7 @@ void LabelServer::HandleRequestUserSaveMapName(
   if (request->data) {
     response->message = robot_map_name();
     response->success = true;
+    return;
   }
 
   response->message = "";
@@ -363,30 +389,64 @@ std::string LabelServer::robot_map_name() const
   return robot_map_name_;
 }
 
-void LabelServer::HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+// void LabelServer::HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+// {
+//   INFO("Current building map is vision.");
+//   if (msg == nullptr) {
+//     return;
+//   }
+
+//   if (msg->data) {
+//     use_vision_create_map_ = msg->data;
+//     SetOutdoorFlag(use_vision_create_map_);
+//   }
+// }
+
+// void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+// {
+//   INFO("Current building map is lidar.");
+//   if (msg == nullptr) {
+//     return;
+//   }
+
+//   if (msg->data) {
+//     use_lidar_create_map_ = msg->data;
+//     SetOutdoorFlag(false);
+//   }
+// }
+
+void LabelServer::HandleVisionOutdoor(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  INFO("Current building map is vision.");
-  if (msg == nullptr) {
+  INFO("Handle vision outdoor request client");
+
+  if (!request->data) {
+    response->success = false;
     return;
   }
 
-  if (msg->data) {
-    use_vision_create_map_ = msg->data;
-    SetOutdoorFlag(use_vision_create_map_);
-  }
+  use_vision_create_map_ = true;
+  SetOutdoorFlag(true);
+  response->success = true;
 }
 
-void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
+void LabelServer::HandleLaserOutdoor(
+  const std::shared_ptr<rmw_request_id_t>,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  INFO("Current building map is lidar.");
-  if (msg == nullptr) {
+  INFO("Handle lidar outdoor request client");
+
+  if (!request->data) {
+    response->success = false;
     return;
   }
 
-  if (msg->data) {
-    use_lidar_create_map_ = msg->data;
-    SetOutdoorFlag(false);
-  }
+  use_lidar_create_map_ = true;
+  SetOutdoorFlag(false);
+  response->success = true;
 }
 
 void LabelServer::SetOutdoorFlag(bool outdoor)
@@ -457,6 +517,25 @@ bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std
     ERROR("%s", e.what());
   }
   return result;
+}
+
+
+bool LabelServer::CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels)
+{
+  std::unordered_multiset<std::string> tags;
+  for (const auto & label : labels) {
+    if (tags.count(label.label_name)) {
+      return false;
+    }
+    tags.emplace(label.label_name);
+  }
+  return true;
+}
+
+void LabelServer::ResetFlags()
+{
+  use_lidar_create_map_ = false;
+  use_lidar_create_map_ = false;
 }
 
 }  // namespace CYBERDOG_NAV

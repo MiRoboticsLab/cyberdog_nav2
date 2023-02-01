@@ -110,14 +110,25 @@ private:
    *
    * @param msg Request command
    */
-  void HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+  // void HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
 
   /**
    * @brief Handle lidar is mapping
    *
    * @param msg Request command
    */
-  void HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+  // void HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+
+  void HandleVisionOutdoor(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
+  void HandleLaserOutdoor(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
 
   /**
    * @brief Set the Outdoor Flag object
@@ -127,6 +138,10 @@ private:
   void SetOutdoorFlag(bool outdoor);
 
   bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
+
+  bool CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels);
+
+  void ResetFlags();
 
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
@@ -146,8 +161,11 @@ private:
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_pub_ {nullptr};
 
   // outdoor
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_mapping_sub_{nullptr};
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
+  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_mapping_sub_{nullptr};
+  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr vision_outdoor_server_ {nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr laser_outdoor_server_ {nullptr};
+
   bool use_lidar_create_map_ {false};
   bool use_vision_create_map_ {false};
   std::mutex mutex_;
