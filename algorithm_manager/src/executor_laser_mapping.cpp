@@ -283,7 +283,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     request->finish = true;
     request->map_name = map_filename;
   }
-  INFO("Saved lidar map building filename: %s", map_filename.c_str());
+  INFO("Saved map building filename: %s", map_filename.c_str());
 
   // Send request
   // return stop_->invoke(request, response);

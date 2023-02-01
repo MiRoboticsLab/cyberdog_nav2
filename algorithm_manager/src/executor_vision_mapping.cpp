@@ -279,6 +279,8 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   //   request->map_name = map_filename;
   // }
 
+  INFO("Saved map building filename: %s", map_filename.c_str());
+
   // Send request
   // return start_->invoke(request, response);
   bool result = false;
