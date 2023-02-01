@@ -258,7 +258,8 @@ void LabelServer::HandleOutdoor(
     return;
   }
 
-  std::string label_filename = label_store_->map_label_directory() + request->label.map_name + ".json";
+  std::string label_filename = label_store_->map_label_directory() + request->label.map_name +
+    ".json";
   SetOutdoorFlag(label_filename, request->label.is_outdoor);
   response->success = true;
 }
