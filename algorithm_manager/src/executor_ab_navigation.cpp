@@ -89,7 +89,6 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 ExecutorAbNavigation::~ExecutorAbNavigation()
 {
   nav_client_->reset();
-  ReinitializeAndCleanup();
 }
 
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -261,34 +260,6 @@ void ExecutorAbNavigation::HandleResultCallback(
   PublishZeroPath();
 }
 
-void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
-{
-  if (msg == nullptr) {
-    return;
-  }
-
-  // Set vision and lidar flag
-  bool outdoor = false;
-  if (CheckUseOutdoor(outdoor)) {
-    SetLocationType(outdoor);
-  }
-
-  if (msg->data) {
-    ReleaseSources();
-  }
-
-  if (!outdoor) {
-    INFO("Trigger reset laser location module.");
-  } else {
-    INFO("Trigger reset vision location module.");
-  }
-
-  // stop current navigation ab
-  auto request = std::make_shared<StopTaskSrv::Request>();
-  auto response = std::make_shared<StopTaskSrv::Response>();
-  Stop(request, response);
-}
-
 bool ExecutorAbNavigation::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
@@ -387,53 +358,12 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
          status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;
 }
 
-
-bool ExecutorAbNavigation::CheckTimeout()
-{
-  if (nav_goal_handle_) {
-    auto elapsed = (this->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
-    if (!IsFutureGoalHandleComplete(elapsed)) {
-      // return RUNNING if there is still some time before timeout happens
-      if (elapsed < server_timeout_) {
-        return false;
-      }
-      // if server has taken more time than the specified timeout value return FAILURE
-      WARN("Timed out while waiting for action server to acknowledge goal request.");
-      nav_goal_handle_.reset();
-      return true;
-    }
-  }
-  return false;
-}
-
-bool ExecutorAbNavigation::IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed)
-{
-  auto remaining = server_timeout_ - elapsed;
-  // server has already timed out, no need to sleep
-  if (remaining <= std::chrono::milliseconds(0)) {
-    nav_goal_handle_.reset();
-    return false;
-  }
-  return true;
-}
-
 void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose)
 {
   // Normalize the goal pose
   target_goal_.pose = pose;
   target_goal_.pose.header.frame_id = "map";
   target_goal_.pose.pose.orientation.w = 1;
-}
-
-bool ExecutorAbNavigation::ReinitializeAndCleanup()
-{
-  // return localization_lifecycle_->Pause() && localization_lifecycle_->Cleanup();
-  return true;
-}
-
-bool ExecutorAbNavigation::LifecycleNodesReinitialize()
-{
-  return true;
 }
 
 bool ExecutorAbNavigation::VelocitySmoother()
@@ -456,7 +386,7 @@ bool ExecutorAbNavigation::VelocitySmoother()
 
   // Set request data
   auto request = std::make_shared<MotionServiceCommand::Request>();
-  std::vector<float> step_height{0.01, 0.01};
+  std::vector<float> step_height{0.05, 0.05};
   request->motion_id = 303;
   request->value = 2;
   request->step_height = step_height;
@@ -498,22 +428,6 @@ void ExecutorAbNavigation::NavigationStatus2String(int8_t status)
   }
 }
 
-void ExecutorAbNavigation::ReleaseSources()
-{
-  INFO("Reset all lifecycle default state.");
-  auto command = std::make_shared<std_msgs::msg::Bool>();
-  command->data = true;
-
-  if (IsUseVisionLocation()) {
-    stop_vision_trigger_pub_->publish(*command);
-  } else if (IsUseLidarLocation()) {
-    stop_lidar_trigger_pub_->publish(*command);
-  }
-
-  LifecycleNodesReinitialize();
-  ResetDefaultValue();
-}
-
 bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
 {
   std::string map_filename = "/home/mi/mapping/" + map_name;
@@ -523,58 +437,6 @@ bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
   }
 
   return true;
-}
-
-bool ExecutorAbNavigation::CheckUseOutdoor(bool & outdoor, const std::string & filename)
-{
-  std::string map_json_filename = "/home/mi/mapping/" + filename;
-  if (!filesystem::exists(map_json_filename)) {
-    ERROR("Navigation's map json file is not exist.");
-    return false;
-  }
-
-  rapidjson::Document document(rapidjson::kObjectType);
-  common::CyberdogJson::ReadJsonFromFile(map_json_filename, document);
-
-  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
-    INFO("it->name = %s", it->name.GetString());
-    INFO("it->value = %d", it->value.GetBool());
-
-    std::string key = it->name.GetString();
-    if (key == "is_outdoor") {
-      outdoor = it->value.GetBool();
-      INFO("Function CheckUseOutdoor() get is_outdoor: %d", outdoor);
-      break;
-    }
-  }
-  return true;
-}
-
-bool ExecutorAbNavigation::IsUseVisionLocation()
-{
-  return use_vision_slam_;
-}
-
-bool ExecutorAbNavigation::IsUseLidarLocation()
-{
-  return use_lidar_slam_;
-}
-
-void ExecutorAbNavigation::SetLocationType(bool outdoor)
-{
-  if (outdoor) {
-    INFO("Current location mode use vision slam.");
-    use_vision_slam_ = true;
-  } else {
-    INFO("Current location mode use lidar slam.");
-    use_lidar_slam_ = true;
-  }
-}
-
-void ExecutorAbNavigation::ResetDefaultValue()
-{
-  use_vision_slam_ = false;
-  use_lidar_slam_ = false;
 }
 
 void ExecutorAbNavigation::ResetPreprocessingValue()
@@ -606,23 +468,6 @@ bool ExecutorAbNavigation::StopRunningRobot()
     ERROR("nav_goal_handle is null when trying to stop NavAB");
     return false;
   }
-
-  // auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
-  // if (!server_ready) {
-  //   ERROR("Navigation action server is not available.");
-  //   return false;
-  // }
-
-  // try {
-  //   auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
-  //   if (future_cancel.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
-  //     ERROR("Cannot get response from service(navigate_to_pose) in 2s");
-  //     return false;
-  //   }
-  // } catch (const std::exception & e) {
-  //   ERROR("%s", e.what());
-  //   return false;
-  // }
 
   return CancelGoal();
 }

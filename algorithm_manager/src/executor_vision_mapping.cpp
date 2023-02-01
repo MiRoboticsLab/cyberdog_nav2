@@ -25,9 +25,6 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
-  // Mapping build type
-  vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
-
   outdoor_client_ = create_client<LabelParam>(
     "outdoor", rmw_qos_profile_services_default);
 
@@ -50,7 +47,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   (void)goal;
   INFO("Vision Mapping started");
 
-  // Check current from map to base_link tf exist, if exit `Vision Localization` 
+  // Check current from map to base_link tf exist, if exit `Vision Localization`
   // in activate, so that this error case
   bool tf_exist = CanTransform("map", "base_link");
   if (tf_exist) {
@@ -91,15 +88,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   INFO("Start vision mapping service(start_vins_mapping) success");
-
-  // Realtime response user stop operation
-  if (CheckExit()) {
-    WARN("Vision mapping is stop, not need start velocity smoother service.");
-    return;
-  }
-
-  // Smoother walk
-  VelocitySmoother();
 
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -167,7 +155,7 @@ void ExecutorVisionMapping::Stop(
       INFO("Close report realtime robot pose service(PoseEnable) success");
     }
   }
-  
+
   // MapServer
   if (is_slam_service_activate_) {
     INFO("Trying stop vision mapping service(stop_vins_mapping)");
@@ -284,7 +272,6 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   if (result && !map_filename.empty()) {
-    // PublishBuildMapType();
     INFO("Trying start vision mapping outdoor flag service");
     bool ok = InvokeOutdoorFlag(map_filename);
     if (!ok) {
@@ -425,45 +412,6 @@ bool ExecutorVisionMapping::DeleteMap()
   return result;
 }
 
-bool ExecutorVisionMapping::VelocitySmoother()
-{
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
-  }
-
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Connect velocity adaptor service timeout.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<MotionServiceCommand::Request>();
-
-  std::vector<float> step_height{0.01, 0.01};
-  request->motion_id = 303;
-  request->value = 2;
-  request->step_height = step_height;
-
-  // Send request
-  bool result = false;
-  try {
-    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-    result = future_result->result;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-  return result;
-}
-
-void ExecutorVisionMapping::PublishBuildMapType()
-{
-  std_msgs::msg::Bool state;
-  state.data = true;
-  vision_mapping_trigger_pub_->publish(state);
-}
-
 bool ExecutorVisionMapping::InvokeOutdoorFlag(const std::string & mapname)
 {
   bool connect = outdoor_client_->wait_for_service(std::chrono::seconds(2s));
@@ -529,7 +477,9 @@ bool ExecutorVisionMapping::CloseMappingService()
   return result && DeleteMap();
 }
 
-bool ExecutorVisionMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
+bool ExecutorVisionMapping::CanTransform(
+  const std::string & parent_link,
+  const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
   return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now(), tf2::durationFromSec(1));

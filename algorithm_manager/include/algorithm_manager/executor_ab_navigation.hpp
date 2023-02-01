@@ -94,13 +94,6 @@ private:
   void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
 
   /**
-   * @brief Handle executor_reset_nav command
-   *
-   * @param msg The executor request
-   */
-  void HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg);
-
-  /**
    * @brief Check `lifecycle_manager_navigation` and `lifecycle_manager_localization`
    * `real sense` sensor lidar status
    *
@@ -142,43 +135,11 @@ private:
   bool ShouldCancelGoal();
 
   /**
-   * @brief Check send async goal timeout
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool CheckTimeout();
-
-  /**
-   * @brief Function to check if the action server acknowledged a new goal
-   * @param elapsed Duration since the last goal was sent and future goal handle has not completed.
-   * After waiting for the future to complete, this value is incremented with the timeout value.
-   * @return boolean True if future_goal_handle_ returns SUCCESS, False otherwise
-   */
-  bool IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed);
-
-  /**
    * @brief Normalized app given pose
    *
    * @param pose
    */
   void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
-
-  /**
-   * @brief Sources reset and cleanup
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool ReinitializeAndCleanup();
-
-  /**
-   * @brief Reinitialize all lifecycle nodes
-   *
-   * @return true Success
-   * @return false Failure
-   */
-  bool LifecycleNodesReinitialize();
 
   /**
    * @brief When robot mapping it's should walk smoother
@@ -203,47 +164,12 @@ private:
   void NavigationStatus2String(int8_t status);
 
   /**
-   * @brief Release source and reset
-   *
-   */
-  void ReleaseSources();
-
-  /**
    * @brief Check curent map file available
    *
    * @return true Return success
    * @return false Return failure
    */
   bool CheckMapAvailable(const std::string & map_name = "map.pgm");
-
-  /**
-   * Check current is outdoor mode
-   */
-  bool CheckUseOutdoor(bool & outdoor, const std::string & filename = "map.json");
-
-  /**
-   * @brief Check vision slam location
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool IsUseVisionLocation();
-
-  /**
-   * @brief Check lidar slam location
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool IsUseLidarLocation();
-
-  /**
-   * @brief Set the Location Type object
-   *
-   * @param outdoor true : vision
-   *                false: lidar
-   */
-  void SetLocationType(bool outdoor);
 
   /**
    * @brief Set `use_vision_slam_` and `use_lidar_slam_` default value
@@ -273,7 +199,7 @@ private:
 
   // navigation target goal
   nav2_msgs::action::NavigateToPose::Goal target_goal_;
-  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_ {nullptr};
 
   // nav client as request
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_ {nullptr};
@@ -282,11 +208,8 @@ private:
   NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
 
   // Lifecycle controller
-  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr}; 
+  std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
   rclcpp::Time time_goal_sent_;
-
-  // Control localization_node lifecycle
-  // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
@@ -302,19 +225,11 @@ private:
 
   // Stop lidar and vision location module
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_{nullptr};
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_lidar_trigger_pub_{nullptr};
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stop_vision_trigger_pub_{nullptr};
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_nav_trigger_sub_{nullptr};
 
   // nav trigger
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_stop_trigger_sub_{nullptr};
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_ {nullptr};
   rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   std::atomic_bool navigation_reset_trigger_{false};
-
-  // Record lidar or vision flag
-  bool use_vision_slam_ {false};
-  bool use_lidar_slam_ {false};
 
   // check current navigation is exit trigger
   bool is_exit_ {false};

@@ -66,7 +66,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   Timer timer_;
   timer_.Start();
 
-  // Check current from map to base_link tf exist, if exit `Laser Localization` 
+  // Check current from map to base_link tf exist, if exit `Laser Localization`
   // in activate, so that this error case
   bool tf_exist = CanTransform("map", "base_link");
   if (tf_exist) {
@@ -108,14 +108,6 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("Start laser mapping service(start_mapping) success");
 
   // Realtime response user stop operation
-  if (CheckExit()) {
-    WARN("Laser mapping is stop, not need start velocity smoother service.");
-    return;
-  }
-  // Smoother walk
-  VelocitySmoother();
-
-   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser mapping is stop, not need start report realtime pose service.");
     return;
@@ -164,7 +156,7 @@ void ExecutorLaserMapping::Stop(
       INFO("Close report realtime robot pose service(PoseEnable) success");
     }
   }
- 
+
   // MapServer
   if (is_slam_service_activate_) {
     INFO("Trying close laser mapping service(stop_mapping)");
@@ -185,7 +177,7 @@ void ExecutorLaserMapping::Stop(
   } else {
     INFO("Close all lifecycle nodes success");
   }
-  
+
   ResetFlags();
   task_cancle_callback_();
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
@@ -359,75 +351,11 @@ bool ExecutorLaserMapping::CheckAvailable()
   return true;
 }
 
-bool ExecutorLaserMapping::VelocitySmoother()
-{
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
-  }
-
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Connect velocity adaptor service timeout");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<MotionServiceCommand::Request>();
-  std::vector<float> step_height{0.01, 0.01};
-  request->motion_id = 303;
-  request->value = 2;
-  request->step_height = step_height;
-
-  bool result = false;
-  try {
-    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-    result = future_result->result;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-  return result;
-}
-
 void ExecutorLaserMapping::PublishBuildMapType()
 {
   std_msgs::msg::Bool state;
   state.data = true;
   lidar_mapping_trigger_pub_->publish(state);
-}
-
-bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
-{
-  // Wait service
-  bool connect = miloc_client_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<MilocMapHandler::Request>();
-  auto response = std::make_shared<MilocMapHandler::Response>();
-  request->map_id = 0;
-
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    auto future_result = miloc_client_->invoke(request, std::chrono::seconds(5s));
-    constexpr int kDeleteSuccess = 0;
-    constexpr int kDeleteFailure = 100;
-
-    if (future_result->code == kDeleteSuccess) {
-      INFO("Delete the relocation map successfully.");
-      result = true;
-    } else if (future_result->code == kDeleteFailure) {
-      ERROR("Delete relocation map exception.");
-    }
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-  return result;
 }
 
 bool ExecutorLaserMapping::InvokeOutdoorFlag(const std::string & mapname)
@@ -495,7 +423,9 @@ bool ExecutorLaserMapping::CloseMappingService()
   return result;
 }
 
-bool ExecutorLaserMapping::CanTransform(const std::string & parent_link, const std::string & clild_link)
+bool ExecutorLaserMapping::CanTransform(
+  const std::string & parent_link,
+  const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
   return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now(), tf2::durationFromSec(1));
@@ -508,5 +438,3 @@ void ExecutorLaserMapping::ResetFlags()
 
 }  // namespace algorithm
 }  // namespace cyberdog
-
-

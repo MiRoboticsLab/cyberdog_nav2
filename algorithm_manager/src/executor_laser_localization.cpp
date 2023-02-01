@@ -472,7 +472,7 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   is_exit_ = true;
   bool success = true;
 
-   if (is_slam_service_activate_) {
+  if (is_slam_service_activate_) {
     // Disenable Relocalization
     INFO("Stop: Trying close laser relocalization service(stop_location)");
     success = DisableRelocalization();

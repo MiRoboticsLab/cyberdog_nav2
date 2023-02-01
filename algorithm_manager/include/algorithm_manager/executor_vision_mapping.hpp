@@ -25,7 +25,6 @@
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 #include "algorithm_manager/timer.hpp"
-#include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
@@ -103,19 +102,6 @@ private:
   bool DeleteMap();
 
   /**
-   * @brief When robot mapping it's should walk smoother
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool VelocitySmoother();
-
-  /**
-   * @brief Vision is mapping
-   */
-  void PublishBuildMapType();
-
-  /**
    * @brief Record outdoor flag
    *
    * @return true Return success
@@ -146,16 +132,12 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_delete_client_ {nullptr};
 
   // vision mapping alive
   rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
 
   // record this sensor is open
   bool is_open_realsense_camera_ {false};

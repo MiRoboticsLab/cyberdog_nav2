@@ -27,7 +27,6 @@
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "algorithm_manager/timer.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
-#include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
@@ -54,8 +53,6 @@ public:
     const StopTaskSrv::Request::SharedPtr request,
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
-  // void UpdateStatus(const ExecutorStatus & executor_status) override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
   /**
@@ -111,14 +108,6 @@ private:
   bool CheckAvailable();
 
   /**
-   * @brief When robot mapping it's should walk smoother
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool VelocitySmoother();
-
-  /**
    * @brief Radar is mapping
    */
   void PublishBuildMapType();
@@ -130,14 +119,6 @@ private:
    * @return false Return failure
    */
   bool ResetAllLifecyceNodes();
-
-  /**
-   * @brief Delete all vision in background viosn building data
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool DeleteBackgroundVisionMapDatasets();
 
   /**
    * @brief Record outdoor flag
@@ -158,23 +139,11 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // // Control lidar mapping lifecycle(Nav2 lifecycle)
-  // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
-
-  // Lifecycle controller
-  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
-  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
-
   // service client
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
-
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
   rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
@@ -190,7 +159,6 @@ private:
   int mapping_stop_service_timeout_;
   int pose_report_service_timeout_;
   int velocity_smoother_service_timeout_;
-
 
   bool is_exit_ {false};
   bool is_slam_service_activate_ {false};
