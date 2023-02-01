@@ -28,8 +28,8 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   // Mapping build type
   vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
 
-  outdoor_client_ = create_client<std_srvs::srv::SetBool>(
-    "vision_outdoor", rmw_qos_profile_services_default);
+  outdoor_client_ = create_client<LabelPraram>(
+    "outdoor", rmw_qos_profile_services_default);
 
   // TF2 checker
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -286,7 +286,7 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   if (result && !map_filename.empty()) {
     // PublishBuildMapType();
     INFO("Trying start vision mapping outdoor flag service");
-    bool ok = InvokeOutdoorFlag();
+    bool ok = InvokeOutdoorFlag(map_filename);
     if (!ok) {
       ERROR("Start vision mapping outdoor flag service failed");
     } else {
@@ -464,7 +464,7 @@ void ExecutorVisionMapping::PublishBuildMapType()
   vision_mapping_trigger_pub_->publish(state);
 }
 
-bool ExecutorVisionMapping::InvokeOutdoorFlag()
+bool ExecutorVisionMapping::InvokeOutdoorFlag(const std::string & mapname)
 {
   bool connect = outdoor_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
@@ -473,8 +473,9 @@ bool ExecutorVisionMapping::InvokeOutdoorFlag()
   }
 
   // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
+  auto request = std::make_shared<LabelPraram::Request>();
+  request->label.is_outdoor = true;
+  request->label.map_name = mapname;
 
   // Send request
   auto future = outdoor_client_->async_send_request(request);

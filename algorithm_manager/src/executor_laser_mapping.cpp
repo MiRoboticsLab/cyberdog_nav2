@@ -33,8 +33,8 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
   robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
 
-  outdoor_client_ = create_client<std_srvs::srv::SetBool>(
-    "lidar_outdoor", rmw_qos_profile_services_default);
+  outdoor_client_ = create_client<LabelPraram>(
+    "outdoor", rmw_qos_profile_services_default);
 
   // Control lidar mapping report realtime pose turn on and turn off
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
@@ -300,7 +300,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   if (result && !map_filename.empty()) {
     // PublishBuildMapType();
     INFO("Trying start lidar mapping outdoor flag service");
-    bool ok = InvokeOutdoorFlag();
+    bool ok = InvokeOutdoorFlag(map_filename);
     if (!ok) {
       ERROR("Start lidar mapping outdoor flag service failed");
     } else {
@@ -430,7 +430,7 @@ bool ExecutorLaserMapping::DeleteBackgroundVisionMapDatasets()
   return result;
 }
 
-bool ExecutorLaserMapping::InvokeOutdoorFlag()
+bool ExecutorLaserMapping::InvokeOutdoorFlag(const std::string & mapname)
 {
   bool connect = outdoor_client_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
@@ -439,8 +439,9 @@ bool ExecutorLaserMapping::InvokeOutdoorFlag()
   }
 
   // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
+  auto request = std::make_shared<LabelPraram::Request>();
+  request->label.is_outdoor = false;
+  request->label.map_name = mapname;
 
   // Send request
   auto future = outdoor_client_->async_send_request(request);

@@ -31,6 +31,7 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
+#include "protocol/srv/set_map_label.hpp"
 
 namespace cyberdog
 {
@@ -43,6 +44,7 @@ public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
+  using LabelPraram = protocol::srv::SetMapLabel;
 
   explicit ExecutorLaserMapping(std::string node_name);
   ~ExecutorLaserMapping();
@@ -143,7 +145,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool InvokeOutdoorFlag();
+  bool InvokeOutdoorFlag(const std::string & mapname);
 
   bool CheckExit();
 
@@ -173,7 +175,7 @@ private:
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr outdoor_client_ {nullptr};
+  rclcpp::Client<LabelPraram>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};
