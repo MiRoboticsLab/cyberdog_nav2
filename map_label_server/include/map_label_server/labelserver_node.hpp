@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
@@ -51,7 +52,7 @@ private:
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
     std::shared_ptr<protocol::srv::SetMapLabel::Response> response);
-  
+
   void HandleGetLabelServiceCallback(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::GetMapLabel::Request> request,

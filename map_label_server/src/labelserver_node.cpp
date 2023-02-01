@@ -25,6 +25,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <unordered_set>
 
 #define GLOBAL_MAP_LOCATION "/home/mi/mapping/"
 
@@ -150,7 +151,8 @@ void LabelServer::HandleSetLabelServiceCallback(
   INFO("request map_name: %s", request->label.map_name.c_str());
 
   std::string map_filename = label_store_->map_label_directory() + request->label.map_name + ".pgm";
-  std::string label_filename = label_store_->map_label_directory() + request->label.map_name + ".json";
+  std::string label_filename = label_store_->map_label_directory() + request->label.map_name +
+    ".json";
 
   if (!label_store_->IsExist(map_filename)) {
     INFO("Map not exist, not allow set label function.");
@@ -257,7 +259,8 @@ void LabelServer::HandleOutdoor(
     response->success = false;
     return;
   }
-  SetOutdoorFlag(label_store_->map_label_directory() + request->label.map_name, request->label.is_outdoor);
+  SetOutdoorFlag(
+    label_store_->map_label_directory() + request->label.map_name, request->label.is_outdoor);
   response->success = true;
 }
 
