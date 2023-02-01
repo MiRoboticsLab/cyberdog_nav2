@@ -27,8 +27,6 @@
 #include <vector>
 #include <unordered_set>
 
-#define GLOBAL_MAP_LOCATION "/home/mi/mapping/"
-
 #include "map_label_server/labelserver_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "filesystem/filesystem.hpp"
@@ -259,8 +257,9 @@ void LabelServer::HandleOutdoor(
     response->success = false;
     return;
   }
-  SetOutdoorFlag(
-    label_store_->map_label_directory() + request->label.map_name, request->label.is_outdoor);
+
+  std::string label_filename = label_store_->map_label_directory() + request->label.map_name + ".json";
+  SetOutdoorFlag(label_filename, request->label.is_outdoor);
   response->success = true;
 }
 
