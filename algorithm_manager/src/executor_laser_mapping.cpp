@@ -66,17 +66,15 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   Timer timer_;
   timer_.Start();
 
-  // TODO(dyq): This is bug
-  //    when tf transform not exit from A to B frame, tf still check tf exit
   // Check current from map to base_link tf exist, if exit `Laser Localization` 
   // in activate, so that this error case
-  // bool tf_exist = CanTransform("map", "base_link");
-  // if (tf_exist) {
-  //   ERROR("Check current from map to base_link tf exist, should never happen");
-  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   task_abort_callback_();
-  //   return;
-  // }
+  bool tf_exist = CanTransform("map", "base_link");
+  if (tf_exist) {
+    ERROR("Check current from map to base_link tf exist, should never happen");
+    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+    task_abort_callback_();
+    return;
+  }
 
   INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
