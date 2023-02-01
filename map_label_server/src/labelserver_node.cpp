@@ -71,33 +71,11 @@ LabelServer::LabelServer()
     "map",
     rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
-  // lidar mapping flag
-  // vision_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-  //   "vision_mapping_alive ",
-  //   rclcpp::SystemDefaultsQoS(),
-  //   std::bind(
-  //     &LabelServer::HandleLidarIsMappingMessages, this,
-  //     std::placeholders::_1));
-
-  vision_outdoor_server_ = this->create_service<std_srvs::srv::SetBool>(
-    "vision_outdoor",
+  // outdoor flag
+  outdoor_server_ = this->create_service<protocol::srv::SetMapLabel>(
+    "outdoor",
     std::bind(
-      &LabelServer::HandleVisionOutdoor, this, std::placeholders::_1,
-      std::placeholders::_2, std::placeholders::_3),
-    rmw_qos_profile_default, callback_group_);
-
-  // // vision mapping flag
-  // lidar_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-  //   "vision_mapping_alive",
-  //   rclcpp::SystemDefaultsQoS(),
-  //   std::bind(
-  //     &LabelServer::HandleVisionIsMappingMessages, this,
-  //     std::placeholders::_1));
-
-  laser_outdoor_server_ = this->create_service<std_srvs::srv::SetBool>(
-    "lidar_outdoor",
-    std::bind(
-      &LabelServer::HandleLaserOutdoor, this, std::placeholders::_1,
+      &LabelServer::HandleOutdoor, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 }
@@ -389,75 +367,36 @@ std::string LabelServer::robot_map_name() const
   return robot_map_name_;
 }
 
-// void LabelServer::HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
-// {
-//   INFO("Current building map is vision.");
-//   if (msg == nullptr) {
-//     return;
-//   }
-
-//   if (msg->data) {
-//     use_vision_create_map_ = msg->data;
-//     SetOutdoorFlag(use_vision_create_map_);
-//   }
-// }
-
-// void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
-// {
-//   INFO("Current building map is lidar.");
-//   if (msg == nullptr) {
-//     return;
-//   }
-
-//   if (msg->data) {
-//     use_lidar_create_map_ = msg->data;
-//     SetOutdoorFlag(false);
-//   }
-// }
-
-void LabelServer::HandleVisionOutdoor(
-    const std::shared_ptr<rmw_request_id_t>,
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response)
-{
-  INFO("Handle vision outdoor request client");
-
-  if (!request->data) {
-    response->success = false;
-    return;
-  }
-
-  use_vision_create_map_ = true;
-  SetOutdoorFlag(true);
-  response->success = true;
-}
-
-void LabelServer::HandleLaserOutdoor(
+void LabelServer::HandleOutdoor(
   const std::shared_ptr<rmw_request_id_t>,
-  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+  const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
+  std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
-  INFO("Handle lidar outdoor request client");
+  if (request->label.is_outdoor) {
+    use_vision_create_map_ = true;
+    INFO("Handle vision outdoor request");
+  } else {
+    use_lidar_create_map_ = false;
+    INFO("Handle lidar outdoor request");
+  }
 
-  if (!request->data) {
+  if (request->label.map_name.empty()) {
+    ERROR("map filename %s is empty", request->label.map_name.c_str());
     response->success = false;
     return;
   }
 
-  use_lidar_create_map_ = true;
-  SetOutdoorFlag(false);
+  SetOutdoorFlag(request->label.map_name, request->label.is_outdoor);
   response->success = true;
 }
 
-void LabelServer::SetOutdoorFlag(bool outdoor)
+void LabelServer::SetOutdoorFlag(const std::string & filename, bool outdoor)
 {
   std::lock_guard<std::mutex> locker(mutex_);
-  const std::string map_name = "map";
-  std::string label_filename = map_label_store_ptr_->map_label_directory() + "map.json";
+  std::string label_filename = map_label_store_ptr_->map_label_directory() + filename + ".json";
   rapidjson::Document doc(rapidjson::kObjectType);
   map_label_store_ptr_->SetOutdoor(outdoor, doc);
   map_label_store_ptr_->Write(label_filename, doc);
-  INFO("Label server set outdoor : %d", outdoor);
 }
 
 bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std::string & map_name)

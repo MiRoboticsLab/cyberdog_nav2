@@ -119,15 +119,10 @@ private:
    */
   // void HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
 
-  void HandleVisionOutdoor(
+  void HandleOutdoor(
     const std::shared_ptr<rmw_request_id_t> request_header,
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
-  void HandleLaserOutdoor(
-    const std::shared_ptr<rmw_request_id_t> request_header,
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+    const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
+    std::shared_ptr<protocol::srv::SetMapLabel::Response> response);
 
 
   /**
@@ -135,7 +130,7 @@ private:
    *
    * @param outdoor Is outdoor: vision or lidar
    */
-  void SetOutdoorFlag(bool outdoor);
+  void SetOutdoorFlag(const std::string & filename, bool outdoor);
 
   bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
 
@@ -163,10 +158,7 @@ private:
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_pub_ {nullptr};
 
   // outdoor
-  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_mapping_sub_{nullptr};
-  // rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr vision_outdoor_server_ {nullptr};
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr laser_outdoor_server_ {nullptr};
+  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr outdoor_server_ {nullptr};
 
   bool use_lidar_create_map_ {false};
   bool use_vision_create_map_ {false};
