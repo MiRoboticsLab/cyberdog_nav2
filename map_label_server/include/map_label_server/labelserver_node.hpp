@@ -136,8 +136,6 @@ private:
 
   bool CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels);
 
-  void ResetFlags();
-
   bool GetOutdoorValue(const std::string & filename, bool & outdoor);
 
   std::mutex mut;
@@ -159,9 +157,6 @@ private:
 
   // outdoor
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr outdoor_server_ {nullptr};
-
-  bool use_lidar_create_map_ {false};
-  bool use_vision_create_map_ {false};
   std::mutex mutex_;
 };
 }  // namespace CYBERDOG_NAV

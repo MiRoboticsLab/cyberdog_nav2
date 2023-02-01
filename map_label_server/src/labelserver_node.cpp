@@ -171,7 +171,6 @@ void LabelServer::handle_set_label(
   if (request->only_delete && request->label.labels.size() == 0) {
     INFO("Remove map : %s", request->label.map_name.c_str());
     RemoveMap(map_filename);
-    ResetFlags();
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
@@ -185,7 +184,6 @@ void LabelServer::handle_set_label(
     for (auto label : request->label.labels) {
       map_label_store_ptr_->RemoveLabel(label_filename, label.label_name.c_str());
     }
-    ResetFlags();
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
@@ -373,10 +371,8 @@ void LabelServer::HandleOutdoor(
   std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
   if (request->label.is_outdoor) {
-    use_vision_create_map_ = true;
     INFO("Handle vision outdoor request");
   } else {
-    use_lidar_create_map_ = false;
     INFO("Handle lidar outdoor request");
   }
 
@@ -470,12 +466,6 @@ bool LabelServer::CheckDuplicateTags(const std::vector<protocol::msg::Label> & l
     tags.emplace(label.label_name);
   }
   return true;
-}
-
-void LabelServer::ResetFlags()
-{
-  use_lidar_create_map_ = false;
-  use_lidar_create_map_ = false;
 }
 
 bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
