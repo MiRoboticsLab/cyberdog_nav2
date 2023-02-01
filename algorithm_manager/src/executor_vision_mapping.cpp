@@ -241,16 +241,6 @@ bool ExecutorVisionMapping::StartBuildMapping()
     ERROR("%s", e.what());
   }
 
-  if (result) {
-    // PublishBuildMapType();
-    INFO("Trying start vision mapping outdoor flag service");
-    bool ok = InvokeOutdoorFlag();
-    if (!ok) {
-      ERROR("Start vision mapping outdoor flag service failed");
-    } else {
-      INFO("Start vision mapping outdoor flag service success");
-    }
-  }
   return result;
 }
 
@@ -293,13 +283,29 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
     ERROR("%s", e.what());
   }
 
-  if (map_filename.empty()) {
-    return DeleteMap();
+  if (result && !map_filename.empty()) {
+    // PublishBuildMapType();
+    INFO("Trying start vision mapping outdoor flag service");
+    bool ok = InvokeOutdoorFlag();
+    if (!ok) {
+      ERROR("Start vision mapping outdoor flag service failed");
+    } else {
+      INFO("Start vision mapping outdoor flag service success");
+    }
+    return ok;
   }
 
-  if (result) {
-    PublishBuildMapType();
+  if (result && map_filename.empty()) {
+    INFO("Trying delete vision map service(delete_reloc_map)");
+    bool ok = DeleteMap();
+    if (!ok) {
+      ERROR("Delete vision map service(delete_reloc_map) failed");
+    } else {
+      INFO("Delete vision map service(delete_reloc_map) success");
+    }
+    return ok;
   }
+
   return result;
 }
 
