@@ -33,7 +33,7 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
   robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
 
-  outdoor_client_ = create_client<LabelPraram>(
+  outdoor_client_ = create_client<LabelParam>(
     "outdoor", rmw_qos_profile_services_default);
 
   // Control lidar mapping report realtime pose turn on and turn off
@@ -439,7 +439,7 @@ bool ExecutorLaserMapping::InvokeOutdoorFlag(const std::string & mapname)
   }
 
   // Set request data
-  auto request = std::make_shared<LabelPraram::Request>();
+  auto request = std::make_shared<LabelParam::Request>();
   request->label.is_outdoor = false;
   request->label.map_name = mapname;
 

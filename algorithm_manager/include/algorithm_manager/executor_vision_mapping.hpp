@@ -42,7 +42,7 @@ public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
-  using LabelPraram = protocol::srv::SetMapLabel;
+  using LabelParam = protocol::srv::SetMapLabel;
 
   explicit ExecutorVisionMapping(std::string node_name);
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
@@ -154,7 +154,7 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_delete_client_ {nullptr};
 
   // vision mapping alive
-  rclcpp::Client<LabelPraram>::SharedPtr outdoor_client_ {nullptr};
+  rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
 
   // record this sensor is open

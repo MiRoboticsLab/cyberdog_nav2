@@ -44,7 +44,7 @@ public:
   using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
-  using LabelPraram = protocol::srv::SetMapLabel;
+  using LabelParam = protocol::srv::SetMapLabel;
 
   explicit ExecutorLaserMapping(std::string node_name);
   ~ExecutorLaserMapping();
@@ -175,7 +175,7 @@ private:
 
   // velocity smoother 'velocity_adaptor_gait'
   std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-  rclcpp::Client<LabelPraram>::SharedPtr outdoor_client_ {nullptr};
+  rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};

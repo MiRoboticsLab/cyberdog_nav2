@@ -28,7 +28,7 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   // Mapping build type
   vision_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("vision_mapping_alive", 10);
 
-  outdoor_client_ = create_client<LabelPraram>(
+  outdoor_client_ = create_client<LabelParam>(
     "outdoor", rmw_qos_profile_services_default);
 
   // TF2 checker
@@ -473,7 +473,7 @@ bool ExecutorVisionMapping::InvokeOutdoorFlag(const std::string & mapname)
   }
 
   // Set request data
-  auto request = std::make_shared<LabelPraram::Request>();
+  auto request = std::make_shared<LabelParam::Request>();
   request->label.is_outdoor = true;
   request->label.map_name = mapname;
 
