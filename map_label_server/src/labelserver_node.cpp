@@ -231,7 +231,7 @@ void LabelServer::handle_set_label(
   map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
 
   // outdoor
-  INFO("is_outdoor flag : %d", request->label.is_outdoor);
+  INFO("Request set is_outdoor value : %d", request->label.is_outdoor);
   bool outdoor = false;
   GetOutdoorValue(label_filename_suffix, outdoor);
   map_label_store_ptr_->SetOutdoor(outdoor, doc);
