@@ -31,7 +31,6 @@
 // #include "nav2_util/geometry_utils.hpp"
 // #include "protocol/msg/follow_points.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "algorithm_manager/realsense_lifecycle_manager.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
 // #include "algorithm_manager/algorithm_task_manager.hpp"
@@ -43,6 +42,8 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
 #include "behavior_manager/behavior_manager.hpp"
+
+using namespace std::chrono_literals;   // NOLINT
 
 namespace cyberdog
 {
@@ -101,7 +102,6 @@ using Nav2LifecyleMgrClientMap =
     std::shared_ptr<Nav2LifecyleMgrClient>>>;
 using LifecyleNodesMap =
   std::unordered_map<std::string, std::unordered_map<std::string, LifecycleClients>>;
-using RealSenseClient = RealSenseLifecycleServiceClient;
 using StopTaskSrv = protocol::srv::StopAlgoTask;
 struct ExecutorData
 {

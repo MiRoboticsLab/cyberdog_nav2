@@ -131,7 +131,7 @@ public:
    * @return true
    * @return false
    */
-  bool CreateMapLabelFile(const std::string & directory, const std::string & filename);
+  bool CreateMapLabelFile(const std::string & filename);
 
   /**
    * @brief Delete a Map's Label File object
@@ -173,10 +173,7 @@ public:
    * @param map_filename
    * @param doc
    */
-  void SetMapName(
-    const std::string & label_filename,
-    const std::string & map_filename,
-    rapidjson::Document & doc);
+  void SetMapName(const std::string & map_filename, rapidjson::Document & doc);
 
   void SetOutdoor(bool value, rapidjson::Document & doc);
 
@@ -224,12 +221,6 @@ public:
   void Read(
     const std::string & label_filename, std::vector<protocol::msg::Label> & labels,
     bool & is_outdoor);
-
-  /**
-   * @brief Debug for logic test
-   *
-   */
-  void Debug();
 
 private:
   struct Label
