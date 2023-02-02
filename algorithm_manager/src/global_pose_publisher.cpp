@@ -17,8 +17,8 @@
 
 #include "nav2_util/robot_utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "algorithm_manager/global_pose_publisher.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
+#include "algorithm_manager/global_pose_publisher.hpp"
 
 using namespace std::chrono_literals;   // NOLINT
 
