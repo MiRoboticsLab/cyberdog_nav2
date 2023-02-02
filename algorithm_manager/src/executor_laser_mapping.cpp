@@ -29,17 +29,10 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   // Initialize all ros parameters
   DeclareParameters();
 
-  // mapping build type
-  lidar_mapping_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("lidar_mapping_alive", 10);
-  robot_pose_pub_ = create_publisher<std_msgs::msg::Bool>("pose_enable", 10);
-
   outdoor_client_ = create_client<LabelParam>(
     "outdoor", rmw_qos_profile_services_default);
 
   // Control lidar mapping report realtime pose turn on and turn off
-  realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
-    "PoseEnable", rmw_qos_profile_services_default);
-
   pose_publisher_ = PosePublisher::make_shared(this);
 
   // TF2 checker
@@ -57,7 +50,6 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 ExecutorLaserMapping::~ExecutorLaserMapping()
 {
   INFO("ExecutorLaserMapping shutdown() call.");
-  // EnableReportRealtimePose(false);
   pose_publisher_->Stop();
 }
 
@@ -117,19 +109,6 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   // Enable report realtime robot pose
-  // success = EnableReportRealtimePose(true);
-  // if (!success) {
-  //   ERROR("Enable report realtime robot pose failed.");
-  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-  //   if (is_slam_service_activate_) {
-  //     CloseMappingService();
-  //   }
-  //   ResetAllLifecyceNodes();
-  //   ResetFlags();
-  //   task_abort_callback_();
-  //   return;
-  // }
-
   if (pose_publisher_->IsStop()) {
     pose_publisher_->Start();
     success = pose_publisher_->IsStart();
@@ -168,14 +147,6 @@ void ExecutorLaserMapping::Stop(
   // Disenable report realtime robot pose
   if (pose_publisher_->IsStart()) {
     INFO("Trying close report realtime robot pose service(PoseEnable)");
-    // success = EnableReportRealtimePose(false);
-    // if (!success) {
-    //   ERROR("Close report realtime robot pose service(PoseEnable) failed.");
-    //   response->result = StopTaskSrv::Response::FAILED;
-    // } else {
-    //   INFO("Close report realtime robot pose service(PoseEnable) success");
-    // }
-
     pose_publisher_->Stop();
     success = pose_publisher_->IsStop();
     if (!success) {
@@ -300,12 +271,13 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   auto request = std::make_shared<visualization::srv::Stop::Request>();
   if (map_filename.empty()) {
     request->finish = false;
+    WARN("User set map name is empty");
   } else {
     request->finish = true;
     request->map_name = map_filename;
+    INFO("Saved map building filename: %s", map_filename.c_str());
   }
-  INFO("Saved map building filename: %s", map_filename.c_str());
-
+  
   // Send request
   // return stop_->invoke(request, response);
   bool result = false;
@@ -332,59 +304,9 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   return result;
 }
 
-bool ExecutorLaserMapping::EnableReportRealtimePose(bool enable, bool use_topic)
-{
-  if (!use_topic) {
-    // Wait service
-    bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
-    if (!connect) {
-      ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
-      return false;
-    }
-
-    // Set request data
-    auto request = std::make_shared<std_srvs::srv::SetBool_Request>();
-    request->data = enable;
-
-    // Print enable and disenable message
-    if (enable) {
-      INFO("Robot starting report realtime pose");
-    } else {
-      INFO("Robot stopping report realtime pose.");
-    }
-
-    // Send request
-    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
-    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
-    is_realtime_pose_service_activate_ = enable;
-    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
-
-    auto future = realtime_pose_client_->async_send_request(request);
-    if (future.wait_for(std::chrono::seconds(10s)) == std::future_status::timeout) {
-      ERROR("Connect position checker service timeout");
-      return false;
-    }
-
-    start_report_realtime_pose_ = true;
-    return future.get()->success;
-  } else {
-    std_msgs::msg::Bool enable_command;
-    enable_command.data = enable;
-    robot_pose_pub_->publish(enable_command);
-  }
-  return true;
-}
-
 bool ExecutorLaserMapping::CheckAvailable()
 {
   return true;
-}
-
-void ExecutorLaserMapping::PublishBuildMapType()
-{
-  std_msgs::msg::Bool state;
-  state.data = true;
-  lidar_mapping_trigger_pub_->publish(state);
 }
 
 bool ExecutorLaserMapping::InvokeOutdoorFlag(const std::string & mapname)

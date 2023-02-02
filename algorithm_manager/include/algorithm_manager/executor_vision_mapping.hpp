@@ -43,6 +43,8 @@ public:
   using LabelParam = protocol::srv::SetMapLabel;
 
   explicit ExecutorVisionMapping(std::string node_name);
+  ~ExecutorVisionMapping();
+
   void Start(AlgorithmMGR::Goal::ConstSharedPtr goal) override;
   void Stop(
     const StopTaskSrv::Request::SharedPtr request,
@@ -75,15 +77,6 @@ private:
    * @return false Return failure
    */
   bool StopBuildMapping(const std::string & map_filename);
-
-  /**
-   * @brief Turn on ot turn off report realtime robot pose
-   *
-   * @param enable True enable report, false disenable report
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool EnableReportRealtimePose(bool enable);
 
   /**
    * @brief Check curent map building available
@@ -129,7 +122,6 @@ private:
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
-  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
   PosePublisher::SharedPtr pose_publisher_ {nullptr};
 
   // Get vision build map available result
@@ -143,7 +135,6 @@ private:
   bool is_open_realsense_camera_ {false};
   bool is_exit_ {false};
   bool is_slam_service_activate_ {false};
-  bool is_realtime_pose_service_activate_ {false};
 
   // mutex
   std::mutex lifecycle_mutex_;

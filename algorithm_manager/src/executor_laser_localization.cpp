@@ -153,22 +153,6 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   // Enable report realtime robot pose
-  // success = EnableReportRealtimePose(true);
-  // if (!success) {
-  //   ERROR("Enable report realtime robot pose failed.");
-  //   UpdateFeedback(relocalization::kSLAMError);
-
-  //   if (is_slam_service_activate_) {
-  //     DisableRelocalization();
-  //   }
-
-  //   ResetAllLifecyceNodes();
-  //   ResetFlags();
-  //   task_abort_callback_();
-  //   location_status_ = LocationStatus::FAILURE;
-  //   return;
-  // }
-
   pose_publisher_->Start();
   success = pose_publisher_->IsStart();
   if (!success) {
@@ -201,40 +185,6 @@ void ExecutorLaserLocalization::Stop(
   (void)request;
   WARN("Laser localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
-
-  // Timer timer_;
-  // timer_.Start();
-
-  // // exit flag
-  // is_exit_ = true;
-
-  // // Disenable Relocalization
-  // bool success = DisableRelocalization();
-  // if (!success) {
-  //   response->result = StopTaskSrv::Response::FAILED;
-  // }
-
-  // // Disenable report realtime robot pose
-  // success = EnableReportRealtimePose(false);
-  // if (!success) {
-  //   response->result = StopTaskSrv::Response::FAILED;
-  // }
-
-  // ResetFlags();
-  // success = ResetAllLifecyceNodes();
-  // if (!success) {
-  //   response->result = StopTaskSrv::Response::FAILED;
-  //   task_abort_callback_();
-  //   return;
-  // }
-
-  // location_status_ = LocationStatus::Unknown;
-
-  // // Set manager status
-  // task_cancle_callback_();
-
-  // INFO("Laser localization stoped success");
-  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -381,50 +331,6 @@ bool ExecutorLaserLocalization::DisableRelocalization()
   return result;
 }
 
-bool ExecutorLaserLocalization::EnableReportRealtimePose(bool enable)
-{
-  // Control lidar mapping report realtime pose turn on and turn off
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
-
-  bool is_connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2));
-  if (!is_connect) {
-    ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = enable;
-
-  // Print enable and disenable message
-  if (enable) {
-    INFO("Robot starting report realtime pose");
-  } else {
-    INFO("Robot stopping report realtime pose.");
-  }
-
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex_");
-    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
-    is_realtime_pose_service_activate_ = enable;
-    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex_");
-
-    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5s));
-    result = future_result->success;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-
-
-  return result;
-}
-
 void ExecutorLaserLocalization::ResetFlags()
 {
   relocalization_success_ = false;
@@ -499,13 +405,6 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   if (pose_publisher_->IsStart()) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
-    // success = EnableReportRealtimePose(false);
-    // if (!success) {
-    //   ERROR("Stop: Robot stop report realtime pose failed");
-    // } else {
-    //   INFO("Stop: Robot stop report realtime pose success");
-    // }
-
     pose_publisher_->Stop();
     success = pose_publisher_->IsStop();
     if (!success) {

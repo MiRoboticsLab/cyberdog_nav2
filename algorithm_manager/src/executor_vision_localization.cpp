@@ -161,49 +161,6 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   }
 
   // Enable report realtime robot pose
-  // auto pose_thread = std::make_shared<std::thread>(
-  //   [&]() {
-  //     int try_count = 0;
-  //     while (true) {
-  //       if (relocalization_failure_) {
-  //         break;
-  //       }
-
-  //       if (!relocalization_success_) {
-  //         std::this_thread::sleep_for(std::chrono::seconds(1));
-  //         continue;
-  //       }
-
-  //       if (CheckExit()) {
-  //         break;
-  //       }
-
-  //       try_count++;
-  //       success = EnableReportRealtimePose(true);
-
-  //       if (success) {
-  //         INFO("Enable report realtime robot pose success.");
-  //         try_count = 0;
-  //         break;
-  //       }
-
-  //       if (try_count >= 3 && !success) {
-  //         ERROR("Enable report realtime robot pose failed.");
-
-  //         if (is_slam_service_activate_) {
-  //           DisableRelocalization();
-  //         }
-
-  //         ResetAllLifecyceNodes();
-  //         ResetFlags();
-  //         task_abort_callback_();
-  //         return;
-  //       }
-  //       std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  //     }
-  //   });
-  // pose_thread->detach();
-
   if (pose_publisher_->IsStop()) {
     pose_publisher_->Start();
     success = pose_publisher_->IsStart();
@@ -233,35 +190,6 @@ void ExecutorVisionLocalization::Stop(
   (void)request;
   WARN("Vision localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
-
-  // Timer timer_;
-  // timer_.Start();
-
-  // // exit flag
-  // is_exit_ = true;
-
-  // // Disenable Relocalization
-  // bool success = DisableRelocalization();
-  // if (!success) {
-  //   response->result = StopTaskSrv::Response::FAILED;
-  // }
-
-  // // Disenable report realtime robot pose
-  // success = EnableReportRealtimePose(false);
-  // if (!success) {
-  //   ERROR("Disenable report realtime robot pose failed.");
-  //   response->result = StopTaskSrv::Response::FAILED;
-  // }
-
-  // ResetFlags();
-  // success = ResetAllLifecyceNodes();
-  // if (!success) {
-  //   response->result = StopTaskSrv::Response::FAILED;
-  // }
-  // task_success_callback_();
-
-  // INFO("Vision Localization stoped success");
-  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorVisionLocalization::Cancel()
@@ -400,47 +328,6 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   return result;
 }
 
-bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
-{
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
-
-  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for the service(PoseEnable) timeout");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = enable;
-
-  // Print enable and disenable message
-  if (enable) {
-    INFO("Robot starting report realtime pose");
-  } else {
-    INFO("Robot stopping report realtime pose.");
-  }
-
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
-    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
-    is_realtime_pose_service_activate_ = enable;
-    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
-
-    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5));
-    result = future_result->success;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-  return result;
-}
-
 bool ExecutorVisionLocalization::CheckMapAvailable()
 {
   std::lock_guard<std::mutex> lock(task_mutex_);
@@ -548,13 +435,6 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   if (pose_publisher_->IsStart()) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
-    // success = EnableReportRealtimePose(false);
-    // if (!success) {
-    //   ERROR("Stop: Robot stop report realtime pose failed");
-    // } else {
-    //   INFO("Stop: Robot stop report realtime pose success");
-    // }
-
     pose_publisher_->Stop();
     success = pose_publisher_->IsStop();
     if (!success) {

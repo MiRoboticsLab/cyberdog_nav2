@@ -118,15 +118,6 @@ private:
    */
   bool DisableRelocalization();
 
-  /**
-   * @brief Turn on ot turn off report realtime robot pose
-   *
-   * @param enable True enable report, false disenable report
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool EnableReportRealtimePose(bool enable);
-
   void ResetFlags();
 
   bool ResetAllLifecyceNodes();
@@ -154,7 +145,6 @@ private:
   // service client
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
-  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
   PosePublisher::SharedPtr pose_publisher_ {nullptr};
 
   // serice reset(stop current robot running)
@@ -177,7 +167,6 @@ private:
   bool is_exit_ {false};
   bool is_lifecycle_activate_ {false};
   bool is_slam_service_activate_ {false};
-  bool is_realtime_pose_service_activate_ {false};
 
   // mutex
   std::mutex lifecycle_mutex_;

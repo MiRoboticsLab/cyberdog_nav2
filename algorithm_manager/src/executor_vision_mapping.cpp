@@ -42,6 +42,11 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
 }
 
+ExecutorVisionMapping::~ExecutorVisionMapping()
+{
+  pose_publisher_->Stop();
+}
+
 void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   Timer timer_;
@@ -97,37 +102,6 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  // Enable report realtime robot pose
-  // auto pose_thread = std::make_shared<std::thread>(
-  //   [&]() {
-  //     int try_count = 0;
-  //     while (true) {
-  //       try_count++;
-  //       success = EnableReportRealtimePose(true);
-
-  //       if (success) {
-  //         INFO("Enable report realtime robot pose success.");
-  //         try_count = 0;
-  //         break;
-  //       }
-
-  //       if (try_count >= 3 && !success) {
-  //         ERROR("Enable report realtime robot pose failed.");
-  //         UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
-
-  //         if (is_slam_service_activate_) {
-  //           CloseMappingService();
-  //         }
-  //         ResetAllLifecyceNodes();
-  //         ResetFlags();
-  //         task_abort_callback_();
-  //         return;
-  //       }
-  //       std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  //     }
-  //   });
-  // pose_thread->detach();
-
   if (pose_publisher_->IsStop()) {
     pose_publisher_->Start();
     success = pose_publisher_->IsStart();
@@ -165,14 +139,6 @@ void ExecutorVisionMapping::Stop(
 
   // Disenable report realtime robot pose
   if (pose_publisher_->IsStart()) {
-    // success = EnableReportRealtimePose(false);
-    // if (!success) {
-    //   ERROR("Close report realtime robot pose service(PoseEnable) failed.");
-    //   response->result = StopTaskSrv::Response::FAILED;
-    // } else {
-    //   INFO("Close report realtime robot pose service(PoseEnable) success");
-    // }
-
     pose_publisher_->Stop();
     success = pose_publisher_->IsStop();
     if (!success) {
@@ -277,14 +243,11 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = true;
 
-  // if (map_filename.empty()) {
-  //   request->finish = false;
-  // } else {
-  //   request->finish = true;
-  //   request->map_name = map_filename;
-  // }
-
-  INFO("Saved map building filename: %s", map_filename.c_str());
+  if (map_filename.empty()) {
+    WARN("User set map name is empty");
+  } else {
+    INFO("Saved map building filename: %s", map_filename.c_str());
+  }
 
   // Send request
   // return start_->invoke(request, response);
@@ -320,47 +283,6 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
     return ok;
   }
 
-  return result;
-}
-
-bool ExecutorVisionMapping::EnableReportRealtimePose(bool enable)
-{
-  // // Wait service
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
-
-  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for the service(PoseEnable). but cannot connect the service.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = enable;
-
-  // Print enable and disenable message
-  if (enable) {
-    INFO("Robot starting report realtime pose");
-  } else {
-    INFO("Robot stopping report realtime pose.");
-  }
-
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
-    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
-    is_realtime_pose_service_activate_ = enable;
-    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
-    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(10s));
-    result = future_result->success;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
   return result;
 }
 
