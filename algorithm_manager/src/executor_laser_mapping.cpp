@@ -271,11 +271,13 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
   auto request = std::make_shared<visualization::srv::Stop::Request>();
   if (map_filename.empty()) {
     request->finish = false;
+    WARN("User set map name is empty");
   } else {
     request->finish = true;
     request->map_name = map_filename;
+    INFO("Saved map building filename: %s", map_filename.c_str());
   }
-  INFO("Saved map building filename: %s", map_filename.c_str());
+ 
 
   // Send request
   // return stop_->invoke(request, response);

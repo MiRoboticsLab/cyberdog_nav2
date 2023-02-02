@@ -250,14 +250,11 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = true;
 
-  // if (map_filename.empty()) {
-  //   request->finish = false;
-  // } else {
-  //   request->finish = true;
-  //   request->map_name = map_filename;
-  // }
-
-  INFO("Saved map building filename: %s", map_filename.c_str());
+  if (map_filename.empty()) {
+    WARN("User set map name is empty");
+  } else {
+    INFO("Saved map building filename: %s", map_filename.c_str());
+  }
 
   // Send request
   // return start_->invoke(request, response);
