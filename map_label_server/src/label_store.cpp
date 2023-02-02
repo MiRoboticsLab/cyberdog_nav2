@@ -83,7 +83,7 @@ bool LabelStore::DeleteLabel(
   rapidjson::Document & existed_doc)
 {
   // check current "*.json" is existed or not
-  if (IsExist(filename)) {
+  if (!IsExist(filename)) {
     ERROR("filename (%s) not exist", filename.c_str());
     return false;
   }
