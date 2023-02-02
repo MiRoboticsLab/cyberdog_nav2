@@ -24,6 +24,7 @@
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/timer.hpp"
+#include "algorithm_manager/global_pose_publisher.hpp"
 
 namespace cyberdog
 {

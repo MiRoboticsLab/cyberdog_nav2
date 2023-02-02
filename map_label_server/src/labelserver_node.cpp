@@ -177,7 +177,14 @@ void LabelServer::HandleSetLabelServiceCallback(
   if (request->only_delete && request->label.labels.size()) {
     for (auto label : request->label.labels) {
       INFO("Removing label: %s", label.label_name.c_str());
-      label_store_->RemoveLabel(label_filename, label.label_name.c_str());
+      bool success = label_store_->RemoveLabel(label_filename, label.label_name.c_str());
+      if (!success) {
+        ERROR("Remove label: %s failed",  label.label_name.c_str());
+        response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
+        return;
+      } else {
+        INFO("Remove label: %s success",  label.label_name.c_str());
+      }
     }
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;

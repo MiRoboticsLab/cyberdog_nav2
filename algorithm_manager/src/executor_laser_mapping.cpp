@@ -40,6 +40,8 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
     "PoseEnable", rmw_qos_profile_services_default);
 
+  // pose_publisher_ = std::make_shared<PosePublisher>(get_node_base_interface());
+
   // TF2 checker
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
@@ -126,6 +128,20 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
+
+  // pose_publisher_->Start();
+  // success = pose_publisher_->IsStart();
+  // if (!success) {
+  //   ERROR("Enable report realtime robot pose failed.");
+  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+  //   if (is_slam_service_activate_) {
+  //     CloseMappingService();
+  //   }
+  //   ResetAllLifecyceNodes();
+  //   ResetFlags();
+  //   task_abort_callback_();
+  //   return;
+  // }
 
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());

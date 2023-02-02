@@ -28,6 +28,7 @@
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
 #include "protocol/srv/set_map_label.hpp"
+#include "algorithm_manager/global_pose_publisher.hpp"
 
 namespace cyberdog
 {

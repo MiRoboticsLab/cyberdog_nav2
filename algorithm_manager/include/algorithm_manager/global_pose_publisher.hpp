@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/macros.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
@@ -31,6 +32,8 @@ namespace algorithm
 class PosePublisher
 {
 public:
+  RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(PosePublisher)
+
   explicit PosePublisher(const rclcpp::Node::SharedPtr node);
   ~PosePublisher();
 

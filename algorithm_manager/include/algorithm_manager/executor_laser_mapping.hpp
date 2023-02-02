@@ -30,6 +30,7 @@
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/transform_listener.h"
 #include "protocol/srv/set_map_label.hpp"
+#include "algorithm_manager/global_pose_publisher.hpp"
 
 namespace cyberdog
 {
@@ -148,6 +149,8 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};
 
   // realtime robot pose
+
+  PosePublisher::SharedPtr pose_publisher_ {nullptr};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr robot_pose_pub_{nullptr};
   bool start_report_realtime_pose_ {false};
 

@@ -24,6 +24,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
 #include "algorithm_manager/timer.hpp"
+#include "algorithm_manager/global_pose_publisher.hpp"
 
 namespace cyberdog
 {
