@@ -42,6 +42,7 @@ public:
    * @param node_name Executor node name
    */
   explicit ExecutorVisionLocalization(std::string node_name);
+  ~ExecutorVisionLocalization();
 
   /**
   * @brief Start lidar localization
@@ -153,6 +154,7 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
+  PosePublisher::SharedPtr pose_publisher_ {nullptr};
 
   // serice reset(stop current robot running)
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;

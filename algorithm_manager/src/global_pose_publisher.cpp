@@ -27,7 +27,7 @@ namespace cyberdog
 namespace algorithm
 {
 
-PosePublisher::PosePublisher(const rclcpp::Node::SharedPtr node)
+PosePublisher::PosePublisher(rclcpp::Node * node)
 {
   // tf
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
@@ -59,7 +59,7 @@ void PosePublisher::Start()
   timer_->execute_callback();
 }
 
-void PosePublisher::Close()
+void PosePublisher::Stop()
 {
   start_ = false;
   stop_ = true;

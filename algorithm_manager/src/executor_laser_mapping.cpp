@@ -40,7 +40,7 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
   realtime_pose_client_ = create_client<std_srvs::srv::SetBool>(
     "PoseEnable", rmw_qos_profile_services_default);
 
-  // pose_publisher_ = std::make_shared<PosePublisher>(get_node_base_interface());
+  pose_publisher_ = PosePublisher::make_shared(this);
 
   // TF2 checker
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -57,7 +57,8 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 ExecutorLaserMapping::~ExecutorLaserMapping()
 {
   INFO("ExecutorLaserMapping shutdown() call.");
-  EnableReportRealtimePose(false);
+  // EnableReportRealtimePose(false);
+  pose_publisher_->Stop();
 }
 
 void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -116,21 +117,7 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
-  if (!success) {
-    ERROR("Enable report realtime robot pose failed.");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    if (is_slam_service_activate_) {
-      CloseMappingService();
-    }
-    ResetAllLifecyceNodes();
-    ResetFlags();
-    task_abort_callback_();
-    return;
-  }
-
-  // pose_publisher_->Start();
-  // success = pose_publisher_->IsStart();
+  // success = EnableReportRealtimePose(true);
   // if (!success) {
   //   ERROR("Enable report realtime robot pose failed.");
   //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
@@ -142,6 +129,23 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   //   task_abort_callback_();
   //   return;
   // }
+
+  if (pose_publisher_->IsStop()) {
+    pose_publisher_->Start();
+    success = pose_publisher_->IsStart();
+    if (!success) {
+      ERROR("Enable report realtime robot pose failed.");
+      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+      if (is_slam_service_activate_) {
+        CloseMappingService();
+      }
+      ResetAllLifecyceNodes();
+      ResetFlags();
+      task_abort_callback_();
+      return;
+    }
+  }
+
 
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
@@ -162,14 +166,23 @@ void ExecutorLaserMapping::Stop(
   bool success = true;
 
   // Disenable report realtime robot pose
-  if (is_realtime_pose_service_activate_) {
+  if (pose_publisher_->IsStart()) {
     INFO("Trying close report realtime robot pose service(PoseEnable)");
-    success = EnableReportRealtimePose(false);
+    // success = EnableReportRealtimePose(false);
+    // if (!success) {
+    //   ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+    //   response->result = StopTaskSrv::Response::FAILED;
+    // } else {
+    //   INFO("Close report realtime robot pose service(PoseEnable) success");
+    // }
+
+    pose_publisher_->Stop();
+    success = pose_publisher_->IsStop();
     if (!success) {
-      ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+      ERROR("Close report realtime robot pose failed.");
       response->result = StopTaskSrv::Response::FAILED;
     } else {
-      INFO("Close report realtime robot pose service(PoseEnable) success");
+      INFO("Close report realtime robot pose success");
     }
   }
 

@@ -36,6 +36,8 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   tf_buffer_->setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+  pose_publisher_ = PosePublisher::make_shared(this);
+
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
 }
@@ -96,35 +98,51 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
 
   // Enable report realtime robot pose
-  auto pose_thread = std::make_shared<std::thread>(
-    [&]() {
-      int try_count = 0;
-      while (true) {
-        try_count++;
-        success = EnableReportRealtimePose(true);
+  // auto pose_thread = std::make_shared<std::thread>(
+  //   [&]() {
+  //     int try_count = 0;
+  //     while (true) {
+  //       try_count++;
+  //       success = EnableReportRealtimePose(true);
 
-        if (success) {
-          INFO("Enable report realtime robot pose success.");
-          try_count = 0;
-          break;
-        }
+  //       if (success) {
+  //         INFO("Enable report realtime robot pose success.");
+  //         try_count = 0;
+  //         break;
+  //       }
 
-        if (try_count >= 3 && !success) {
-          ERROR("Enable report realtime robot pose failed.");
-          UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+  //       if (try_count >= 3 && !success) {
+  //         ERROR("Enable report realtime robot pose failed.");
+  //         UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
 
-          if (is_slam_service_activate_) {
-            CloseMappingService();
-          }
-          ResetAllLifecyceNodes();
-          ResetFlags();
-          task_abort_callback_();
-          return;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  //         if (is_slam_service_activate_) {
+  //           CloseMappingService();
+  //         }
+  //         ResetAllLifecyceNodes();
+  //         ResetFlags();
+  //         task_abort_callback_();
+  //         return;
+  //       }
+  //       std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  //     }
+  //   });
+  // pose_thread->detach();
+
+  if (pose_publisher_->IsStop()) {
+    pose_publisher_->Start();
+    success = pose_publisher_->IsStart();
+    if (!success) {
+      ERROR("Enable report realtime robot pose failed.");
+      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_RELOCATION_FAILURE);
+      if (is_slam_service_activate_) {
+        CloseMappingService();
       }
-    });
-  pose_thread->detach();
+      ResetAllLifecyceNodes();
+      ResetFlags();
+      task_abort_callback_();
+      return;
+    }
+  }
 
   // 结束激活进度的上报
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
@@ -146,13 +164,22 @@ void ExecutorVisionMapping::Stop(
   bool success = true;
 
   // Disenable report realtime robot pose
-  if (is_realtime_pose_service_activate_) {
-    success = EnableReportRealtimePose(false);
+  if (pose_publisher_->IsStart()) {
+    // success = EnableReportRealtimePose(false);
+    // if (!success) {
+    //   ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+    //   response->result = StopTaskSrv::Response::FAILED;
+    // } else {
+    //   INFO("Close report realtime robot pose service(PoseEnable) success");
+    // }
+
+    pose_publisher_->Stop();
+    success = pose_publisher_->IsStop();
     if (!success) {
-      ERROR("Close report realtime robot pose service(PoseEnable) failed.");
+      ERROR("Close report realtime robot pose failed.");
       response->result = StopTaskSrv::Response::FAILED;
     } else {
-      INFO("Close report realtime robot pose service(PoseEnable) success");
+      INFO("Close report realtime robot pose success");
     }
   }
 

@@ -130,6 +130,7 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
+  PosePublisher::SharedPtr pose_publisher_ {nullptr};
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};

@@ -50,11 +50,18 @@ ExecutorLaserLocalization::ExecutorLaserLocalization(std::string node_name)
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
+  pose_publisher_ = PosePublisher::make_shared(this);
+
   // spin
   std::thread{[this]() {
       rclcpp::spin(this->get_node_base_interface());
     }
   }.detach();
+}
+
+ExecutorLaserLocalization::~ExecutorLaserLocalization()
+{
+  pose_publisher_->Stop();
 }
 
 void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -146,7 +153,24 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   // Enable report realtime robot pose
-  success = EnableReportRealtimePose(true);
+  // success = EnableReportRealtimePose(true);
+  // if (!success) {
+  //   ERROR("Enable report realtime robot pose failed.");
+  //   UpdateFeedback(relocalization::kSLAMError);
+
+  //   if (is_slam_service_activate_) {
+  //     DisableRelocalization();
+  //   }
+
+  //   ResetAllLifecyceNodes();
+  //   ResetFlags();
+  //   task_abort_callback_();
+  //   location_status_ = LocationStatus::FAILURE;
+  //   return;
+  // }
+
+  pose_publisher_->Start();
+  success = pose_publisher_->IsStart();
   if (!success) {
     ERROR("Enable report realtime robot pose failed.");
     UpdateFeedback(relocalization::kSLAMError);
@@ -472,10 +496,18 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
     }
   }
 
-  if (is_realtime_pose_service_activate_) {
+  if (pose_publisher_->IsStart()) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
-    success = EnableReportRealtimePose(false);
+    // success = EnableReportRealtimePose(false);
+    // if (!success) {
+    //   ERROR("Stop: Robot stop report realtime pose failed");
+    // } else {
+    //   INFO("Stop: Robot stop report realtime pose success");
+    // }
+
+    pose_publisher_->Stop();
+    success = pose_publisher_->IsStop();
     if (!success) {
       ERROR("Stop: Robot stop report realtime pose failed");
     } else {

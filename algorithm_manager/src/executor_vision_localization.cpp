@@ -43,11 +43,18 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
+  pose_publisher_ = PosePublisher::make_shared(this);
+
   // spin
   std::thread{[this]() {
       rclcpp::spin(this->get_node_base_interface());
     }
   }.detach();
+}
+
+ExecutorVisionLocalization::~ExecutorVisionLocalization()
+{
+  pose_publisher_->Stop();
 }
 
 void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -154,48 +161,64 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   }
 
   // Enable report realtime robot pose
-  auto pose_thread = std::make_shared<std::thread>(
-    [&]() {
-      int try_count = 0;
-      while (true) {
-        if (relocalization_failure_) {
-          break;
-        }
+  // auto pose_thread = std::make_shared<std::thread>(
+  //   [&]() {
+  //     int try_count = 0;
+  //     while (true) {
+  //       if (relocalization_failure_) {
+  //         break;
+  //       }
 
-        if (!relocalization_success_) {
-          std::this_thread::sleep_for(std::chrono::seconds(1));
-          continue;
-        }
+  //       if (!relocalization_success_) {
+  //         std::this_thread::sleep_for(std::chrono::seconds(1));
+  //         continue;
+  //       }
 
-        if (CheckExit()) {
-          break;
-        }
+  //       if (CheckExit()) {
+  //         break;
+  //       }
 
-        try_count++;
-        success = EnableReportRealtimePose(true);
+  //       try_count++;
+  //       success = EnableReportRealtimePose(true);
 
-        if (success) {
-          INFO("Enable report realtime robot pose success.");
-          try_count = 0;
-          break;
-        }
+  //       if (success) {
+  //         INFO("Enable report realtime robot pose success.");
+  //         try_count = 0;
+  //         break;
+  //       }
 
-        if (try_count >= 3 && !success) {
-          ERROR("Enable report realtime robot pose failed.");
+  //       if (try_count >= 3 && !success) {
+  //         ERROR("Enable report realtime robot pose failed.");
 
-          if (is_slam_service_activate_) {
-            DisableRelocalization();
-          }
+  //         if (is_slam_service_activate_) {
+  //           DisableRelocalization();
+  //         }
 
-          ResetAllLifecyceNodes();
-          ResetFlags();
-          task_abort_callback_();
-          return;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  //         ResetAllLifecyceNodes();
+  //         ResetFlags();
+  //         task_abort_callback_();
+  //         return;
+  //       }
+  //       std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  //     }
+  //   });
+  // pose_thread->detach();
+
+  if (pose_publisher_->IsStop()) {
+    pose_publisher_->Start();
+    success = pose_publisher_->IsStart();
+    if (!success) {
+      ERROR("Enable report realtime robot pose failed.");
+      UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+      if (is_slam_service_activate_) {
+        DisableRelocalization();
       }
-    });
-  pose_thread->detach();
+      ResetAllLifecyceNodes();
+      ResetFlags();
+      task_abort_callback_();
+      return;
+    }
+  }
 
   UpdateFeedback(relocalization::kSLAMSuccess);
   INFO("Vision localization success.");
@@ -522,10 +545,18 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
     }
   }
 
-  if (is_realtime_pose_service_activate_) {
+  if (pose_publisher_->IsStart()) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
-    success = EnableReportRealtimePose(false);
+    // success = EnableReportRealtimePose(false);
+    // if (!success) {
+    //   ERROR("Stop: Robot stop report realtime pose failed");
+    // } else {
+    //   INFO("Stop: Robot stop report realtime pose success");
+    // }
+
+    pose_publisher_->Stop();
+    success = pose_publisher_->IsStop();
     if (!success) {
       ERROR("Stop: Robot stop report realtime pose failed");
     } else {

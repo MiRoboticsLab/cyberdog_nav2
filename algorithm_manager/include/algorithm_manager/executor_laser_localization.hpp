@@ -47,6 +47,7 @@ public:
    * @param node_name Executor node name
    */
   explicit ExecutorLaserLocalization(std::string node_name);
+  ~ExecutorLaserLocalization();
 
   /**
   * @brief Start lidar localization
@@ -147,9 +148,6 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // Control localization_node lifecycle
-  // std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
-
   // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr location_status_service_ {nullptr};
 
@@ -157,6 +155,7 @@ private:
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
+  PosePublisher::SharedPtr pose_publisher_ {nullptr};
 
   // serice reset(stop current robot running)
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_robot_nav_client_ {nullptr};

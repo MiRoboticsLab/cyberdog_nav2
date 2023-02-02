@@ -32,13 +32,13 @@ namespace algorithm
 class PosePublisher
 {
 public:
-  RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(PosePublisher)
+  RCLCPP_SMART_PTR_DEFINITIONS(PosePublisher)
 
-  explicit PosePublisher(const rclcpp::Node::SharedPtr node);
+  explicit PosePublisher(rclcpp::Node * node);
   ~PosePublisher();
 
   void Start();
-  void Close();
+  void Stop();
 
   bool IsStart();
   bool IsStop();
