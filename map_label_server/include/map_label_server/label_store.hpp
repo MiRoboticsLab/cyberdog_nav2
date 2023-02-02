@@ -69,7 +69,7 @@ public:
    * @param filename
    * @param label_name
    */
-  void DeleteLabel(
+  bool DeleteLabel(
     const std::string & filename,
     const std::string & label_name,
     rapidjson::Document & existed_doc);
@@ -192,7 +192,7 @@ public:
    * @param label_filename
    * @param doc
    */
-  void Write(const std::string & label_filename, const rapidjson::Document & doc);
+  bool Write(const std::string & label_filename, const rapidjson::Document & doc);
 
   /**
    * @brief Remove label

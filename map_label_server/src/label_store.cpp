@@ -53,6 +53,7 @@ void LabelStore::AddLabel(
   const protocol::msg::Label::SharedPtr label,
   rapidjson::Document & doc)
 {
+  (void)filename;
   auto tmp_doc = ToJson(label);
   common::CyberdogJson::Add(doc, label_name, tmp_doc);
 }
@@ -76,23 +77,31 @@ bool LabelStore::CreateMapLabelFile(const std::string & filename)
   return true;
 }
 
-void LabelStore::DeleteLabel(
+bool LabelStore::DeleteLabel(
   const std::string & filename,
   const std::string & label_name,
   rapidjson::Document & existed_doc)
 {
   // check current "*.json" is existed or not
   if (IsExist(filename)) {
-    return;
+    ERROR("filename (%s) not exist", filename.c_str());
+    return false;
   }
 
+  bool find = false;
   for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
     if (it->name.GetString() == label_name) {
       // delete labelName,physicX and physicY
       existed_doc.RemoveMember(static_cast<const char *>(label_name.c_str()));
+      find = true;
       break;
     }
   }
+
+  if (!find) {
+    ERROR("Can't find label (%s) in %s",label_name.c_str(), filename.c_str());
+  }
+  return find;
 }
 
 void LabelStore::ChangeLable(
@@ -198,9 +207,9 @@ bool LabelStore::LoadLabels(const std::string & directory)
   return true;
 }
 
-void LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
+bool LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
 {
-  common::CyberdogJson::WriteJsonToFile(label_filename, doc);
+  return common::CyberdogJson::WriteJsonToFile(label_filename, doc);
 }
 
 bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
@@ -212,9 +221,11 @@ bool LabelStore::RemoveLabel(const std::string & label_filename, const std::stri
     return false;
   }
 
-  DeleteLabel(label_filename, label_name, doc);
-  Write(label_filename, doc);
-  return true;
+  bool find_label = DeleteLabel(label_filename, label_name, doc);
+  if (!find_label) {
+    return false;
+  } 
+  return Write(label_filename, doc);
 }
 
 void LabelStore::Read(
