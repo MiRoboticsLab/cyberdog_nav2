@@ -27,6 +27,7 @@ from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
+from rclpy.task import Future
 import sensor_msgs.msg as sensor_msgs
 
 import std_msgs.msg as std_msgs
@@ -134,8 +135,6 @@ class SeatAdjustServer(Node):
         self.yaw_adjust_sum = 0.00
         self.x_adjust_sum = 0.00
         self.y_adjust_sum = 0.00
-        self.y_adjust_complete = 0
-        self.yaw_adjust_complete = 0
 
         self.pcd_topic = []
         self.pcd_topic.append('left_head_pcd')
@@ -163,10 +162,13 @@ class SeatAdjustServer(Node):
             self.pcd_publisher.append(pcd_publisher)
 
         self.create_init()
-
+        self.future = Future()
         self.timer_count = 0
         self.action_start = 0
+        self.action_sit_down = 0
         self.action_complete = 0
+        self.y_adjust_complete = 0
+        self.yaw_adjust_complete = 0
         self.get_logger().info('__init__0 complete')
 
     def create_init(self):
@@ -203,8 +205,9 @@ class SeatAdjustServer(Node):
         self.motion_req.step_height = [0.0, 0.0]
         self.motion_req.duration = 0
         self.send_motion_request()
+        while(not self.future.done()):
+            self.get_logger().info('Stand up...')
         time.sleep(1)
-
         self.motion_req.pos_des[0] = 0
         self.motion_req.pos_des[1] = 0
         self.motion_req.pos_des[2] = -0.02
@@ -216,6 +219,7 @@ class SeatAdjustServer(Node):
         self.motion_req.pos_des[2] = 0.0
         self.action_start = 1
         self.action_complete = 0
+        self.action_sit_down = 0
         return GoalResponse.ACCEPT
 
     def cancel_callback(self, goal_handle):
@@ -243,16 +247,16 @@ class SeatAdjustServer(Node):
                 self.get_logger().info('Goal canceled')
                 return SeatAdjust.Result()
 
-            self.get_logger().info(
-                'Publishing feedback: {0}'.format(feedback_msg.count)
-            )
+            # self.get_logger().info(
+            #     'Publishing feedback: {0}'.format(feedback_msg.count)
+            # )
 
             # Publish the feedback
             goal_handle.publish_feedback(feedback_msg)
             feedback_msg.count = feedback_msg.count + 1
             # Sleep for demonstration purposes
             time.sleep(timer_period)
-        self.action_complete = 0
+        # self.action_complete = 0
         goal_handle.succeed()
 
         # Populate result message
@@ -262,23 +266,6 @@ class SeatAdjustServer(Node):
         self.get_logger().info('Returning result: {0}'.format(result.result))
 
         return result
-
-    def final_sit_down_action(self):
-        self.motion_req.pos_des[0] = 0
-        self.motion_req.pos_des[1] = 0
-        self.motion_req.pos_des[2] = -0.05
-        self.motion_req.rpy_des[2] = 0
-        self.motion_req.motion_id = 212
-        self.motion_req.duration = (int)(timer_period * 1000 - 10)
-        self.send_motion_request()
-
-        self.motion_req.pos_des[0] = 0
-        self.motion_req.pos_des[1] = 0
-        self.motion_req.pos_des[2] = 0
-        self.motion_req.rpy_des[2] = 0
-        self.motion_req.motion_id = 101
-        self.motion_req.duration = 0
-        self.send_motion_request()
 
     def send_motion_request(self):
         self.future = self.motion_result_client_.call_async(self.motion_req)
@@ -464,7 +451,7 @@ class SeatAdjustServer(Node):
         self.get_logger().info(
                 'need_adjust_points: %d' % (need_adjust_points)
         )
-        if (need_adjust_points > 4):
+        if (need_adjust_points > 6):
             delta_yaw = need_adjust_points / 2
             if (
                 deviation_right_num > deviation_left_num
@@ -533,75 +520,78 @@ class SeatAdjustServer(Node):
                     )
 
     def timer_callback(self):
-        if self.action_start and ((not self.y_adjust_complete) or (not self.yaw_adjust_complete)):
-            self.timer_count = self.timer_count + 1
-            self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-            # self.x_pose_adjust()
-            self.y_pose_adjust()
-            self.yaw_adjust()
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
-        elif (self.action_start) and (self.y_adjust_complete) and (self.yaw_adjust_complete):
-            self.get_logger().info('adjust completed')
-            self.timer_count = self.timer_count + 1
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = -0.08
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
+        if (self.action_start
+           and ((not self.y_adjust_complete) or (not self.yaw_adjust_complete))
+           and (self.future.done())):
+            self.get_logger().info('adjusting====')
+            response = self.future.result()
+            # self.timer_count = self.timer_count + 1
+            # self.get_logger().info('adjusting, timer_callback: %d ' % (self.timer_count))
+            if (response.result):
+                # self.x_pose_adjust()
+                self.y_pose_adjust()
+                self.yaw_adjust()
+                # self.y_adjust_complete = 1
+                # self.yaw_adjust_complete = 1
+                self.motion_req.motion_id = 212
+                self.motion_req.duration = 700
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result0 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+            else:
+                self.get_logger().info(
+                    'Result0 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+        elif ((self.action_start) and (self.y_adjust_complete)
+              and (self.yaw_adjust_complete) and (self.future.done())):
+            self.get_logger().info('adjust completed. Waitting for sitting down...')
+            # self.timer_count = self.timer_count + 1
+            response = self.future.result()
+            if (response.result):
+                self.motion_req.pos_des[0] = 0
+                self.motion_req.pos_des[1] = 0
+                self.motion_req.pos_des[2] = -0.08
+                self.motion_req.rpy_des[2] = 0
+                self.motion_req.motion_id = 212
+                self.motion_req.duration = (int)(timer_period * 1000)
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result1 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+                # self.timer_count = 0
 
-            self.timer_count = 0
-            self.action_start = 0
-            self.y_adjust_complete = 0
-            self.yaw_adjust_complete = 0
-        elif (not self.action_complete):
-            self.action_complete = 1
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = 0
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 101
-            self.motion_req.duration = 0
-            self.send_motion_request()
-            self.yaw_adjust_sum = 0.0
-            self.y_adjust_sum = 0.0
+                self.action_start = 0
+                self.action_sit_down = 1
+                self.y_adjust_complete = 0
+                self.yaw_adjust_complete = 0
+            else:
+                self.get_logger().info(
+                    'Result1 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+        elif (self.action_sit_down) and (self.future.done()):
+            response = self.future.result()
+            if (response.result):
+                self.motion_req.pos_des[0] = 0
+                self.motion_req.pos_des[1] = 0
+                self.motion_req.pos_des[2] = 0
+                self.motion_req.rpy_des[2] = 0
+                self.motion_req.motion_id = 101
+                self.motion_req.duration = 0
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result2 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+                self.yaw_adjust_sum = 0.0
+                self.y_adjust_sum = 0.0
 
-    def timer_callback_bkp(self):
-        if self.action_start and (self.timer_count < adjust_times):
-            self.timer_count = self.timer_count + 1
-            self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-            # self.x_pose_adjust()
-            self.y_pose_adjust()
-            self.yaw_adjust()
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
-        elif (self.timer_count >= adjust_times) and (
-            self.timer_count < (adjust_times + 10)
-        ):
-            self.timer_count = self.timer_count + 1
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = -0.015
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
-        elif self.timer_count >= (adjust_times + 10):
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = 0
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 101
-            self.motion_req.duration = 0
-            self.send_motion_request()
-
-            self.timer_count = 0
-            self.action_start = 0
-            self.action_complete = 1
+                self.action_sit_down = 0
+                self.action_complete = 1
+                # self.timer_count = 0
+            else:
+                self.get_logger().info(
+                    'Result2 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
 
 
 def point_cloud(points, parent_frame):
