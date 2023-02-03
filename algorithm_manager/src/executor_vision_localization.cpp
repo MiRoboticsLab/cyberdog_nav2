@@ -44,6 +44,7 @@ ExecutorVisionLocalization::ExecutorVisionLocalization(std::string node_name)
     rmw_qos_profile_default, callback_group_);
 
   pose_publisher_ = PosePublisher::make_shared(this);
+  pose_publisher_->Stop();
 
   // spin
   std::thread{[this]() {
@@ -174,6 +175,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
       ResetFlags();
       task_abort_callback_();
       return;
+    } else {
+      INFO("Enable report realtime robot pose success.");
     }
   }
 

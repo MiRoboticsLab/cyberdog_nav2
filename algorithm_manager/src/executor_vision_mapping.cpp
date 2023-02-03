@@ -25,6 +25,9 @@ namespace algorithm
 ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 : ExecutorBase(node_name)
 {
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(this->get_node_base_interface());
+
   outdoor_client_ = create_client<LabelParam>(
     "outdoor", rmw_qos_profile_services_default);
 
@@ -37,9 +40,11 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   pose_publisher_ = PosePublisher::make_shared(this);
+  pose_publisher_->Stop();
 
   // spin
-  std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
+  // std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
+   std::thread{[this] {this->executor_->spin();}}.detach();
 }
 
 ExecutorVisionMapping::~ExecutorVisionMapping()
@@ -115,6 +120,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       ResetFlags();
       task_abort_callback_();
       return;
+    } else {
+      INFO("Enable report realtime robot pose success.");
     }
   }
 

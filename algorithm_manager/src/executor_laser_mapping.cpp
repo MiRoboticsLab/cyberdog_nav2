@@ -34,14 +34,15 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 
   // Control lidar mapping report realtime pose turn on and turn off
   pose_publisher_ = PosePublisher::make_shared(this);
+  pose_publisher_->Stop();
 
   // TF2 checker
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
-    get_node_base_interface(), get_node_timers_interface());
-  tf_buffer_->setCreateTimerInterface(timer_interface);
-  tf_buffer_->setUsingDedicatedThread(true);
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  // tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  // auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+  //   get_node_base_interface(), get_node_timers_interface());
+  // tf_buffer_->setCreateTimerInterface(timer_interface);
+  // tf_buffer_->setUsingDedicatedThread(true);
+  // tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // spin
   std::thread{[this]() {rclcpp::spin(this->get_node_base_interface());}}.detach();
@@ -63,13 +64,13 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // Check current from map to base_link tf exist, if exit `Laser Localization`
   // in activate, so that this error case
-  bool tf_exist = CanTransform("map", "base_link");
-  if (tf_exist) {
-    ERROR("Check current from map to base_link tf exist, should never happen");
-    UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
-    task_abort_callback_();
-    return;
-  }
+  // bool tf_exist = CanTransform("map", "base_link");
+  // if (tf_exist) {
+  //   ERROR("Check current from map to base_link tf exist, should never happen");
+  //   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_FAILURE);
+  //   task_abort_callback_();
+  //   return;
+  // }
 
   INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
@@ -122,6 +123,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       ResetFlags();
       task_abort_callback_();
       return;
+    } else {
+      INFO("Enable report realtime robot pose success.");
     }
   }
 
@@ -379,7 +382,8 @@ bool ExecutorLaserMapping::CanTransform(
   const std::string & clild_link)
 {
   // Look up for the transformation between parent_link and clild_link frames
-  return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now(), tf2::durationFromSec(1));
+  // return tf_buffer_->canTransform(parent_link, clild_link, tf2::get_now(), tf2::durationFromSec(1));
+  return true;
 }
 
 void ExecutorLaserMapping::ResetFlags()

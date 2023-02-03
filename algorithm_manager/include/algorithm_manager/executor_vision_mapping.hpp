@@ -120,6 +120,8 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_ {nullptr};
+
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   PosePublisher::SharedPtr pose_publisher_ {nullptr};

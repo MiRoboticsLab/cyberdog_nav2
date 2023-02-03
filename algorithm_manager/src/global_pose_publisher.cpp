@@ -54,6 +54,7 @@ PosePublisher::~PosePublisher()
 
 void PosePublisher::Start()
 {
+  INFO("Start report pose");
   start_ = true;
   stop_ = false;
   timer_->execute_callback();
@@ -61,6 +62,7 @@ void PosePublisher::Start()
 
 void PosePublisher::Stop()
 {
+  INFO("Stop report pose");
   start_ = false;
   stop_ = true;
   timer_->cancel();
@@ -80,7 +82,7 @@ void PosePublisher::HandleGloablPoseCallback()
 {
   if (start_) {
     geometry_msgs::msg::PoseStamped gloabl_pose;
-    if (!nav2_util::getCurrentPose(gloabl_pose, *tf_buffer_, "map", "base_link", 2.0)) {
+    if (!nav2_util::getCurrentPose(gloabl_pose, *tf_buffer_, "map", "base_link", 5.0)) {
       WARN("Failed to obtain current pose based on map coordinate system.");
       std::this_thread::sleep_for(std::chrono::seconds(5));
       return;
