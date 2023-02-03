@@ -99,7 +99,7 @@ bool LabelStore::DeleteLabel(
   }
 
   if (!find) {
-    ERROR("Can't find label (%s) in %s",label_name.c_str(), filename.c_str());
+    ERROR("Can't find label (%s) in %s", label_name.c_str(), filename.c_str());
   }
   return find;
 }
@@ -224,7 +224,7 @@ bool LabelStore::RemoveLabel(const std::string & label_filename, const std::stri
   bool find_label = DeleteLabel(label_filename, label_name, doc);
   if (!find_label) {
     return false;
-  } 
+  }
   return Write(label_filename, doc);
 }
 

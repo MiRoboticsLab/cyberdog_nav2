@@ -25,6 +25,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <regex>
 #include <unordered_set>
 
 #include "map_label_server/labelserver_node.hpp"
@@ -81,9 +82,16 @@ void LabelServer::HandleGetLabelServiceCallback(
   INFO("----------GetLabel----------");
   INFO("request map_name : %s", request->map_name.c_str());
 
-  std::string map_filename = label_store_->map_label_directory() + request->map_name + ".pgm";
-  std::string label_filename = label_store_->map_label_directory() + request->map_name + ".json";
-  std::string map_yaml_config = label_store_->map_label_directory() + request->map_name + ".yaml";
+  std::string map_name = GetMapName(label_store_->map_label_directory());
+  if (map_name.empty()) {
+    WARN("User have not create map, map and labels file not exist.");
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
+    return;
+  }
+
+  std::string map_filename = label_store_->map_label_directory() + map_name + ".pgm";
+  std::string label_filename = label_store_->map_label_directory() + map_name + ".json";
+  std::string map_yaml_config = label_store_->map_label_directory() + map_name + ".yaml";
 
   // bool map_status = false;
   // bool ready = ReqeustVisionBuildingMapAvailable(map_status, label_filename);
@@ -132,7 +140,7 @@ void LabelServer::HandleGetLabelServiceCallback(
 
   // is_outdoor
   response->label.is_outdoor = is_outdoor;
-  response->label.map_name = request->map_name;
+  response->label.map_name = map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
   INFO("Get outdoor value : %d", is_outdoor);
 
@@ -179,11 +187,11 @@ void LabelServer::HandleSetLabelServiceCallback(
       INFO("Removing label: %s", label.label_name.c_str());
       bool success = label_store_->RemoveLabel(label_filename, label.label_name.c_str());
       if (!success) {
-        ERROR("Remove label: %s failed",  label.label_name.c_str());
+        ERROR("Remove label: %s failed", label.label_name.c_str());
         response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
         return;
       } else {
-        ERROR("Remove label: %s success",  label.label_name.c_str());
+        ERROR("Remove label: %s success", label.label_name.c_str());
       }
     }
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
@@ -247,6 +255,35 @@ bool LabelServer::RemoveMap(const std::string & map_name_directory)
 {
   filesystem::remove_all(map_name_directory);
   return true;
+}
+
+std::string LabelServer::GetMapName(const std::string & map_name_directory)
+{
+  std::string mapname = "";
+  if (!filesystem::exists(map_name_directory)) {
+    ERROR("directory is not exist.");
+    return mapname;
+  }
+
+  bool find = false;
+  std::regex file_suffix("(.*)(.pgm)");   // *.pgm
+  filesystem::path path(map_name_directory);
+  for (auto filename : filesystem::directory_iterator(path)) {
+    if (std::regex_match(filename.path().c_str(), file_suffix)) {
+      INFO("Get map filename : %s", filename.path().c_str());
+      find = true;
+      mapname = filename.path().c_str();
+      break;
+    }
+  }
+
+  if (find) {
+    int pos = mapname.find_last_of('/');
+    std::string filename(mapname.substr(pos + 1));
+    mapname = filename.substr(0, filename.rfind("."));
+  }
+
+  return mapname;
 }
 
 void LabelServer::HandleOutdoor(

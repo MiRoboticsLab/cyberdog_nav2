@@ -69,6 +69,8 @@ private:
    */
   bool RemoveMap(const std::string & map_name_directory);
 
+  std::string GetMapName(const std::string & map_name_directory);
+
   void HandleOutdoor(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
