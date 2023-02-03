@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
@@ -46,29 +47,16 @@ public:
   LabelServer();
   ~LabelServer();
 
-  void handle_set_label(
+private:
+  void HandleSetLabelServiceCallback(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
     std::shared_ptr<protocol::srv::SetMapLabel::Response> response);
-  void handle_get_label(
+
+  void HandleGetLabelServiceCallback(
     const std::shared_ptr<rmw_request_id_t> request_header,
     const std::shared_ptr<protocol::srv::GetMapLabel::Request> request,
     std::shared_ptr<protocol::srv::GetMapLabel::Response> response);
-  void read_map_label(std::string filename, LABEL & label);
-
-  void writ_map_label(std::string filename, const LABEL & label);
-
-  bool makeMapFolder(std::string filename);
-
-  bool isFolderExist(std::string path);
-
-  bool isFileExixt(std::string path);
-
-  bool removeFile(std::string path);
-
-  void writeLabel(std::string path, LABEL label);
-
-  void PrintMapData();
 
   bool LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid & map);
 
@@ -79,77 +67,42 @@ public:
    * @return true Remove map success
    * @return false Remove map failed
    */
-  bool RemoveMap(const std::string & map_name);
+  bool RemoveMap(const std::string & map_name_directory);
 
-  /**
-   * @brief Handle user save mapping map's name
-   * @param request_header
-   * @param request If true get current map's name
-   * @param response Return user set map's name
-   */
-  void HandleRequestUserSaveMapName(
+  std::string GetMapName(const std::string & map_name_directory);
+
+  void HandleOutdoor(
     const std::shared_ptr<rmw_request_id_t> request_header,
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
-  /**
-   * @brief Set the robot map name object
-   * @param name Map's name
-   */
-  void set_robot_map_name(const std::string & name);
-
-  /**
-   * @brief Get robot current map's name
-   * @return std::string Return map's name
-   */
-  std::string robot_map_name() const;
-
-private:
-  /**
-   * @brief Handle vision is mapping
-   *
-   * @param msg Request command
-   */
-  void HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
-
-  /**
-   * @brief Handle lidar is mapping
-   *
-   * @param msg Request command
-   */
-  void HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg);
+    const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
+    std::shared_ptr<protocol::srv::SetMapLabel::Response> response);
 
   /**
    * @brief Set the Outdoor Flag object
    *
    * @param outdoor Is outdoor: vision or lidar
    */
-  void SetOutdoorFlag(bool outdoor);
-
+  void SetOutdoorFlag(const std::string & filename, bool outdoor);
   bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
+  bool CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels);
+  bool GetOutdoorValue(const std::string & filename, bool & outdoor);
 
   std::mutex mut;
-  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_;
-  rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_;
+  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_ {nullptr};
+  rclcpp::Service<protocol::srv::GetMapLabel>::SharedPtr get_label_server_ {nullptr};
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
 
   // User save robot's map name
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr map_server_;
-  std::string robot_map_name_;
-
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
-  std::shared_ptr<cyberdog::navigation::LabelStore> map_label_store_ptr_ {nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr map_server_ {nullptr};
+  rclcpp::CallbackGroup::SharedPtr callback_group_ {nullptr};
+  std::shared_ptr<cyberdog::navigation::LabelStore> label_store_ {nullptr};
 
   // map
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_pub_ {nullptr};
 
   // outdoor
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_mapping_sub_{nullptr};
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_mapping_sub_{nullptr};
-  bool use_lidar_create_map_ {false};
-  bool use_vision_create_map_ {false};
+  rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr outdoor_server_ {nullptr};
   std::mutex mutex_;
 };
 }  // namespace CYBERDOG_NAV

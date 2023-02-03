@@ -64,36 +64,31 @@ constexpr int kMapErrorNotExist = 311;
 ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
 : ExecutorBase(node_name)
 {
+  executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  executor_->add_node(this->get_node_base_interface());
+
   action_client_ =
     rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
     this, "navigate_to_pose");
 
-  // trigger slam
-  stop_lidar_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_lidar_relocation", 10);
-  stop_vision_trigger_pub_ = create_publisher<std_msgs::msg::Bool>("stop_vision_relocation", 10);
-
-  // trigger navigation
-  stop_nav_trigger_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "stop_nav_trigger",
-    rclcpp::SystemDefaultsQoS(),
-    std::bind(
-      &ExecutorAbNavigation::HandleTriggerStopCallback, this,
-      std::placeholders::_1));
-
   // Initialize pubs & subs
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
 
+  // Reset navigation service
+  callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  stop_running_server_ = this->create_service<std_srvs::srv::SetBool>(
+    "stop_running_robot_navigation", std::bind(
+      &ExecutorAbNavigation::HandleStopRobotNavCallback, this,
+      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
+
   // spin
-  std::thread{[this]() {
-      rclcpp::spin(this->get_node_base_interface());
-    }
-  }.detach();
+  std::thread{[this] {this->executor_->spin();}}.detach();
 }
 
 ExecutorAbNavigation::~ExecutorAbNavigation()
 {
   nav_client_->reset();
-  ReinitializeAndCleanup();
 }
 
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
@@ -101,6 +96,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("AB navigation started");
   Timer timer_;
   timer_.Start();
+
+  is_exit_ = false;
 
   // Check current map exits
   UpdateFeedback(kMapChecking);
@@ -112,12 +109,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   UpdateFeedback(kMapCheckingSuccess);
-
-  // Set vision and lidar flag
-  bool outdoor = false;
-  if (CheckUseOutdoor(outdoor)) {
-    SetLocationType(outdoor);
-  }
 
   // Check all depends is ok
   // 1 正在激活依赖节点
@@ -133,7 +124,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
 
-  INFO("[Navigation AB] Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  // Realtime response user stop operation
+  if (CheckExit()) {
+    WARN("Navigation AB is stop, not need connect action server.");
+    return;
+  }
+
+  INFO("Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 
   // Check action client connect server
   bool connect = IsConnectServer();
@@ -155,9 +152,9 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
 
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
+  if (CheckExit()) {
+    WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");
+    return;
   }
 
   // Smoother walk
@@ -169,8 +166,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
     ERROR("Send navigation AB point send target goal request failed.");
-    // Reset lifecycle nodes
-    // LifecycleNodesReinitialize();
     DeactivateDepsLifecycleNodes();
     UpdateFeedback(kErrorSendGoalTarget);
     task_abort_callback_();
@@ -180,7 +175,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 结束激活进度的上报
   UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
-  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Stop(
@@ -190,42 +185,30 @@ void ExecutorAbNavigation::Stop(
   (void)request;
   Timer timer_;
   timer_.Start();
+  response->result = StopTaskSrv::Response::SUCCESS;
 
   INFO("Navigation AB will stop");
   bool cancel = ShouldCancelGoal();
   if (!cancel) {
     WARN("Current robot can't stop, due to navigation status is not available.");
     nav_goal_handle_.reset();
-    // task_cancle_callback_();
     return;
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  if (nav_goal_handle_ != nullptr) {
-    auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
-    if (!server_ready) {
-      ERROR("Navigation action server is not available.");
-      return;
-    }
-
-    // async_cancel_goal will throw exceptions::UnknownGoalHandleError()
-    try {
-      auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
-      PublishZeroPath();
-    } catch (const std::exception & e) {
-      ERROR("%s", e.what());
-      return;
-    }
-  } else {
-    task_abort_callback_();
-    ERROR("Navigation AB will stop failed.");
+  if (nav_goal_handle_ == nullptr) {
+    response->result = StopTaskSrv::Response::FAILED;
     return;
   }
 
+  bool success = CancelGoal();
+  if (!success) {
+    ERROR("Navigation AB will stop timeout.");
+  }
   nav_goal_handle_.reset();
-  response->result = StopTaskSrv::Response::SUCCESS;
+
+  response->result = success ? StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped success");
-  INFO("[Navigation AB] Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Cancel()
@@ -266,6 +249,7 @@ void ExecutorAbNavigation::HandleResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
+      cancel_goal_cv_.notify_one();
       // task_cancle_callback_();
       break;
     default:
@@ -276,36 +260,11 @@ void ExecutorAbNavigation::HandleResultCallback(
   PublishZeroPath();
 }
 
-void ExecutorAbNavigation::HandleTriggerStopCallback(const std_msgs::msg::Bool::SharedPtr msg)
-{
-  if (msg == nullptr) {
-    return;
-  }
-
-  // Set vision and lidar flag
-  bool outdoor = false;
-  if (CheckUseOutdoor(outdoor)) {
-    SetLocationType(outdoor);
-  }
-
-  if (msg->data) {
-    ReleaseSources();
-  }
-
-  if (!outdoor) {
-    INFO("Trigger reset laser location module.");
-  } else {
-    INFO("Trigger reset vision location module.");
-  }
-
-  // stop current navigation ab
-  auto request = std::make_shared<StopTaskSrv::Request>();
-  auto response = std::make_shared<StopTaskSrv::Response>();
-  Stop(request, response);
-}
-
 bool ExecutorAbNavigation::IsDependsReady()
 {
+  INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  INFO("IsDependsReady(): Success to get lifecycle_mutex_");
   // Nav lifecycle
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
@@ -313,7 +272,7 @@ bool ExecutorAbNavigation::IsDependsReady()
   }
 
   // start_lifecycle_depend_finished_ = true;
-  INFO("Call function IsDependsReady() finished.");
+  INFO("Call function IsDependsReady() finished success.");
   return true;
 }
 
@@ -362,6 +321,8 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
     std::bind(
     &ExecutorAbNavigation::HandleResultCallback,
     this, std::placeholders::_1);
+
+
   auto future_goal_handle = action_client_->async_send_goal(
     target_goal_, send_goal_options);
   time_goal_sent_ = this->now();
@@ -373,6 +334,7 @@ bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose
   }
 
   nav_goal_handle_ = future_goal_handle.get();
+
   if (!nav_goal_handle_) {
     ERROR("Navigation AB Goal was rejected by server");
     return false;
@@ -384,6 +346,7 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
 {
   // No need to cancel the goal if goal handle is invalid
   if (!nav_goal_handle_) {
+    WARN("No need to cancel the goal because goal handle is null");
     return false;
   }
 
@@ -395,52 +358,12 @@ bool ExecutorAbNavigation::ShouldCancelGoal()
          status == action_msgs::msg::GoalStatus::STATUS_EXECUTING;
 }
 
-
-bool ExecutorAbNavigation::CheckTimeout()
-{
-  if (nav_goal_handle_) {
-    auto elapsed = (this->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
-    if (!IsFutureGoalHandleComplete(elapsed)) {
-      // return RUNNING if there is still some time before timeout happens
-      if (elapsed < server_timeout_) {
-        return false;
-      }
-      // if server has taken more time than the specified timeout value return FAILURE
-      WARN("Timed out while waiting for action server to acknowledge goal request.");
-      nav_goal_handle_.reset();
-      return true;
-    }
-  }
-}
-
-bool ExecutorAbNavigation::IsFutureGoalHandleComplete(std::chrono::milliseconds & elapsed)
-{
-  auto remaining = server_timeout_ - elapsed;
-  // server has already timed out, no need to sleep
-  if (remaining <= std::chrono::milliseconds(0)) {
-    nav_goal_handle_.reset();
-    return false;
-  }
-  return true;
-}
-
 void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose)
 {
   // Normalize the goal pose
   target_goal_.pose = pose;
   target_goal_.pose.header.frame_id = "map";
   target_goal_.pose.pose.orientation.w = 1;
-}
-
-bool ExecutorAbNavigation::ReinitializeAndCleanup()
-{
-  // return localization_lifecycle_->Pause() && localization_lifecycle_->Cleanup();
-  return true;
-}
-
-bool ExecutorAbNavigation::LifecycleNodesReinitialize()
-{
-  return true;
 }
 
 bool ExecutorAbNavigation::VelocitySmoother()
@@ -450,15 +373,20 @@ bool ExecutorAbNavigation::VelocitySmoother()
     return true;
   }
 
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(5s));
+  if (velocity_smoother_ == nullptr) {
+    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
+      "velocity_adaptor_gait", shared_from_this());
+  }
+
+  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
   if (!connect) {
-    ERROR("Waiting for the service. but cannot connect the service.");
+    ERROR("Waiting for the service(velocity_adaptor_gait). but cannot connect the service.");
     return false;
   }
 
   // Set request data
   auto request = std::make_shared<MotionServiceCommand::Request>();
-  std::vector<float> step_height{0.01, 0.01};
+  std::vector<float> step_height{0.05, 0.05};
   request->motion_id = 303;
   request->value = 2;
   request->step_height = step_height;
@@ -500,22 +428,6 @@ void ExecutorAbNavigation::NavigationStatus2String(int8_t status)
   }
 }
 
-void ExecutorAbNavigation::ReleaseSources()
-{
-  INFO("Reset all lifecycle default state.");
-  auto command = std::make_shared<std_msgs::msg::Bool>();
-  command->data = true;
-
-  if (IsUseVisionLocation()) {
-    stop_vision_trigger_pub_->publish(*command);
-  } else if (IsUseLidarLocation()) {
-    stop_lidar_trigger_pub_->publish(*command);
-  }
-
-  LifecycleNodesReinitialize();
-  ResetDefaultValue();
-}
-
 bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
 {
   std::string map_filename = "/home/mi/mapping/" + map_name;
@@ -525,58 +437,6 @@ bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
   }
 
   return true;
-}
-
-bool ExecutorAbNavigation::CheckUseOutdoor(bool & outdoor, const std::string & filename)
-{
-  std::string map_json_filename = "/home/mi/mapping/" + filename;
-  if (!filesystem::exists(map_json_filename)) {
-    ERROR("Navigation's map json file is not exist.");
-    return false;
-  }
-
-  rapidjson::Document document(rapidjson::kObjectType);
-  common::CyberdogJson::ReadJsonFromFile(map_json_filename, document);
-
-  for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
-    INFO("it->name = %s", it->name.GetString());
-    INFO("it->value = %d", it->value.GetBool());
-
-    std::string key = it->name.GetString();
-    if (key == "is_outdoor") {
-      outdoor = it->value.GetBool();
-      INFO("Function CheckUseOutdoor() get is_outdoor: %d", outdoor);
-      break;
-    }
-  }
-  return true;
-}
-
-bool ExecutorAbNavigation::IsUseVisionLocation()
-{
-  return use_vision_slam_;
-}
-
-bool ExecutorAbNavigation::IsUseLidarLocation()
-{
-  return use_lidar_slam_;
-}
-
-void ExecutorAbNavigation::SetLocationType(bool outdoor)
-{
-  if (outdoor) {
-    INFO("Current location mode use vision slam.");
-    use_vision_slam_ = true;
-  } else {
-    INFO("Current location mode use lidar slam.");
-    use_lidar_slam_ = true;
-  }
-}
-
-void ExecutorAbNavigation::ResetDefaultValue()
-{
-  use_vision_slam_ = false;
-  use_lidar_slam_ = false;
 }
 
 void ExecutorAbNavigation::ResetPreprocessingValue()
@@ -591,6 +451,99 @@ void ExecutorAbNavigation::PublishZeroPath()
   auto msg = std::make_unique<nav_msgs::msg::Path>();
   msg->poses.clear();
   plan_publisher_->publish(std::move(msg));
+}
+
+bool ExecutorAbNavigation::ResetAllLifecyceNodes()
+{
+  INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
+  std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
+  bool success = DeactivateDepsLifecycleNodes();
+  return success;
+}
+
+bool ExecutorAbNavigation::StopRunningRobot()
+{
+  if (nav_goal_handle_ == nullptr) {
+    ERROR("nav_goal_handle is null when trying to stop NavAB");
+    return false;
+  }
+
+  return CancelGoal();
+}
+
+void ExecutorAbNavigation::HandleStopRobotNavCallback(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> respose)
+{
+  INFO("Handle stop current robot nav running.");
+  (void)request_header;
+
+  respose->success = true;
+  bool success = false;
+
+  // 1 Check current in navigation state
+  if (!request->data) {
+    return;
+  }
+
+  is_exit_ = true;
+
+  // check robot shoud can call cancel and stop.
+  bool can_cancel = ShouldCancelGoal();
+  if (can_cancel) {
+    // 2 stop current robot navgation
+    INFO("Trying to stop running robot.");
+    success = StopRunningRobot();
+    if (!success) {
+      ERROR("Stop robot exception.");
+      respose->success = false;
+    } else {
+      INFO("Stop running robot success");
+    }
+  }
+
+  // 3 deactivate all navigation lifecycle nodes
+  success = ResetAllLifecyceNodes();
+  if (!success) {
+    ERROR("Reset all lifecyce nodes failed.");
+    respose->success = false;
+  }
+}
+
+bool ExecutorAbNavigation::CheckExit()
+{
+  return is_exit_;
+}
+
+bool ExecutorAbNavigation::CancelGoal()
+{
+  auto server_ready = action_client_->wait_for_action_server(std::chrono::seconds(5));
+  if (!server_ready) {
+    ERROR("Navigation action server(navigate_to_pose) is not available.");
+    return false;
+  }
+
+  try {
+    // 判断future_cancel的结果和等待
+    std::unique_lock<std::mutex> lock(cancel_goal_mutex_);
+    INFO("CancelGoal: run async_cancel_goal request");
+    auto future_cancel = action_client_->async_cancel_goal(nav_goal_handle_);
+    if (cancel_goal_cv_.wait_for(lock, 10s) == std::cv_status::timeout) {
+      INFO("Get cancel_goal_cv_ value: false");
+      cancel_goal_result_ = false;
+    } else {
+      cancel_goal_result_ = true;
+      INFO("Get cancel_goal_cv_ value: true");
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  // clear robot path
+  PublishZeroPath();
+  return cancel_goal_result_;
 }
 
 }  // namespace algorithm

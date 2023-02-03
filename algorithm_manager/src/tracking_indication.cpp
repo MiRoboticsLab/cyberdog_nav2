@@ -37,14 +37,13 @@ struct LedInfo
   uint8_t g_value;
   uint8_t b_value;
 };
-
 class LedManagerNode : public rclcpp::Node
 {
 public:
-  enum class TrackingStatus : uint8_t
+  enum class Status : uint8_t
   {
-    kStartUwbTracking,
-    kStartHumanTracking,
+    kStartUwb,
+    kStartHuman,
     kStartFollow,
     kIdle
   };
@@ -94,11 +93,7 @@ private:
         ERROR("Cannot get reponse of start_uwb_tracking AudioPlay");
       }
       follow_tags_start_ = true;
-      follow_person_start_ = false;
-      follow_object_start_ = false;
-      stop_task_ = false;
-      fail_stop_task_ = false;
-      status_ = TrackingStatus::kStartUwbTracking;
+      status_ = Status::kStartUwb;
     } else if (msg->task_status == 13 && !follow_person_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
@@ -113,11 +108,7 @@ private:
         ERROR("Cannot get reponse of start_human_tracking AudioPlay");
       }
       follow_person_start_ = true;
-      follow_tags_start_ = false;
-      follow_object_start_ = false;
-      stop_task_ = false;
-      fail_stop_task_ = false;
-      status_ = TrackingStatus::kStartHumanTracking;
+      status_ = Status::kStartHuman;
     } else if (msg->task_status == 3 && !follow_object_start_) {
       LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
       LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
@@ -132,12 +123,8 @@ private:
         ERROR("Cannot get reponse of start_follow AudioPlay");
       }
       follow_object_start_ = true;
-      follow_tags_start_ = false;
-      follow_person_start_ = false;
-      stop_task_ = false;
-      fail_stop_task_ = false;
-      status_ = TrackingStatus::kStartFollow;
-    } else if (msg->task_status == 103 && !stop_task_) {
+      status_ = Status::kStartFollow;
+    } else if (msg->task_status == 103 && status_ != Status::kIdle) {
       auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
       led_execute->occupation = 0;
       led_execute->client = "tracking";
@@ -156,9 +143,9 @@ private:
       auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
       audio_execute->module_name = this->get_name();
       audio_execute->is_online = false;
-      if (status_ == TrackingStatus::kStartUwbTracking) {
+      if (status_ == Status::kStartUwb) {
         audio_execute->speech.play_id = 31003;
-      } else if (status_ == TrackingStatus::kStartHumanTracking) {
+      } else if (status_ == Status::kStartHuman) {
         audio_execute->speech.play_id = 31004;
       } else {
         audio_execute->speech.play_id = 31005;
@@ -170,10 +157,8 @@ private:
       follow_object_start_ = false;
       follow_tags_start_ = false;
       follow_person_start_ = false;
-      stop_task_ = true;
-      fail_stop_task_ = false;
-      status_ = TrackingStatus::kIdle;
-    } else if (msg->task_status == 101 && status_ != TrackingStatus::kIdle && !fail_stop_task_) {
+      status_ = Status::kIdle;
+    } else if (msg->task_status == 101 && status_ == Status::kStartUwb) {
       auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
       led_execute->occupation = 0;
       led_execute->client = "tracking";
@@ -189,12 +174,68 @@ private:
       {
         ERROR("Cannot get reponse of recovery Led from unsuccessful startup");
       }
-      follow_object_start_ = false;
+      auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+      audio_execute->module_name = this->get_name();
+      audio_execute->is_online = false;
+      audio_execute->speech.play_id = 31003;
+      auto future_audio = audio_play_client_->async_send_request(audio_execute);
+      if (future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of stop uwb_tracking AudioPlay from unsuccessful startup");
+      }
       follow_tags_start_ = false;
+      status_ = Status::kIdle;
+    } else if (msg->task_status == 101 && status_ == Status::kStartHuman) {
+      auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
+      led_execute->occupation = 0;
+      led_execute->client = "tracking";
+      led_execute->target = 1;
+      auto future_head_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 2;
+      auto future_tail_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 3;
+      auto future_mini_led = led_execute_client_->async_send_request(led_execute);
+      if (future_head_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_tail_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_mini_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout)
+      {
+        ERROR("Cannot get reponse of recovery Led from unsuccessful startup");
+      }
+      auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+      audio_execute->module_name = this->get_name();
+      audio_execute->is_online = false;
+      audio_execute->speech.play_id = 31004;
+      auto future_audio = audio_play_client_->async_send_request(audio_execute);
+      if (future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of stop human_tracking AudioPlay from unsuccessful startup");
+      }
       follow_person_start_ = false;
-      stop_task_ = false;
-      fail_stop_task_ = true;
-      status_ = TrackingStatus::kIdle;
+      status_ = Status::kIdle;
+    } else if (msg->task_status == 101 && status_ == Status::kStartFollow) {
+      auto led_execute = std::make_shared<protocol::srv::LedExecute::Request>();
+      led_execute->occupation = 0;
+      led_execute->client = "tracking";
+      led_execute->target = 1;
+      auto future_head_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 2;
+      auto future_tail_led = led_execute_client_->async_send_request(led_execute);
+      led_execute->target = 3;
+      auto future_mini_led = led_execute_client_->async_send_request(led_execute);
+      if (future_head_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_tail_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout ||
+        future_mini_led.wait_for(std::chrono::seconds(2)) == std::future_status::timeout)
+      {
+        ERROR("Cannot get reponse of recovery Led from unsuccessful startup");
+      }
+      auto audio_execute = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+      audio_execute->module_name = this->get_name();
+      audio_execute->is_online = false;
+      audio_execute->speech.play_id = 31005;
+      auto future_audio = audio_play_client_->async_send_request(audio_execute);
+      if (future_audio.wait_for(std::chrono::milliseconds(2000)) == std::future_status::timeout) {
+        ERROR("Cannot get reponse of stop follow AudioPlay from unsuccessful startup");
+      }
+      follow_object_start_ = false;
+      status_ = Status::kIdle;
     }
   }
 
@@ -236,12 +277,7 @@ private:
   bool follow_tags_start_ {false};
   bool follow_person_start_ {false};
   bool follow_object_start_ {false};
-  bool follow_tags_end_ {false};
-  bool follow_person_end_ {false};
-  bool follow_object_end_ {false};
-  bool stop_task_ {false};
-  bool fail_stop_task_ {false};
-  TrackingStatus status_{TrackingStatus::kIdle};
+  Status status_{Status::kIdle};
 };
 }  // namespace algorithm
 }  // namespace cyberdog
