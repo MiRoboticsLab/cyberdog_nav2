@@ -32,6 +32,8 @@ find_package(cyberdog_visions_interfaces REQUIRED)
 find_package(behavior_manager REQUIRED)
 find_package(filesystem REQUIRED)
 find_package(cyberdog_machine REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -62,6 +64,8 @@ set(dependencies
   behavior_manager
   filesystem
   cyberdog_machine
+  tf2
+  tf2_ros
 )
 
 set(sources
@@ -78,8 +82,7 @@ set(sources
   src/executor_vision_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
-  src/lifecycle_node_manager.cpp
-  src/lifecycle_controller.cpp
+  src/global_pose_publisher.cpp
   src/timer.cpp
 )
 
