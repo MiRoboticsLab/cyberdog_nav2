@@ -34,7 +34,7 @@ ExecutorLaserMapping::ExecutorLaserMapping(std::string node_name)
 
   // Control lidar mapping report realtime pose turn on and turn off
   pose_publisher_ = PosePublisher::make_shared(this);
-  pose_publisher_->Stop();
+  pose_publisher_->Start();
 
   // TF2 checker
   // tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
