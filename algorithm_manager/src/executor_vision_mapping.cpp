@@ -180,7 +180,7 @@ void ExecutorVisionMapping::Stop(
   ResetFlags();
   task_cancle_callback_();
   INFO("Vision Mapping stoped success");
-  INFO("Elapsed time: %.5f [mircoseconds]", timer_.ElapsedMicroSeconds());
+  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
 }
 
 void ExecutorVisionMapping::Cancel()
