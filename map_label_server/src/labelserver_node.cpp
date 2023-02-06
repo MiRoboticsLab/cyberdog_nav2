@@ -25,8 +25,8 @@
 #include <string>
 #include <memory>
 #include <vector>
-
-#define GLOBAL_MAP_LOCATION "/home/mi/mapping/"
+#include <regex>
+#include <unordered_set>
 
 #include "map_label_server/labelserver_node.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
@@ -38,23 +38,14 @@ namespace CYBERDOG_NAV
 LabelServer::LabelServer()
 : rclcpp::Node("LabelServer")
 {
-  map_label_store_ptr_ = std::make_shared<cyberdog::navigation::LabelStore>();
-
+  label_store_ = std::make_shared<cyberdog::navigation::LabelStore>();
   callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-
-  // map name handle
-  map_server_ = this->create_service<std_srvs::srv::SetBool>(
-    "map_name",
-    std::bind(
-      &LabelServer::HandleRequestUserSaveMapName, this, std::placeholders::_1,
-      std::placeholders::_2, std::placeholders::_3),
-    rmw_qos_profile_default, callback_group_);
 
   // set map label
   set_label_server_ = this->create_service<protocol::srv::SetMapLabel>(
     "set_label",
     std::bind(
-      &LabelServer::handle_set_label, this, std::placeholders::_1,
+      &LabelServer::HandleSetLabelServiceCallback, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
@@ -62,7 +53,7 @@ LabelServer::LabelServer()
   get_label_server_ = this->create_service<protocol::srv::GetMapLabel>(
     "get_label",
     std::bind(
-      &LabelServer::handle_get_label, this, std::placeholders::_1,
+      &LabelServer::HandleGetLabelServiceCallback, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
@@ -71,72 +62,68 @@ LabelServer::LabelServer()
     "map",
     rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
-  // lidar mapping flag
-  vision_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "lidar_mapping_alive",
-    rclcpp::SystemDefaultsQoS(),
+  // outdoor flag
+  outdoor_server_ = this->create_service<protocol::srv::SetMapLabel>(
+    "outdoor",
     std::bind(
-      &LabelServer::HandleLidarIsMappingMessages, this,
-      std::placeholders::_1));
-
-  // vision mapping flag
-  lidar_mapping_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "vision_mapping_alive",
-    rclcpp::SystemDefaultsQoS(),
-    std::bind(
-      &LabelServer::HandleVisionIsMappingMessages, this,
-      std::placeholders::_1));
+      &LabelServer::HandleOutdoor, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
+    rmw_qos_profile_default, callback_group_);
 }
 
 LabelServer::~LabelServer() {}
 
-void LabelServer::handle_get_label(
+void LabelServer::HandleGetLabelServiceCallback(
   const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<protocol::srv::GetMapLabel::Request> request,
   std::shared_ptr<protocol::srv::GetMapLabel::Response> response)
 {
   std::unique_lock<std::mutex> ulk(mut);
-  std::string map_name = GLOBAL_MAP_LOCATION + request->map_name;
+  INFO("----------GetLabel----------");
+  INFO("request map_name : %s", request->map_name.c_str());
 
-  INFO("[ Get label server request: ------------------------------------- ]");
-  INFO("map_name : %s", request->map_name.c_str());
+  std::string map_name = GetMapName(label_store_->map_label_directory());
+  if (map_name.empty()) {
+    WARN("User have not create map, map and labels file not exist.");
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
+    return;
+  }
+
+  std::string map_filename = label_store_->map_label_directory() + map_name + ".pgm";
+  std::string label_filename = label_store_->map_label_directory() + map_name + ".json";
+  std::string map_yaml_config = label_store_->map_label_directory() + map_name + ".yaml";
+
   // bool map_status = false;
-  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, request->map_name);
+  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, label_filename);
   // if (!ready && !map_status) {
   //   WARN("Current map not available.");
   //   return;
   // }
 
-  std::string map_filename = request->map_name + ".pgm";
-  if (!map_label_store_ptr_->IsExist(map_filename)) {
-    WARN("Map not exist.");
-
+  if (!label_store_->IsExist(map_filename)) {
+    WARN("Map file (%s) not exist.", map_filename.c_str());
     // clear map data
     response->label.map.data.clear();
     response->label.map.info.resolution = 0.0f;
     response->label.map.info.width = 0;
     response->label.map.info.height = 0;
-    response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
   }
 
   // Load map's yaml config
   nav_msgs::msg::OccupancyGrid map;
-  bool ok = LoadMapMetaInfo(request->map_name, map);
+  bool ok = LoadMapMetaInfo(map_yaml_config, map);
   if (!ok) {
-    WARN("Map yaml config file not exist.");
-    response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+    WARN("Map yaml config file (%s) not exist.", map_yaml_config.c_str());
+    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
   }
 
   // Load map's labels
-  std::string label_filename = request->map_name + ".json";
   std::vector<protocol::msg::Label> labels;
   bool is_outdoor = false;
-  // map_label_store_ptr_->Read(map_label_store_ptr_->map_label_directory()
-  // + label_filename, labels);
-  map_label_store_ptr_->Read(
-    map_label_store_ptr_->map_label_directory() + label_filename, labels, is_outdoor);
+  label_store_->Read(label_filename, labels, is_outdoor);
 
   if (!labels.empty()) {
     for (auto label : labels) {
@@ -153,69 +140,86 @@ void LabelServer::handle_get_label(
 
   // is_outdoor
   response->label.is_outdoor = is_outdoor;
-  response->label.map_name = request->map_name;
+  response->label.map_name = map_name;
   response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
-  INFO("Current building  map is outdoor : %d", is_outdoor);
+  INFO("Get outdoor value : %d", is_outdoor);
 
   // publish map
   occ_pub_->publish(map);
 }
 
-void LabelServer::handle_set_label(
+void LabelServer::HandleSetLabelServiceCallback(
   const std::shared_ptr<rmw_request_id_t>,
   const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
   std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
-  INFO("[ Set label server request: ------------------------------------- ]");
-  std::string map_filename = request->label.map_name + ".pgm";
-  INFO("map name: %s", map_filename.c_str());
-  if (!map_label_store_ptr_->IsExist(map_filename)) {
-    INFO("Map not exist, not set label function.");
+  INFO("----------SetLabel----------");
+  INFO("request map_name: %s", request->label.map_name.c_str());
+
+  std::string map_filename = label_store_->map_label_directory() + request->label.map_name + ".pgm";
+  std::string label_filename = label_store_->map_label_directory() + request->label.map_name +
+    ".json";
+
+  if (!label_store_->IsExist(map_filename)) {
+    INFO("Map not exist, not allow set label function.");
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
   }
 
   // remove map and label tag
   if (request->only_delete && request->label.labels.size() == 0) {
-    INFO("Remove map : %s", request->label.map_name.c_str());
-    RemoveMap(map_filename);
+    INFO("Removing map : %s", request->label.map_name.c_str());
+    RemoveMap(label_store_->map_label_directory());
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
+    return;
+  }
+
+  // check label file exist
+  if (!label_store_->IsExist(label_filename)) {
+    ERROR("map label json file(%s) not exist", label_filename.c_str());
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
     return;
   }
 
   // remove label
   if (request->only_delete && request->label.labels.size()) {
-    std::string label_filename_suffix = request->label.map_name + ".json";
-    std::string label_filename = map_label_store_ptr_->map_label_directory() +
-      label_filename_suffix;
-
     for (auto label : request->label.labels) {
-      map_label_store_ptr_->RemoveLabel(label_filename, label.label_name.c_str());
+      INFO("Removing label: %s", label.label_name.c_str());
+      bool success = label_store_->RemoveLabel(label_filename, label.label_name.c_str());
+      if (!success) {
+        ERROR("Remove label: %s failed", label.label_name.c_str());
+        response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
+        return;
+      } else {
+        ERROR("Remove label: %s success", label.label_name.c_str());
+      }
     }
     response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
     return;
   }
 
-  std::string label_filename_suffix = request->label.map_name + ".json";
-  std::string label_filename = map_label_store_ptr_->map_label_directory() + label_filename_suffix;
-
-  if (!map_label_store_ptr_->IsExist(label_filename)) {
-    bool exist = map_label_store_ptr_->CreateMapLabelFile(
-      map_label_store_ptr_->map_label_directory(), label_filename_suffix);
-    if (!exist) {
-      WARN("Current map label json file has exist.");
-    }
+  // Check multi tag, if exit multi label tag return failure
+  bool legality = CheckDuplicateTags(request->label.labels);
+  if (!legality) {
+    response->success = protocol::srv::SetMapLabel_Response::RESULT_FAILED;
+    ERROR("User user save more than one of the same tags");
+    return;
   }
 
-  // INFO("Current is_outdoor flag : %d", request->label.is_outdoor);
+  // set `map_name` in json file(doc)
   rapidjson::Document doc(rapidjson::kObjectType);
-  map_label_store_ptr_->SetMapName(map_filename, map_filename, doc);
-  // map_label_store_ptr_->SetOutdoor(request->label.is_outdoor, doc);
+  label_store_->SetMapName(request->label.map_name, doc);
+
+  // outdoor
+  INFO("Request set is_outdoor value : %d", request->label.is_outdoor);
+  bool outdoor = false;
+  GetOutdoorValue(label_filename, outdoor);
+  label_store_->SetOutdoor(outdoor, doc);
 
   for (size_t i = 0; i < request->label.labels.size(); i++) {
     // print
     INFO(
-      "label [%s] : [%f, %f]",
+      "Saving label [%s] : [%f, %f]",
       request->label.labels[i].label_name.c_str(),
       request->label.labels[i].physic_x,
       request->label.labels[i].physic_y);
@@ -224,99 +228,16 @@ void LabelServer::handle_set_label(
     auto label = std::make_shared<protocol::msg::Label>();
     label->set__physic_x(request->label.labels[i].physic_x);
     label->set__physic_y(request->label.labels[i].physic_y);
-    map_label_store_ptr_->AddLabel(label_filename, request->label.labels[i].label_name, label, doc);
+    label_store_->AddLabel(label_filename, request->label.labels[i].label_name, label, doc);
   }
-
   // save
-  map_label_store_ptr_->Write(label_filename, doc);
+  label_store_->Write(label_filename, doc);
   response->success = protocol::srv::SetMapLabel_Response::RESULT_SUCCESS;
-}
-
-void LabelServer::read_map_label(std::string filename, LABEL & label)
-{
-  FILE * infile;
-  infile = fopen(filename.c_str(), "r");
-  if (infile == NULL) {
-    RCLCPP_ERROR(get_logger(), "Error opened file");
-    return;
-  }
-  fread(&label, sizeof(LABEL), 1, infile);
-  fclose(infile);
-}
-
-void LabelServer::writ_map_label(std::string filename, const LABEL & label)
-{
-  FILE * outfile;
-  outfile = fopen(filename.c_str(), "w");
-  if (outfile == NULL) {
-    RCLCPP_ERROR(get_logger(), "Error opened file");
-    return;
-  }
-  fwrite(&label, sizeof(LABEL), 1, outfile);
-  fclose(outfile);
-}
-
-bool LabelServer::makeMapFolder(std::string filename)
-{
-  if (mkdir(filename.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
-    return true;
-  }
-  return false;
-}
-
-bool LabelServer::isFolderExist(std::string path)
-{
-  struct stat buffer;
-  return stat(path.c_str(), &buffer) == 0 && buffer.st_mode & S_IFDIR;
-}
-
-bool LabelServer::isFileExixt(std::string path)
-{
-  struct stat buffer;
-  return stat(path.c_str(), &buffer) == 0 && buffer.st_mode & S_IFREG;
-}
-
-bool LabelServer::removeFile(std::string path)
-{
-  return remove(path.c_str()) == 0;
-}
-
-void LabelServer::PrintMapData()
-{
-  nav_msgs::msg::OccupancyGrid map;
-  std::string yaml_map = "/home/quan/Downloads/mapping/map.yaml";
-  auto status = nav2_map_server::loadMapFromYaml(yaml_map, map);
-  if (nav2_map_server::LOAD_MAP_STATUS::LOAD_MAP_SUCCESS == status) {
-    INFO("Get yaml map success.");
-    // response->label.resolution = map.info.resolution;
-    // response->label.width = map.info.width;
-    // response->label.height = map.info.height;
-    // response->label.origin = map.info.origin;
-    // response->label.data = map.data;
-
-
-    // for (int i = 0; i < 25; i++) {
-    //   response->label.map.data.push_back(i % 100);
-    // }
-
-    std::cout << "resolution: " << map.info.resolution << std::endl;
-    std::cout << "width: " << map.info.width << std::endl;
-    std::cout << "height: " << map.info.height << std::endl;
-
-    std::cout << "\n\n";
-    std::cout << "[" << std::endl;
-    for (int i = 0; i < map.data.size(); i++) {
-      printf("%d, ", map.data[i]);
-    }
-    std::cout << "]" << std::endl;
-  }
 }
 
 bool LabelServer::LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::OccupancyGrid & map)
 {
-  std::string map_yaml_config = "/home/mi/mapping/" + map_name + ".yaml";
-  auto status = nav2_map_server::loadMapFromYaml(map_yaml_config, map);
-
+  auto status = nav2_map_server::loadMapFromYaml(map_name, map);
   if (status != nav2_map_server::LOAD_MAP_STATUS::LOAD_MAP_SUCCESS) {
     WARN("Load map yaml config error.");
     return false;
@@ -326,91 +247,84 @@ bool LabelServer::LoadMapMetaInfo(const std::string & map_name, nav_msgs::msg::O
   INFO("resolution : %f", map.info.resolution);
   INFO("width : %d", map.info.width);
   INFO("height : %d", map.info.height);
-  INFO("map.data size : %d", map.data.size());
-
+  INFO("map.data size : %ld", map.data.size());
   return true;
 }
 
-bool LabelServer::RemoveMap(const std::string & map_name)
+bool LabelServer::RemoveMap(const std::string & map_name_directory)
 {
-  filesystem::remove_all(map_label_store_ptr_->map_label_directory());
+  filesystem::remove_all(map_name_directory);
   return true;
 }
 
-void LabelServer::HandleRequestUserSaveMapName(
-  const std::shared_ptr<rmw_request_id_t> request_header,
-  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+std::string LabelServer::GetMapName(const std::string & map_name_directory)
 {
-  INFO("request save map's name.");
-
-  if (request->data) {
-    response->message = robot_map_name();
-    response->success = true;
+  std::string mapname = "";
+  if (!filesystem::exists(map_name_directory)) {
+    ERROR("directory is not exist.");
+    return mapname;
   }
 
-  response->message = "";
-  response->success = false;
+  bool find = false;
+  std::regex file_suffix("(.*)(.pgm)");   // *.pgm
+  filesystem::path path(map_name_directory);
+  for (auto filename : filesystem::directory_iterator(path)) {
+    if (std::regex_match(filename.path().c_str(), file_suffix)) {
+      INFO("Get map filename : %s", filename.path().c_str());
+      find = true;
+      mapname = filename.path().c_str();
+      break;
+    }
+  }
+
+  if (find) {
+    int pos = mapname.find_last_of('/');
+    std::string filename(mapname.substr(pos + 1));
+    mapname = filename.substr(0, filename.rfind("."));
+  }
+
+  return mapname;
 }
 
-void LabelServer::set_robot_map_name(const std::string & name)
+void LabelServer::HandleOutdoor(
+  const std::shared_ptr<rmw_request_id_t>,
+  const std::shared_ptr<protocol::srv::SetMapLabel::Request> request,
+  std::shared_ptr<protocol::srv::SetMapLabel::Response> response)
 {
-  robot_map_name_ = name;
-}
+  if (request->label.is_outdoor) {
+    INFO("Handle vision outdoor request");
+  } else {
+    INFO("Handle lidar outdoor request");
+  }
 
-std::string LabelServer::robot_map_name() const
-{
-  return robot_map_name_;
-}
-
-void LabelServer::HandleVisionIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
-{
-  INFO("Current building map is vision.");
-  if (msg == nullptr) {
+  if (request->label.map_name.empty()) {
+    ERROR("map filename %s is empty", request->label.map_name.c_str());
+    response->success = false;
     return;
   }
 
-  if (msg->data) {
-    use_vision_create_map_ = msg->data;
-    SetOutdoorFlag(use_vision_create_map_);
-  }
+  std::string label_filename = label_store_->map_label_directory() + request->label.map_name +
+    ".json";
+  SetOutdoorFlag(label_filename, request->label.is_outdoor);
+  response->success = true;
 }
 
-void LabelServer::HandleLidarIsMappingMessages(const std_msgs::msg::Bool::SharedPtr msg)
-{
-  INFO("Current building map is lidar.");
-  if (msg == nullptr) {
-    return;
-  }
-
-  if (msg->data) {
-    use_lidar_create_map_ = msg->data;
-    SetOutdoorFlag(false);
-  }
-}
-
-void LabelServer::SetOutdoorFlag(bool outdoor)
+void LabelServer::SetOutdoorFlag(const std::string & filename, bool outdoor)
 {
   std::lock_guard<std::mutex> locker(mutex_);
-  const std::string map_name = "map";
-  std::string label_filename = map_label_store_ptr_->map_label_directory() + "map.json";
   rapidjson::Document doc(rapidjson::kObjectType);
-  map_label_store_ptr_->SetOutdoor(outdoor, doc);
-  map_label_store_ptr_->Write(label_filename, doc);
-  INFO("Label server set outdoor : %d", outdoor);
+  label_store_->SetOutdoor(outdoor, doc);
+  label_store_->Write(filename, doc);
 }
 
 bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std::string & map_name)
 {
-  std::string map_json_filename = "/home/mi/mapping/" + map_name + ".json";
-  if (!filesystem::exists(map_json_filename)) {
+  if (!filesystem::exists(map_name)) {
     ERROR("Current map json file is not exist.");
     return false;
   }
-
   rapidjson::Document document(rapidjson::kObjectType);
-  cyberdog::common::CyberdogJson::ReadJsonFromFile(map_json_filename, document);
-
+  cyberdog::common::CyberdogJson::ReadJsonFromFile(map_name, document);
   bool outdoor = false;
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     std::string key = it->name.GetString();
@@ -457,6 +371,28 @@ bool LabelServer::ReqeustVisionBuildingMapAvailable(bool & map_status, const std
     ERROR("%s", e.what());
   }
   return result;
+}
+
+
+bool LabelServer::CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels)
+{
+  std::unordered_multiset<std::string> tags;
+  for (const auto & label : labels) {
+    if (tags.count(label.label_name)) {
+      ERROR("Same tag name: [%s]", label.label_name.c_str());
+      return false;
+    }
+    tags.emplace(label.label_name);
+  }
+  return true;
+}
+
+bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
+{
+  std::vector<protocol::msg::Label> labels;
+  label_store_->Read(filename, labels, outdoor);
+  INFO("Read from file %s outdoor value : %d", filename.c_str(), outdoor);
+  return true;
 }
 
 }  // namespace CYBERDOG_NAV

@@ -30,8 +30,6 @@ const std::string kMapLabelDirectory = "/home/mi/mapping/";   // NOLINT
 LabelStore::LabelStore()
 : map_label_directory_{kMapLabelDirectory}
 {
-  // LoadLabels(map_label_directory_);
-  // Debug();
 }
 
 LabelStore::~LabelStore()
@@ -55,52 +53,55 @@ void LabelStore::AddLabel(
   const protocol::msg::Label::SharedPtr label,
   rapidjson::Document & doc)
 {
+  (void)filename;
   auto tmp_doc = ToJson(label);
   common::CyberdogJson::Add(doc, label_name, tmp_doc);
 }
 
-bool LabelStore::CreateMapLabelFile(
-  const std::string & directory,
-  const std::string & filename)
+bool LabelStore::CreateMapLabelFile(const std::string & filename)
 {
-  std::string label_filename = map_label_directory() + filename;
-
-  if (filesystem::exists(filesystem::path(label_filename))) {
-    INFO("Current label file  %s is exist", label_filename.c_str());
+  if (filesystem::exists(filesystem::path(filename))) {
+    INFO("Current label file  %s is exist", filename.c_str());
     return false;
   }
 
   std::fstream ofs;
-  ofs.open(label_filename.c_str(), std::ios::app);
+  ofs.open(filename.c_str(), std::ios::app);
 
   if (!ofs) {
     std::cerr << "Could not open " << filename << "." << std::endl;
-    ERROR("Could not open %s.", label_filename);
+    ERROR("Could not open %s.", filename.c_str());
     return false;
   }
   ofs.close();
   return true;
 }
 
-void LabelStore::DeleteLabel(
+bool LabelStore::DeleteLabel(
   const std::string & filename,
   const std::string & label_name,
   rapidjson::Document & existed_doc)
 {
   // check current "*.json" is existed or not
-  std::string label_filename = map_label_directory() + filename;
-
-  if (IsExist(label_filename)) {
-    return;
+  if (!IsExist(filename)) {
+    ERROR("filename (%s) not exist", filename.c_str());
+    return false;
   }
 
+  bool find = false;
   for (auto it = existed_doc.MemberBegin(); it != existed_doc.MemberEnd(); ++it) {
     if (it->name.GetString() == label_name) {
       // delete labelName,physicX and physicY
       existed_doc.RemoveMember(static_cast<const char *>(label_name.c_str()));
+      find = true;
       break;
     }
   }
+
+  if (!find) {
+    ERROR("Can't find label (%s) in %s", label_name.c_str(), filename.c_str());
+  }
+  return find;
 }
 
 void LabelStore::ChangeLable(
@@ -126,10 +127,8 @@ bool LabelStore::IsLabelExist(
   const std::string & label_name,
   rapidjson::Document & existed_doc)
 {
-  std::string label_filename = map_label_directory() + filename;
-
   // if label_filename exist, the func "IsExist(label_filename)" would return false.
-  if (IsExist(label_filename)) {
+  if (IsExist(filename)) {
     INFO("The .json is not existed");
     return false;
   }
@@ -145,19 +144,18 @@ bool LabelStore::IsLabelExist(
       return false;
     }
   }
+  return true;
 }
 
 bool LabelStore::DeleteMapLabelFile(const std::string & filename)
 {
-  return filesystem::remove(
-    filesystem::path(map_label_directory() + filename));
+  return filesystem::remove(filename);
 }
 
 bool LabelStore::IsExist(const std::string & filename)
 {
-  std::string path = map_label_directory() + filename;
-  INFO("path : %s", path.c_str());
-  return filesystem::exists(filesystem::path(path));
+  INFO("path : %s", filename.c_str());
+  return filesystem::exists(filesystem::path(filename));
 }
 
 std::string LabelStore::GetLabelsFilenameFromMap(const std::string & map_name)
@@ -176,7 +174,6 @@ std::string LabelStore::map_label_directory() const
 }
 
 void LabelStore::SetMapName(
-  const std::string & label_filename,
   const std::string & map_filename,
   rapidjson::Document & doc)
 {
@@ -210,28 +207,10 @@ bool LabelStore::LoadLabels(const std::string & directory)
   return true;
 }
 
-void LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
+bool LabelStore::Write(const std::string & label_filename, const rapidjson::Document & doc)
 {
-  common::CyberdogJson::WriteJsonToFile(label_filename, doc);
+  return common::CyberdogJson::WriteJsonToFile(label_filename, doc);
 }
-
-// bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
-// {
-//   auto it = labels_table_.find(label_filename);
-//   if (it == labels_table_.end()) {
-//     INFO("Can't find label filename : %s", label_filename.c_str());
-//     return false;
-//   }
-
-//   auto &labels = labels_table_[label_filename];
-//   for (std::size_t index = 0; index < labels.size(); ++index) {
-//     if (labels[index].tag == label_name) {
-//       labels.erase(labels.begin() + index);
-//     }
-//   }
-
-//   return true;
-// }
 
 bool LabelStore::RemoveLabel(const std::string & label_filename, const std::string & label_name)
 {
@@ -242,9 +221,11 @@ bool LabelStore::RemoveLabel(const std::string & label_filename, const std::stri
     return false;
   }
 
-  DeleteLabel(label_filename, label_name, doc);
-  Write(label_filename, doc);
-  return true;
+  bool find_label = DeleteLabel(label_filename, label_name, doc);
+  if (!find_label) {
+    return false;
+  }
+  return Write(label_filename, doc);
 }
 
 void LabelStore::Read(
@@ -295,14 +276,17 @@ void LabelStore::Read(
     ERROR("Load label json file failed.");
     return;
   }
-
+  INFO("Reading %s.", label_filename.c_str());
+  std::string str;
+  cyberdog::common::CyberdogJson::Document2String(document, str);
+  INFO("\n%s", str.c_str());
   for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
     std::string key = it->name.GetString();
-    INFO("key = %s", key.c_str());
-    if (key == "map_name" || it->value.IsString()) {
-      std::string name = it->value.GetString();
-      INFO("map_name: %s", name.c_str());
-    }
+    // INFO("key = %s", key.c_str());
+    // if (key == "map_name" || it->value.IsString()) {
+    //   std::string name = it->value.GetString();
+    //   INFO("map_name: %s", name.c_str());
+    // }
 
     if (key == "is_outdoor") {
       is_outdoor = it->value.GetBool();
@@ -317,46 +301,6 @@ void LabelStore::Read(
       labels.emplace_back(*label.get());
     }
   }
-}
-
-void LabelStore::Debug()
-{
-  CreateMapLabelFile(map_label_directory(), "test.json");
-  std::string label_filename = map_label_directory() + "test.json";
-  rapidjson::Document doc(rapidjson::kObjectType);
-
-  // mapname
-  SetMapName(label_filename, "test.pgm", doc);
-
-  // sofa
-  auto sofa = std::make_shared<protocol::msg::Label>();
-  sofa->set__physic_x(1.23);
-  sofa->set__physic_y(2.25);
-  AddLabel(label_filename, "sofa", sofa, doc);
-
-  auto sofa2 = std::make_shared<protocol::msg::Label>();
-  sofa2->set__physic_x(2.23);
-  sofa2->set__physic_y(2.25);
-  AddLabel(label_filename, "sofa2", sofa2, doc);
-
-  // bed
-  auto bed = std::make_shared<protocol::msg::Label>();
-  bed->set__physic_x(3.23);
-  bed->set__physic_y(3.25);
-  AddLabel(label_filename, "bed", bed, doc);
-
-  // bed
-  auto bed2 = std::make_shared<protocol::msg::Label>();
-  bed2->set__physic_x(5.23);
-  bed2->set__physic_y(5.25);
-  AddLabel(label_filename, "bed2", bed2, doc);
-
-  // save
-  Write(label_filename, doc);
-
-  // test read
-  std::vector<protocol::msg::Label> labels;
-  Read(label_filename, labels);
 }
 
 rapidjson::Document LabelStore::ToJson(const protocol::msg::Label::SharedPtr label)

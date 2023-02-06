@@ -345,8 +345,12 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Got Executor Success");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-  if (goal_handle_executing_) {
-    goal_handle_executing_->succeed(result);
+  if (goal_handle_executing_ != nullptr) {
+    try {
+      goal_handle_executing_->succeed(result);
+    } catch (const rclcpp::exceptions::RCLError & e) {
+      ERROR("%s", e.what());
+    }
   }
   INFO("Manager success");
   ResetTaskHandle();
@@ -374,7 +378,11 @@ void AlgorithmTaskManager::TaskCanceled()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   if (goal_handle_executing_ != nullptr) {
-    goal_handle_executing_->abort(result);
+    try {
+      goal_handle_executing_->abort(result);
+    } catch (const rclcpp::exceptions::RCLError & e) {
+      ERROR("%s", e.what());
+    }
     INFO("Manager canceled");
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc canceled");
@@ -398,7 +406,11 @@ void AlgorithmTaskManager::TaskAborted()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_FAILED;
   if (goal_handle_executing_ != nullptr) {
-    goal_handle_executing_->abort(result);
+    try {
+      goal_handle_executing_->abort(result);
+    } catch (const rclcpp::exceptions::RCLError & e) {
+      ERROR("%s", e.what());
+    }
     INFO("Manager abort");
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc aborted");
