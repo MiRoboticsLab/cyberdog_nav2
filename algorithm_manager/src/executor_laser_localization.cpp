@@ -62,8 +62,9 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   (void)goal;
   INFO("Laser Localization started");
 
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
@@ -80,7 +81,8 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
+  INFO("[0] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser localization is stop, not need enable relocalization.");
@@ -101,6 +103,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   UpdateFeedback(relocalization::kServiceStartingSuccess);
+  INFO("[1] Enable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -110,6 +113,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
 
   // Send request and wait relocalization result success
   bool force_quit = false;
+  timer.Start();
   success = WaitRelocalization(std::chrono::seconds(120s), force_quit);
   if (!success) {
     UpdateFeedback(relocalization::kSLAMTimeout);
@@ -138,13 +142,15 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
+  INFO("Waiting relocalization success");
+  INFO("[2] Waiting relocalization result Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser localization is stop, not need enable report realtime pose.");
     return;
   }
-
+  timer.Start();
   // Enable report realtime robot pose
   success = EnableReportRealtimePose(true);
   if (!success) {
@@ -161,12 +167,14 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
-
+  INFO("[3] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   UpdateFeedback(relocalization::kSLAMSuccess);
 
   location_status_ = LocationStatus::SUCCESS;
   INFO("Laser localization success.");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO(
+    "[Total] Start laser localization Elapsed time: %.5f [seconds]",
+    total_timer.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -178,8 +186,8 @@ void ExecutorLaserLocalization::Stop(
   WARN("Laser localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  // Timer timer_;
-  // timer_.Start();
+  // Timer timer;
+  // timer.Start();
 
   // // exit flag
   // is_exit_ = true;
@@ -210,7 +218,7 @@ void ExecutorLaserLocalization::Stop(
   // task_cancle_callback_();
 
   // INFO("Laser localization stoped success");
-  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  // INFO("Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 }
 
 void ExecutorLaserLocalization::Cancel()
@@ -454,8 +462,9 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
 {
   INFO("Laser localization will stop");
 
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   // Trigger stop localization exit flag
   is_exit_ = true;
@@ -471,7 +480,8 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
       INFO("Stop: Close laser relocalization service(stop_location) success");
     }
   }
-
+  INFO("[0] Disable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   if (is_realtime_pose_service_activate_) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
@@ -482,7 +492,8 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
       INFO("Stop: Robot stop report realtime pose success");
     }
   }
-
+  INFO("[1] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   INFO("Stop: Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
@@ -490,12 +501,14 @@ bool ExecutorLaserLocalization::StopLocalizationFunctions()
   } else {
     INFO("Stop: Close all lifecyce nodes success.");
   }
-
+  INFO("[2] Deactivate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   // Reset all flags for localization
   ResetFlags();
 
   INFO("Laser Localization stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO(
+    "[Total] Stop laser localization Elapsed time: %.5f [seconds]",
+    total_timer.ElapsedSeconds());
   return success;
 }
 
