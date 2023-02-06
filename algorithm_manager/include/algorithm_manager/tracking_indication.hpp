@@ -113,4 +113,4 @@ private:
 };
 }  // namespace algorithm
 }  // namespace cyberdog
-#endif  //ALGORITHM_MANAGER__TRACKING_INDICATION_HPP_
+#endif  // ALGORITHM_MANAGER__TRACKING_INDICATION_HPP_

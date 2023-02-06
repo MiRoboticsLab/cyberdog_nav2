@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <memory>
 #include "algorithm_manager/tracking_indication.hpp"
 namespace cyberdog
 {
@@ -49,79 +51,102 @@ LedManagerNode::LedManagerNode(std::string name)
 
 void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
 {
-  if (msg->task_status == 11 && !follow_tags_start_) {
-    LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31000};
-    ReqAudio(audio_play);
-    follow_tags_start_ = true;
-    status_ = Status::kStartUwb;
-  } else if (msg->task_status == 13 && !follow_person_start_) {
-    LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31001};
-    ReqAudio(audio_play);
-    follow_person_start_ = true;
-    status_ = Status::kStartHuman;
-  } else if (msg->task_status == 3 && !follow_object_start_) {
-    LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31002};
-    ReqAudio(audio_play);
-    follow_object_start_ = true;
-    status_ = Status::kStartFollow;
-  } else if (msg->task_status == 103 && status_ != Status::kIdle) {
-    LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    if (status_ == Status::kStartUwb) {
-      AudioInfo audio_play{"tracking", false, 31003};
-      ReqAudio(audio_play);
-    } else if (status_ == Status::kStartHuman) {
-      AudioInfo audio_play{"tracking", false, 31004};
-      ReqAudio(audio_play);
-    } else {
-      AudioInfo audio_play{"tracking", false, 31005};
-      ReqAudio(audio_play);
-    }
-    follow_object_start_ = false;
-    follow_tags_start_ = false;
-    follow_person_start_ = false;
-    status_ = Status::kIdle;
-  } else if (msg->task_status == 101 && status_ == Status::kStartUwb) {
-    LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31003};
-    ReqAudio(audio_play);
-    follow_tags_start_ = false;
-    status_ = Status::kIdle;
-  } else if (msg->task_status == 101 && status_ == Status::kStartHuman) {
-    LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31004};
-    ReqAudio(audio_play);
-    follow_person_start_ = false;
-    status_ = Status::kIdle;
-  } else if (msg->task_status == 101 && status_ == Status::kStartFollow) {
-    LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-    LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-    LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-    ReqLed(headled_on, tailled_on, miniled_on);
-    AudioInfo audio_play{"tracking", false, 31005};
-    ReqAudio(audio_play);
-    follow_object_start_ = false;
-    status_ = Status::kIdle;
+  switch (msg->task_status) {
+    case 11:
+      if (!follow_tags_start_) {
+        LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31000};
+        ReqAudio(audio_play);
+        follow_tags_start_ = true;
+        status_ = Status::kStartUwb;
+      }
+      break;
+
+    case 13:
+      if (!follow_person_start_) {
+        LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31001};
+        ReqAudio(audio_play);
+        follow_person_start_ = true;
+        status_ = Status::kStartHuman;
+      }
+      break;
+
+    case 3:
+      if (!follow_object_start_) {
+        LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31002};
+        ReqAudio(audio_play);
+        follow_object_start_ = true;
+        status_ = Status::kStartFollow;
+      }
+      break;
+
+    case 103:
+      if (status_ != Status::kIdle) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        if (status_ == Status::kStartUwb) {
+          AudioInfo audio_play{"tracking", false, 31003};
+          ReqAudio(audio_play);
+        } else if (status_ == Status::kStartHuman) {
+          AudioInfo audio_play{"tracking", false, 31004};
+          ReqAudio(audio_play);
+        } else {
+          AudioInfo audio_play{"tracking", false, 31005};
+          ReqAudio(audio_play);
+        }
+        follow_object_start_ = false;
+        follow_tags_start_ = false;
+        follow_person_start_ = false;
+        status_ = Status::kIdle;
+      }
+      break;
+
+    case 101:
+      if (status_ == Status::kStartUwb) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31003};
+        ReqAudio(audio_play);
+        follow_tags_start_ = false;
+        status_ = Status::kIdle;
+      } else if (status_ == Status::kStartHuman) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31004};
+        ReqAudio(audio_play);
+        follow_person_start_ = false;
+        status_ = Status::kIdle;
+      } else if (status_ == Status::kStartFollow) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31005};
+        ReqAudio(audio_play);
+        follow_object_start_ = false;
+        status_ = Status::kIdle;
+      }
+      break;
+
+    default:
+      break;
   }
 }
 
