@@ -42,8 +42,9 @@ ExecutorVisionMapping::ExecutorVisionMapping(std::string node_name)
 
 void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
   (void)goal;
   INFO("Vision Mapping started");
 
@@ -56,7 +57,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[0] Check TF Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Check all sensors turn on
   INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
@@ -69,7 +71,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   INFO("Start up all lifecycle nodes success");
-
+  INFO("[1] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Vision mapping is stop, not need start mapping service.");
@@ -88,7 +91,8 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   INFO("Start vision mapping service(start_vins_mapping) success");
-
+  INFO("[2] Start start_vins_mapping service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser mapping is stop, not need start report realtime pose service.");
@@ -99,7 +103,7 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   auto pose_thread = std::make_shared<std::thread>(
     [&]() {
       int try_count = 0;
-      while (true) {
+      while (rclcpp::ok()) {
         try_count++;
         success = EnableReportRealtimePose(true);
 
@@ -124,12 +128,13 @@ void ExecutorVisionMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
     });
-  pose_thread->detach();
+  pose_thread->join();
+  INFO("[3] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 
   // 结束激活进度的上报
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
   INFO("Vision Mapping success.");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Start Vision mapping Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
 }
 
 void ExecutorVisionMapping::Stop(
@@ -139,8 +144,9 @@ void ExecutorVisionMapping::Stop(
   INFO("Vision Mapping will stop");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   is_exit_ = true;
   bool success = true;
@@ -155,7 +161,8 @@ void ExecutorVisionMapping::Stop(
       INFO("Close report realtime robot pose service(PoseEnable) success");
     }
   }
-
+  INFO("[0] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // MapServer
   if (is_slam_service_activate_) {
     INFO("Trying stop vision mapping service(stop_vins_mapping)");
@@ -167,7 +174,8 @@ void ExecutorVisionMapping::Stop(
       INFO("Stop vision mapping service(stop_vins_mapping) success");
     }
   }
-
+  INFO("[1] Stop vins mapping service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
@@ -176,11 +184,11 @@ void ExecutorVisionMapping::Stop(
   } else {
     INFO("Close all lifecycle nodes success");
   }
-
+  INFO("[2] Deactivate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   ResetFlags();
   task_cancle_callback_();
   INFO("Vision Mapping stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Stop Vision mapping Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
 }
 
 void ExecutorVisionMapping::Cancel()

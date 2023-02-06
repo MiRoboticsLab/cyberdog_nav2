@@ -55,8 +55,9 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   (void)goal;
   INFO("Vision Localization started");
   // ReportPreparationStatus();
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   // Check current map available
   UpdateFeedback(relocalization::kMapChecking);
@@ -69,7 +70,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
   UpdateFeedback(relocalization::kMapCheckingSuccess);
-
+  INFO("[0] Checking map available Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
@@ -85,7 +87,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
+  INFO("[1] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Vision localization is stop, not need enable relocalization.");
@@ -108,7 +111,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   INFO("Call enable relocalization service success.");
 
   UpdateFeedback(relocalization::kServiceStartingSuccess);
-
+  INFO("[2] Enable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Vision localization is stop, not need wait relocalization.");
@@ -118,6 +121,7 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   // Send request and wait relocalization result success
   INFO("Waiting relocalization");
   bool force_quit = false;
+  timer.Start();
   success = WaitRelocalization(std::chrono::seconds(120s), force_quit);
   if (!success) {
     UpdateFeedback(relocalization::kSLAMTimeout);
@@ -146,18 +150,18 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     return;
   }
   INFO("Waiting relocalization success");
-
+  INFO("[3] Waiting relocalization result Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Vision localization is stop, not need enable report realtime pose.");
     return;
   }
-
+  timer.Start();
   // Enable report realtime robot pose
   auto pose_thread = std::make_shared<std::thread>(
     [&]() {
       int try_count = 0;
-      while (true) {
+      while (rclcpp::ok()) {
         if (relocalization_failure_) {
           break;
         }
@@ -195,11 +199,13 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
     });
-  pose_thread->detach();
-
+  pose_thread->join();
+  INFO("[4] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   UpdateFeedback(relocalization::kSLAMSuccess);
   INFO("Vision localization success.");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO(
+    "[Total] Start vision localization Elapsed time: %.5f [seconds]",
+    total_timer.ElapsedSeconds());
   task_success_callback_();
 }
 
@@ -211,8 +217,8 @@ void ExecutorVisionLocalization::Stop(
   WARN("Vision localization Executor Stop() is called, this should never happen");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  // Timer timer_;
-  // timer_.Start();
+  // Timer timer;
+  // timer.Start();
 
   // // exit flag
   // is_exit_ = true;
@@ -238,7 +244,7 @@ void ExecutorVisionLocalization::Stop(
   // task_success_callback_();
 
   // INFO("Vision Localization stoped success");
-  // INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  // INFO("Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 }
 
 void ExecutorVisionLocalization::Cancel()
@@ -504,8 +510,9 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
 {
   INFO("Vision localization will stop");
 
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   // exit flag
   is_exit_ = true;
@@ -521,7 +528,8 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
       INFO("Stop: Close vision relocalization service(stop_vins_location) success");
     }
   }
-
+  INFO("[0] Disable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   if (is_realtime_pose_service_activate_) {
     // Disenable report realtime robot pose
     INFO("Stop: Trying stop report realtime pose");
@@ -532,7 +540,8 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
       INFO("Stop: Robot stop report realtime pose success");
     }
   }
-
+  INFO("[1] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   INFO("Stop: Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
@@ -540,12 +549,14 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   } else {
     INFO("Stop: Close all lifecyce nodes success.");
   }
-
+  INFO("[2] Deactivate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   // Reset all flags for localization
   ResetFlags();
 
   INFO("Vision Localization stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO(
+    "[Total] Stop vision localization Elapsed time: %.5f [seconds]",
+    total_timer.ElapsedSeconds());
   return success;
 }
 

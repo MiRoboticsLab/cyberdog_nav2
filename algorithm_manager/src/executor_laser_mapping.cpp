@@ -63,9 +63,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   (void)goal;
   INFO("Laser Mapping started");
 
-  Timer timer_;
-  timer_.Start();
-
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
   // Check current from map to base_link tf exist, if exit `Laser Localization`
   // in activate, so that this error case
   bool tf_exist = CanTransform("map", "base_link");
@@ -75,7 +75,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[0] Check TF Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   INFO("Trying start up all lifecycle nodes");
   bool ready = IsDependsReady();
   if (!ready) {
@@ -87,7 +88,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   INFO("Start up all lifecycle nodes success");
-
+  INFO("[1] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser mapping is stop, not need start mapping service.");
@@ -106,7 +108,8 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   INFO("Start laser mapping service(start_mapping) success");
-
+  INFO("[2] Start laser mapping service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Laser mapping is stop, not need start report realtime pose service.");
@@ -126,9 +129,9 @@ void ExecutorLaserMapping::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[3] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   UpdateFeedback(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_SLAM_BUILD_MAPPING_SUCCESS);
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Start Laser mapping Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
   INFO("Laser Mapping success.");
 }
 
@@ -139,8 +142,9 @@ void ExecutorLaserMapping::Stop(
   INFO("Laser Mapping will stop");
   response->result = StopTaskSrv::Response::SUCCESS;
 
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   is_exit_ = true;
   bool success = true;
@@ -156,7 +160,8 @@ void ExecutorLaserMapping::Stop(
       INFO("Close report realtime robot pose service(PoseEnable) success");
     }
   }
-
+  INFO("[0] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // MapServer
   if (is_slam_service_activate_) {
     INFO("Trying close laser mapping service(stop_mapping)");
@@ -168,7 +173,8 @@ void ExecutorLaserMapping::Stop(
       INFO("Close laser mapping service(stop_mapping) success");
     }
   }
-
+  INFO("[1] Stop laser mapping service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   INFO("Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
   if (!success) {
@@ -177,10 +183,10 @@ void ExecutorLaserMapping::Stop(
   } else {
     INFO("Close all lifecycle nodes success");
   }
-
+  INFO("[2] Deactivate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   ResetFlags();
   task_cancle_callback_();
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Stop laser mapping Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
   INFO("Laser Mapping stoped success");
 }
 
