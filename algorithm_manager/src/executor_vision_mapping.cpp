@@ -235,7 +235,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
 bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
 {
   if (stop_client_ == nullptr) {
-    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<MapRequest>>(
       "stop_vins_mapping", shared_from_this());
   }
 
@@ -247,13 +247,21 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
   }
 
   // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
+  // bool finish
+  // string map_name
+  // ---
+  // bool success
+  // string message
 
+  auto request = std::make_shared<MapRequest::Request>();
   if (map_filename.empty()) {
     WARN("User set map name is empty");
+    request->finish = false;
+    request->map_name = "";
   } else {
     INFO("Saved map building filename: %s", map_filename.c_str());
+    request->finish = true;
+    request->map_name = map_filename;
   }
 
   // Send request
@@ -275,17 +283,6 @@ bool ExecutorVisionMapping::StopBuildMapping(const std::string & map_filename)
       ERROR("Start vision mapping outdoor flag service failed");
     } else {
       INFO("Start vision mapping outdoor flag service success");
-    }
-    return ok;
-  }
-
-  if (result && map_filename.empty()) {
-    INFO("Trying delete vision map service(delete_reloc_map)");
-    bool ok = DeleteMap();
-    if (!ok) {
-      ERROR("Delete vision map service(delete_reloc_map) failed");
-    } else {
-      INFO("Delete vision map service(delete_reloc_map) success");
     }
     return ok;
   }
@@ -446,7 +443,7 @@ bool ExecutorVisionMapping::CheckExit()
 bool ExecutorVisionMapping::CloseMappingService()
 {
   if (stop_client_ == nullptr) {
-    stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+    stop_client_ = std::make_shared<nav2_util::ServiceClient<MapRequest>>(
       "stop_vins_mapping", shared_from_this());
   }
 
@@ -458,8 +455,9 @@ bool ExecutorVisionMapping::CloseMappingService()
   }
 
   // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
+  auto request = std::make_shared<MapRequest::Request>();
+  request->finish = false;
+  request->map_name = "";
 
   // Send request
   // return start_->invoke(request, response);
@@ -471,7 +469,7 @@ bool ExecutorVisionMapping::CloseMappingService()
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
   }
-  return result && DeleteMap();
+  return result;
 }
 
 bool ExecutorVisionMapping::CanTransform(
