@@ -431,13 +431,13 @@ void ExecutorAbNavigation::NavigationStatus2String(int8_t status)
   }
 }
 
-bool ExecutorAbNavigation::CheckMapAvailable(const std::string & map_name)
+bool ExecutorAbNavigation::CheckMapAvailable(const std::string &)
 {
-  std::string map_filename = "/home/mi/mapping/" + map_name;
-  if (!filesystem::exists(map_filename)) {
-    ERROR("Navigation's map file is not exist.");
-    return false;
-  }
+  // std::string map_filename = "/home/mi/mapping/" + map_name;
+  // if (!filesystem::exists(map_filename)) {
+  //   ERROR("Navigation's map file is not exist.");
+  //   return false;
+  // }
 
   return true;
 }

@@ -66,6 +66,19 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   timer.Start();
   total_timer.Start();
 
+  // Check current map available
+  UpdateFeedback(relocalization::kMapChecking);
+  bool available = CheckMapAvailable();
+  if (!available) {
+    ERROR("Map file not available");
+    UpdateFeedback(relocalization::kMapCheckingError);
+    ResetFlags();
+    task_abort_callback_();
+    return;
+  }
+  UpdateFeedback(relocalization::kMapCheckingSuccess);
+  INFO("[0] Checking map available Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
   bool ready = IsDependsReady();
@@ -81,7 +94,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-  INFO("[0] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  INFO("[1] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -103,7 +116,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   }
 
   UpdateFeedback(relocalization::kServiceStartingSuccess);
-  INFO("[1] Enable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  INFO("[2] Enable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -143,7 +156,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     return;
   }
   INFO("Waiting relocalization success");
-  INFO("[2] Waiting relocalization result Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  INFO("[3] Waiting relocalization result Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 
   // Realtime response user stop operation
   if (CheckExit()) {
@@ -167,7 +180,7 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
     location_status_ = LocationStatus::FAILURE;
     return;
   }
-  INFO("[3] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  INFO("[4] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   UpdateFeedback(relocalization::kSLAMSuccess);
 
   location_status_ = LocationStatus::SUCCESS;
@@ -253,6 +266,38 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
     UpdateFeedback(relocalization::kSLAMError);
     WARN("Relocalization failed.");
   }
+}
+
+bool ExecutorLaserLocalization::CheckMapAvailable()
+{
+  std::lock_guard<std::mutex> lock(task_mutex_);
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_label", shared_from_this());
+  }
+
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for the service(get_label) timeout");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  // request->map_id = 0;
+
+  // Send request
+  // bool success = map_result_client_->invoke(request, response);
+
+  bool result = false;
+  try {
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
+    result = future_result->success == MapAvailableResult::Response::RESULT_SUCCESS;
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+  }
+
+  return result;
 }
 
 bool ExecutorLaserLocalization::IsDependsReady()
@@ -454,7 +499,7 @@ void ExecutorLaserLocalization::HandleStopCallback(
   if (!request->data) {
     return;
   }
-
+  std::lock_guard<std::mutex> lock(task_mutex_);
   respose->success = StopLocalizationFunctions();
 }
 

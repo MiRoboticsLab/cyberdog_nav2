@@ -169,12 +169,13 @@ private:
       return value;
     }
     auto filter_sorted = filter;
-    INFO("before: [%f],[%f],[%f],[%f],[%f]", filter[0], filter[1], filter[2], filter[3], filter[4]);
+    // INFO("before: [%f],[%f],[%f],[%f],[%f]",
+    // filter[0], filter[1], filter[2], filter[3], filter[4]);
     std::sort(filter_sorted.begin(), filter_sorted.end());
     double filtered = filter_sorted.at((filter_size_ - 1) / 2);
-    INFO("%f", filtered);
+    // INFO("%f", filtered);
     filter.pop_front();
-    INFO(" after: [%f],[%f],[%f],[%f]", filter[0], filter[1], filter[2], filter[3]);
+    // INFO(" after: [%f],[%f],[%f],[%f]", filter[0], filter[1], filter[2], filter[3]);
     return filtered;
   }
   /**
@@ -198,7 +199,7 @@ private:
     auto min_y = *std::min_element(pose_y_.begin(), pose_y_.end());
     auto diff_y = max_y - min_y;
 
-    INFO("diff_x: %f, diff_y: %f", diff_x, diff_y);
+    // INFO("diff_x: %f, diff_y: %f", diff_x, diff_y);
     if (diff_x > diff_x_threashold_ || diff_y > diff_y_threashold_) {
       return false;
     } else {
