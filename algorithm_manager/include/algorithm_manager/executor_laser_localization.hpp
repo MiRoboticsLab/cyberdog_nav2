@@ -24,6 +24,7 @@
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/timer.hpp"
+#include "protocol/srv/get_map_label.hpp"
 
 namespace cyberdog
 {
@@ -39,7 +40,7 @@ public:
     SUCCESS,
     FAILURE
   };
-
+  using MapAvailableResult = protocol::srv::GetMapLabel;
   /**
    * @brief Construct a new Executor Laser Localization object
    *
@@ -82,6 +83,14 @@ private:
    * @param msg The lidar relocalization result
    */
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
+
+  /**
+   * @brief Check curent map building available
+   *
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool CheckMapAvailable();
 
   /**
   * @brief Check `camera/camera` real sense sensor status
@@ -164,6 +173,8 @@ private:
 
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
+  // Get vision build map available result
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
 
   // Record relocalization result
   bool relocalization_success_ {false};
@@ -183,6 +194,7 @@ private:
   std::mutex lifecycle_mutex_;
   std::mutex service_mutex_;
   std::mutex realtime_pose_mutex_;
+  std::mutex task_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog
