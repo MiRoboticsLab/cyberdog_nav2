@@ -23,6 +23,7 @@
 #include "visualization/srv/stop.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "cyberdog_visions_interfaces/srv/finish_map.hpp"
 #include "algorithm_manager/timer.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
@@ -39,6 +40,7 @@ class ExecutorVisionMapping : public ExecutorBase
 public:
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
+  using MapRequest = cyberdog_visions_interfaces::srv::FinishMap;
   using LabelParam = protocol::srv::SetMapLabel;
 
   explicit ExecutorVisionMapping(std::string node_name);
@@ -127,7 +129,7 @@ private:
   ExecutorData executor_laser_mapping_data_;
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
-  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<MapRequest>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // Get vision build map available result

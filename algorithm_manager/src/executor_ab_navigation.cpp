@@ -94,8 +94,9 @@ ExecutorAbNavigation::~ExecutorAbNavigation()
 void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   INFO("AB navigation started");
-  Timer timer_;
-  timer_.Start();
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
 
   is_exit_ = false;
 
@@ -109,7 +110,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     return;
   }
   UpdateFeedback(kMapCheckingSuccess);
-
+  INFO("[0] Checking map available Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Check all depends is ok
   // 1 正在激活依赖节点
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
@@ -123,15 +125,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   }
   // 3 激活依赖节点成功
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_SUCCESS);
-
+  INFO("[1] Activate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Realtime response user stop operation
   if (CheckExit()) {
     WARN("Navigation AB is stop, not need connect action server.");
     return;
   }
-
-  INFO("Depend sensors Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
-
   // Check action client connect server
   bool connect = IsConnectServer();
   if (!connect) {
@@ -141,7 +141,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[2] Connect nav2 action server Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Check input target goal is legal
   bool legal = IsLegal(goal);
   if (!legal) {
@@ -151,7 +152,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[3] Check goal Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   if (CheckExit()) {
     WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");
     return;
@@ -159,7 +161,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   // Smoother walk
   VelocitySmoother();
-
+  INFO("[4] Invoke velocity smoother service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // Print set target goal pose
   Debug2String(goal->poses[0]);
 
@@ -171,11 +174,11 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     task_abort_callback_();
     return;
   }
-
+  INFO("[5] Sending goal Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   // 结束激活进度的上报
   UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Start AB navition Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Stop(
@@ -183,8 +186,8 @@ void ExecutorAbNavigation::Stop(
   StopTaskSrv::Response::SharedPtr response)
 {
   (void)request;
-  Timer timer_;
-  timer_.Start();
+  Timer timer;
+  timer.Start();
   response->result = StopTaskSrv::Response::SUCCESS;
 
   INFO("Navigation AB will stop");
@@ -208,7 +211,7 @@ void ExecutorAbNavigation::Stop(
 
   response->result = success ? StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped success");
-  INFO("Elapsed time: %.5f [seconds]", timer_.ElapsedSeconds());
+  INFO("[Total] Stop AB nav Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
 }
 
 void ExecutorAbNavigation::Cancel()
@@ -479,7 +482,9 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
 {
   INFO("Handle stop current robot nav running.");
   (void)request_header;
-
+  Timer timer, total_timer;
+  timer.Start();
+  total_timer.Start();
   respose->success = true;
   bool success = false;
 
@@ -503,13 +508,18 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
       INFO("Stop running robot success");
     }
   }
-
+  INFO("[0] Canceling nav goal Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  timer.Start();
   // 3 deactivate all navigation lifecycle nodes
   success = ResetAllLifecyceNodes();
   if (!success) {
     ERROR("Reset all lifecyce nodes failed.");
     respose->success = false;
   }
+  INFO("[1] Deactivate lifecycle nodes Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  INFO(
+    "[Total] Stop AB nav when resetting Elapsed time: %.5f [seconds]",
+    total_timer.ElapsedSeconds());
 }
 
 bool ExecutorAbNavigation::CheckExit()
