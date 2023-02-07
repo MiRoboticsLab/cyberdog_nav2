@@ -169,7 +169,8 @@ private:
       return value;
     }
     auto filter_sorted = filter;
-    // INFO("before: [%f],[%f],[%f],[%f],[%f]", filter[0], filter[1], filter[2], filter[3], filter[4]);
+    // INFO("before: [%f],[%f],[%f],[%f],[%f]",
+    // filter[0], filter[1], filter[2], filter[3], filter[4]);
     std::sort(filter_sorted.begin(), filter_sorted.end());
     double filtered = filter_sorted.at((filter_size_ - 1) / 2);
     // INFO("%f", filtered);
