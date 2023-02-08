@@ -39,7 +39,7 @@ TaskName = "NavAB"
 Id = 1
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator", "map_server"]
+DepsLifecycleNodes = ["controller_server_ab", "planner_server_ab", "recoveries_server" , "bt_navigator_ab", "map_server"]
 
 [[task]]
 TaskName = "VisionTracking"

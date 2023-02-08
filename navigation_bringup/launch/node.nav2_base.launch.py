@@ -32,122 +32,146 @@ from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
 from nav2_common.launch import RewrittenYaml
 
+
+from launch import LaunchDescription
+from launch.substitutions import PathJoinSubstitution
+
+
 def generate_launch_description():
+
+    # namespace = LaunchConfiguration('namespace', default='')
+    # namespace_declare = DeclareLaunchArgument(
+    #     name='namespace',
+    #     default_value='',
+    #     description='Top-level namespace'
+    #     )
+
+    # remappings = []
+    # map_file = LaunchConfiguration(
+    #     'map_file',
+    #     default=os.path.join('/home/mi/mapping/', 'map.yaml')
+    # )
+    # params_file = LaunchConfiguration(
+    #     'params_file',
+    #     default=os.path.join(
+    #         os.path.join(package_dir, 'params'),
+    #         'nav2_params.yaml')
+    # )
+    # follow_params_file = LaunchConfiguration(
+    #     'follow_params_file',
+    #     default=os.path.join(
+    #         os.path.join(package_dir, 'params'),
+    #         'follow_params.yaml')
+    # )
+    # auto_charings_file = LaunchConfiguration(
+    #     'auto_charing_file',
+    #     default=os.path.join(
+    #         os.path.join(package_dir, 'params'),
+    #         'auto_charging.yaml')
+    #     )
+    # default_target_tracking_bt_xml = LaunchConfiguration(
+    #     'default_target_tracking_bt_xml',
+    #     default=os.path.join(
+    #         os.path.join(package_dir, 'behavior_trees'),
+    #         'target_tracking.xml')
+    # )
+    # map_subscribe_transient_local = LaunchConfiguration(
+    #     'map_subscribe_transient_local',
+    #     default='true'
+    # )
+    # param_substitutions = {
+    #     'default_target_tracking_bt_xml': default_target_tracking_bt_xml,
+    #     'map_subscribe_transient_local': map_subscribe_transient_local
+    #     }
+
+    # configured_params = RewrittenYaml(
+    #         source_file=params_file,
+    #         root_key=namespace,
+    #         param_rewrites=param_substitutions,
+    #         convert_types=True
+    #         )
+    # configured_params_f = RewrittenYaml(
+    #         source_file=follow_params_file,
+    #         root_key=namespace,
+    #         param_rewrites=param_substitutions,
+    #         convert_types=True
+    #         )
+    # configured_params_a = RewrittenYaml(
+    #         source_file=auto_charings_file,
+    #         root_key=namespace,
+    #         param_rewrites=param_substitutions,
+    #         convert_types=True)
+    # controller_cmd = Node(
+    #         package='mcr_controller',
+    #         executable='controller_server',
+    #         name='controller_server',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[{configured_params},{configured_params_f},{configured_params_a}],
+    #         remappings=remappings
+    #         )
+    # planner_cmd = Node(
+    #         package='mcr_planner',
+    #         executable='mcr_planner_server',
+    #         name='planner_server',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[{configured_params},{configured_params_f},{configured_params_a}],
+    #         remappings=remappings
+    #         )
+    # recoveries_cmd = Node(
+    #         package='nav2_recoveries',
+    #         executable='recoveries_server',
+    #         name='recoveries_server',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[{configured_params},{configured_params_f},{configured_params_a}],
+    #         remappings=remappings
+    #         )
+    # bt_navigator_cmd = Node(
+    #         package='nav2_bt_navigator',
+    #         executable='bt_navigator',
+    #         name='bt_navigator',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[{configured_params},{configured_params_f},{configured_params_a}],
+    #         remappings=remappings
+    #         )
+    # map_server_cmd = Node(
+    #         package='nav2_map_server',
+    #         executable='map_server',
+    #         name='map_server',
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters=[{'yaml_filename': map_file}],
+    #         remappings=remappings)
+    # ld = launch.LaunchDescription([
+    #     namespace_declare,
+    #     controller_cmd,
+    #     planner_cmd,
+    #     recoveries_cmd,
+    #     bt_navigator_cmd,
+    #     map_server_cmd
+    # ])
+    # return ld
 
     namespace = LaunchConfiguration('namespace', default='')
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
-        description='Top-level namespace'
-        )
-    package_dir = get_package_share_directory('mcr_bringup')
-    remappings = []
-    map_file = LaunchConfiguration(
-        'map_file',
-        default=os.path.join('/home/mi/mapping/', 'map.yaml')
-    )
-    params_file = LaunchConfiguration(
-        'params_file',
-        default=os.path.join(
-            os.path.join(package_dir, 'params'),
-            'nav2_params.yaml')
-    )
-    follow_params_file = LaunchConfiguration(
-        'follow_params_file',
-        default=os.path.join(
-            os.path.join(package_dir, 'params'),
-            'follow_params.yaml')
-    )
-    auto_charings_file = LaunchConfiguration(
-        'auto_charing_file',
-        default=os.path.join(
-            os.path.join(package_dir, 'params'),
-            'auto_charging.yaml')
-        )
-    default_target_tracking_bt_xml = LaunchConfiguration(
-        'default_target_tracking_bt_xml',
-        default=os.path.join(
-            os.path.join(package_dir, 'behavior_trees'),
-            'target_tracking.xml')
-    )
-    map_subscribe_transient_local = LaunchConfiguration(
-        'map_subscribe_transient_local',
-        default='true'
-    )
-    param_substitutions = {
-        'default_target_tracking_bt_xml': default_target_tracking_bt_xml,
-        'map_subscribe_transient_local': map_subscribe_transient_local
-        }
+        description='Top-level namespace')
 
-    configured_params = RewrittenYaml(
-            source_file=params_file,
-            root_key=namespace,
-            param_rewrites=param_substitutions,
-            convert_types=True
-            )
-    configured_params_f = RewrittenYaml(
-            source_file=follow_params_file,
-            root_key=namespace,
-            param_rewrites=param_substitutions,
-            convert_types=True
-            )
-    configured_params_a = RewrittenYaml(
-            source_file=auto_charings_file,
-            root_key=namespace,
-            param_rewrites=param_substitutions,
-            convert_types=True)
-    controller_cmd = Node(
-            package='mcr_controller',
-            executable='controller_server',
-            name='controller_server',
-            namespace=namespace,
-            output='screen',
-            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
-            remappings=remappings
-            )
-    planner_cmd = Node(
-            package='mcr_planner',
-            executable='mcr_planner_server',
-            name='planner_server',
-            namespace=namespace,
-            output='screen',
-            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
-            remappings=remappings
-            )
-    recoveries_cmd = Node(
-            package='nav2_recoveries',
-            executable='recoveries_server',
-            name='recoveries_server',
-            namespace=namespace,
-            output='screen',
-            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
-            remappings=remappings
-            )
-    bt_navigator_cmd = Node(
-            package='nav2_bt_navigator',
-            executable='bt_navigator',
-            name='bt_navigator',
-            namespace=namespace,
-            output='screen',
-            parameters=[{configured_params},{configured_params_f},{configured_params_a}],
-            remappings=remappings
-            )
-    map_server_cmd = Node(
-            package='nav2_map_server',
-            executable='map_server',
-            name='map_server',
-            namespace=namespace,
-            output='screen',
-            parameters=[{'yaml_filename': map_file}],
-            remappings=remappings)
+    bringup_dir = FindPackageShare(package='mcr_bringup').find('mcr_bringup') 
+    navigator_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(bringup_dir, 'launch/bringup_navigate_to_pose_launch.py')),
+            launch_arguments={'namespace': namespace}.items()
+        )  
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        controller_cmd,
-        planner_cmd,
-        recoveries_cmd,
-        bt_navigator_cmd,
-        map_server_cmd
+        navigator_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':
