@@ -88,7 +88,7 @@ public:
   void Reset()
   {
     executor_stair_jumping_->Interupt();
-    executor_auto_tracking_->Interupt();
+    executor_auto_tracking_->Cancel();
     mode_detector_->Reset();
     DoNormallyTracking(true);
     status_ = BehaviorStatus::kNormTracking;

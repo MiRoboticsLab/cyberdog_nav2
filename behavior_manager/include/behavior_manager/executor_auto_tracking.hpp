@@ -157,6 +157,11 @@ public:
   {
     Execute(false);
   }
+  void Cancel()
+  {
+    Execute(false);
+    cancel_task_ = true;
+  }
   void DoAutoTracking()
   {
     while (rclcpp::ok()) {
@@ -232,8 +237,8 @@ public:
           auto base_time = std::chrono::system_clock::now();
           auto task_time = base_time + std::chrono::seconds(20);
           while (auto_tracking_start_) {
-            if (!first_send) {
-              first_send = true;
+            if (!first_send_) {
+              first_send_ = true;
               req_audio->module_name = iter->second.module_name;
               req_audio->is_online = iter->second.is_online;
               req_audio->text = iter->second.text;
@@ -270,11 +275,11 @@ public:
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
           }
-          first_send = false;
+          first_send_ = false;
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(time_));
       }
-      if (!auto_tracking_start_) {
+      if (!auto_tracking_start_ && !cancel_task_) {
         req_led->occupation = 1;
         req_led->client = "tracking";
         req_led->target = 1;
@@ -284,6 +289,9 @@ public:
         req_led->g_value = 0XA5;
         req_led->b_value = 0X00;
         auto future_led = led_execute_client_->async_send_request(req_led);
+      }
+      if (cancel_task_) {
+        cancel_task_ = false;
       }
     }
   }
@@ -301,12 +309,12 @@ private:
   std::mutex auto_tracking_start_mutex_;
   std::condition_variable auto_tracking_start_cv_;
   bool auto_tracking_start_{false};
+  bool cancel_task_{false};
   std::map<int32_t, BehaviorIdMap> behavior_id_map_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   std::thread tm;
-  int time_;
-  bool stop = false;
-  bool first_send = false;
+  int time_{0};
+  bool first_send_{false};
 };  // class ExecutorAutoTracking
 }  // namespace algorithm
 }  // namespace cyberdog
