@@ -54,6 +54,7 @@ def generate_launch_description():
     recoveries_params = RewrittenYaml(
         source_file=recoveries_params_file,
         root_key=namespace,
+        param_rewrites={},
         convert_types=True
         )
     recoveries_cmd = Node(
@@ -64,7 +65,7 @@ def generate_launch_description():
         parameters=[recoveries_params],
         namespace=namespace,
         remappings=remappings
-        ),
+        )
 ########################  shared  ##############################
 
 ######################## tracking ##############################
@@ -178,6 +179,7 @@ def generate_launch_description():
     configured_params_ab = RewrittenYaml(
         source_file=ab_params_file,
         root_key=namespace,
+        param_rewrites={},
         convert_types=True
         )
     # SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
@@ -189,7 +191,7 @@ def generate_launch_description():
         parameters=[configured_params_ab],
         namespace=namespace,
         remappings=remappings
-        ),
+        )
     controller_ab_cmd = Node(
         package='nav2_controller',
         executable='controller_server',
@@ -198,7 +200,7 @@ def generate_launch_description():
         parameters=[configured_params_ab],
         namespace=namespace,
         remappings=remappings
-        ),
+        )
     planner_ab_cmd = Node(
         package='nav2_planner',
         executable='planner_server',
@@ -207,7 +209,7 @@ def generate_launch_description():
         parameters=[configured_params_ab],
         namespace=namespace,
         remappings=remappings
-        ),
+        )
 ######################## nav_ab ##############################
 
     ld = launch.LaunchDescription([
