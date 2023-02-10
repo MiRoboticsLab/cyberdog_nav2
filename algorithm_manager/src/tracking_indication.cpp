@@ -52,69 +52,43 @@ LedManagerNode::LedManagerNode(std::string name)
 void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
 {
   switch (msg->task_status) {
-    case 11:
-      if (!follow_tags_start_) {
+    case static_cast<int>(ManagerStatus::kExecutingUwbTracking):
+      if (status_ == Status::kIdle) {
         LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
         LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
         LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31000};
         ReqAudio(audio_play);
-        follow_tags_start_ = true;
         status_ = Status::kStartUwb;
       }
       break;
 
-    case 13:
-      if (!follow_person_start_) {
+    case static_cast<int>(ManagerStatus::kExecutingHumanTracking):
+      if (status_ == Status::kIdle) {
         LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
         LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
         LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31001};
         ReqAudio(audio_play);
-        follow_person_start_ = true;
         status_ = Status::kStartHuman;
       }
       break;
 
-    case 3:
-      if (!follow_object_start_) {
+    case static_cast<int>(ManagerStatus::kExecutingFollowing):
+      if (status_ == Status::kIdle) {
         LedInfo headled_on{1, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
         LedInfo tailled_on{1, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
         LedInfo miniled_on{1, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31002};
         ReqAudio(audio_play);
-        follow_object_start_ = true;
         status_ = Status::kStartFollow;
       }
       break;
 
-    case 103:
-      if (status_ != Status::kIdle) {
-        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
-        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
-        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
-        ReqLed(headled_on, tailled_on, miniled_on);
-        if (status_ == Status::kStartUwb) {
-          AudioInfo audio_play{"tracking", false, 31003};
-          ReqAudio(audio_play);
-        } else if (status_ == Status::kStartHuman) {
-          AudioInfo audio_play{"tracking", false, 31004};
-          ReqAudio(audio_play);
-        } else {
-          AudioInfo audio_play{"tracking", false, 31005};
-          ReqAudio(audio_play);
-        }
-        follow_object_start_ = false;
-        follow_tags_start_ = false;
-        follow_person_start_ = false;
-        status_ = Status::kIdle;
-      }
-      break;
-
-    case 101:
+    case static_cast<int>(ManagerStatus::kStoppingTask):
       if (status_ == Status::kStartUwb) {
         LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
         LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
@@ -122,7 +96,6 @@ void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedP
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31003};
         ReqAudio(audio_play);
-        follow_tags_start_ = false;
         status_ = Status::kIdle;
       } else if (status_ == Status::kStartHuman) {
         LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
@@ -131,7 +104,6 @@ void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedP
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31004};
         ReqAudio(audio_play);
-        follow_person_start_ = false;
         status_ = Status::kIdle;
       } else if (status_ == Status::kStartFollow) {
         LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
@@ -140,7 +112,34 @@ void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedP
         ReqLed(headled_on, tailled_on, miniled_on);
         AudioInfo audio_play{"tracking", false, 31005};
         ReqAudio(audio_play);
-        follow_object_start_ = false;
+        status_ = Status::kIdle;
+      }
+      break;
+
+    case static_cast<int>(ManagerStatus::kIdle):
+      if (status_ == Status::kStartUwb) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31003};
+        ReqAudio(audio_play);
+        status_ = Status::kIdle;
+      } else if (status_ == Status::kStartHuman) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31004};
+        ReqAudio(audio_play);
+        status_ = Status::kIdle;
+      } else if (status_ == Status::kStartFollow) {
+        LedInfo headled_on{0, "tracking", 1, 0x02, 0x08, 0xFF, 0XA5, 0X00};
+        LedInfo tailled_on{0, "tracking", 2, 0x02, 0x08, 0XFF, 0XA5, 0X00};
+        LedInfo miniled_on{0, "tracking", 3, 0x02, 0x30, 0xFF, 0XA5, 0X00};
+        ReqLed(headled_on, tailled_on, miniled_on);
+        AudioInfo audio_play{"tracking", false, 31005};
+        ReqAudio(audio_play);
         status_ = Status::kIdle;
       }
       break;
