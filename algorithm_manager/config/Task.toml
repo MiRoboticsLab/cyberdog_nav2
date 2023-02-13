@@ -3,8 +3,7 @@ TaskName = "UwbTracking"
 Id = 11
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb", 'controller_server', 
-                      "planner_server", "recoveries_server", "bt_navigator"]
+DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb", 'controller_server_tracking', "planner_server_tracking", "recoveries_server", "bt_navigator_tracking"]
 
 [[task]]
 TaskName = "LaserMapping"
@@ -39,15 +38,14 @@ TaskName = "NavAB"
 Id = 1
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["controller_server", "planner_server", "recoveries_server" , "bt_navigator"]
+DepsLifecycleNodes = ["controller_server_ab", "planner_server_ab", "recoveries_server" , "bt_navigator_ab"]
 
 [[task]]
 TaskName = "VisionTracking"
 Id = 13
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "controller_server",
-                      "planner_server", "recoveries_server", "bt_navigator", "vision_manager"]
+DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "controller_server_tracking", "planner_server_tracking", "recoveries_server", "bt_navigator_tracking", "vision_manager"]
 
 [[task]]
 TaskName = "ResetNav"
@@ -62,5 +60,4 @@ TaskName = "AutoDock"
 Id = 9
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["charging_localization", "mivinsfollowing", "controller_server", "planner_server", "recoveries_server",
-                      "bt_navigator"]
+DepsLifecycleNodes = ["charging_localization", "mivinsfollowing", "controller_server_docking", "planner_server_docking", "recoveries_server", "bt_navigator_docking"]

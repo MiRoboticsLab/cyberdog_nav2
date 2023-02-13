@@ -329,9 +329,9 @@ void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr 
     GetStatus() != ManagerStatus::kStoppingTask)
   {
     if (feedback->feedback_code == last_feedback_) {
-      WARN(
-        "Last Feedback: %d, new feedback: %d, will not send", last_feedback_,
-        feedback->feedback_code);
+      // WARN(
+      //   "Last Feedback: %d, new feedback: %d, will not send", last_feedback_,
+      //   feedback->feedback_code);
       return;
     }
     INFO("Sending Feedback: %d", feedback->feedback_code);
