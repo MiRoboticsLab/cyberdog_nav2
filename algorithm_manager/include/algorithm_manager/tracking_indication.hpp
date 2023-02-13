@@ -21,6 +21,7 @@
 #include "protocol/srv/audio_text_play.hpp"
 #include "protocol/msg/audio_play.hpp"
 #include "protocol/msg/algo_task_status.hpp"
+#include "algorithm_manager/algorithm_task_manager.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
 #include "cyberdog_common/cyberdog_toml.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -106,9 +107,6 @@ private:
   rclcpp::Subscription<protocol::msg::AlgoTaskStatus>::SharedPtr algotask_status_sub_ {nullptr};
   rclcpp::Client<protocol::srv::LedExecute>::SharedPtr led_execute_client_ {nullptr};
   rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_ {nullptr};
-  bool follow_tags_start_ {false};
-  bool follow_person_start_ {false};
-  bool follow_object_start_ {false};
   Status status_{Status::kIdle};
 };
 }  // namespace algorithm
