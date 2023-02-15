@@ -120,7 +120,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool CheckMapAvailable();
+  bool CheckMapAvailable(int & code);
 
   /**
    * @brief Set all lifecycle default state

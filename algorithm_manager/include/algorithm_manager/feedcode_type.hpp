@@ -28,6 +28,8 @@ namespace relocalization
   - 正在检查地图：3100
   - 地图检查成功： 3101
   - 地图检查不可用，请重新建图： 3102
+  - 地图后台构建中，请稍后： 3110
+  - 地图检查服务出现异常，请重启机器狗： 3111
 启动视觉SLAM相关服务feedback_code ：
   - 正在启动重定位依赖服务：3103
   - 启动重定位依赖服务成功： 3104
@@ -47,6 +49,8 @@ namespace relocalization
 constexpr int kMapChecking = 3100;
 constexpr int kMapCheckingSuccess = 3101;
 constexpr int kMapCheckingError = 3102;
+constexpr int kMapCheckingUnderGoing = 3110;
+constexpr int kMapCheckingException = 3111;
 
 // 启动视觉SLAM相关服务feedback_code
 constexpr int kServiceStarting = 3103;

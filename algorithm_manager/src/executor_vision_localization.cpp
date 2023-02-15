@@ -61,10 +61,11 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
 
   // Check current map available
   UpdateFeedback(relocalization::kMapChecking);
-  bool available = CheckMapAvailable();
+  int code = 0;
+  bool available = CheckMapAvailable(code);
   if (!available) {
     ERROR("Vision build map file not available, you must wait a while or map file error");
-    UpdateFeedback(relocalization::kMapCheckingError);
+    UpdateFeedback(code);
     ResetFlags();
     task_abort_callback_();
     return;
@@ -424,7 +425,7 @@ bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
   return result;
 }
 
-bool ExecutorVisionLocalization::CheckMapAvailable()
+bool ExecutorVisionLocalization::CheckMapAvailable(int & code)
 {
   std::lock_guard<std::mutex> lock(task_mutex_);
   if (map_result_client_ == nullptr) {
@@ -448,8 +449,19 @@ bool ExecutorVisionLocalization::CheckMapAvailable()
   bool result = false;
   try {
     auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
-    result = future_result->code == 0;
+    if (future_result->code == 0) {
+      code = relocalization::kMapCheckingSuccess;
+      result = true;
+    } else if (future_result->code == 300) {
+      code = relocalization::kMapCheckingUnderGoing;
+      result = false;
+    } else {
+      code = relocalization::kMapCheckingError;
+      result = false;
+    }
   } catch (const std::exception & e) {
+    code = relocalization::kMapCheckingException;
+    result = false;
     ERROR("%s", e.what());
   }
 
