@@ -85,6 +85,7 @@ private:
   bool ReqeustVisionBuildingMapAvailable(bool & map_suatus, const std::string & map_name = "map");
   bool CheckDuplicateTags(const std::vector<protocol::msg::Label> & labels);
   bool GetOutdoorValue(const std::string & filename, bool & outdoor);
+  int CheckVisonMapStatus();
 
   std::mutex mut;
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr set_label_server_ {nullptr};

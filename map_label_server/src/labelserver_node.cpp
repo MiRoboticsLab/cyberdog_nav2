@@ -79,6 +79,8 @@ void LabelServer::HandleGetLabelServiceCallback(
   std::shared_ptr<protocol::srv::GetMapLabel::Response> response)
 {
   std::unique_lock<std::mutex> ulk(mut);
+  response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+
   INFO("----------GetLabel----------");
   INFO("request map_name : %s", request->map_name.c_str());
 
@@ -131,17 +133,22 @@ void LabelServer::HandleGetLabelServiceCallback(
     }
   }
 
-  // Set response result.
-  response->label.map.info.resolution = map.info.resolution;
-  response->label.map.info.width = map.info.width;
-  response->label.map.info.height = map.info.height;
-  response->label.map.info.origin = map.info.origin;
-  response->label.map.data = map.data;
+  if (is_outdoor) {
+    response->success = CheckVisonMapStatus();
+  }
+
+  if (response->success == 0) {
+    // Set response result.
+    response->label.map.info.resolution = map.info.resolution;
+    response->label.map.info.width = map.info.width;
+    response->label.map.info.height = map.info.height;
+    response->label.map.info.origin = map.info.origin;
+    response->label.map.data = map.data;
+  }
 
   // is_outdoor
   response->label.is_outdoor = is_outdoor;
   response->label.map_name = map_name;
-  response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
   INFO("Get outdoor value : %d", is_outdoor);
 
   // publish map
@@ -393,6 +400,51 @@ bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
   label_store_->Read(filename, labels, outdoor);
   INFO("Read from file %s outdoor value : %d", filename.c_str(), outdoor);
   return true;
+}
+
+int LabelServer::CheckVisonMapStatus()
+{
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  // Client request
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(2));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service timeout.");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  request->map_id = 1;
+
+  // success = 2 —— 正在构建地图
+  // success = 3 —— 构建地图失败,请重新建图
+  // success = 4 —— 查询地图失败，请重启机器狗
+  int status = -1;
+  try {
+    //   0: 重定位地图可用
+    // 300: 重定位地图不可用，正在构建中
+    // 301: 重定位地图不可用，上次离线建图出错，需要重新建图
+    // 302: 重定位地图不可用，需要重新扫图⁣ 
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
+    if (future_result->code == 0) {
+      INFO("Relocation map is available");
+      status = 0;
+    } else if (future_result->code == 300) {
+      ERROR("Current vision map is building.");
+      status = 2;
+    } else if (future_result->code == 301 || future_result->code == 302) {
+      ERROR("Current vision map is unavailable, please remapping.");
+      status = 3;
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+    status = 4;
+  }
+  return status;
 }
 
 }  // namespace CYBERDOG_NAV
