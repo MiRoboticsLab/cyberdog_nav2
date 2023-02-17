@@ -416,7 +416,7 @@ int LabelServer::CheckVisonMapStatus()
     // 300: 重定位地图不可用，正在构建中
     // 301: 重定位地图不可用，上次离线建图出错，需要重新建图
     // 302: 重定位地图不可用，需要重新扫图⁣
-    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5));
     if (future_result->code == 0) {
       INFO("Relocation map is available");
       status = 0;

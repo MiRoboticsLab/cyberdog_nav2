@@ -448,7 +448,7 @@ bool ExecutorVisionLocalization::CheckMapAvailable(int & code)
 
   bool result = false;
   try {
-    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5));
     if (future_result->code == 0) {
       code = relocalization::kMapCheckingSuccess;
       result = true;
