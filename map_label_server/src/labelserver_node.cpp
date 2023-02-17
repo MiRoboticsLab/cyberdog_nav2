@@ -85,32 +85,34 @@ void LabelServer::HandleGetLabelServiceCallback(
   INFO("request map_name : %s", request->map_name.c_str());
 
   std::string map_name = GetMapName(label_store_->map_label_directory());
-  if (map_name.empty()) {
-    WARN("User have not create map, map and labels file not exist.");
-    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
-    return;
-  }
-
   std::string map_filename = label_store_->map_label_directory() + map_name + ".pgm";
   std::string label_filename = label_store_->map_label_directory() + map_name + ".json";
   std::string map_yaml_config = label_store_->map_label_directory() + map_name + ".yaml";
 
-  // bool map_status = false;
-  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, label_filename);
-  // if (!ready && !map_status) {
-  //   WARN("Current map not available.");
-  //   return;
-  // }
-
-  if (!label_store_->IsExist(map_filename)) {
-    WARN("Map file (%s) not exist.", map_filename.c_str());
-    // clear map data
-    response->label.map.data.clear();
-    response->label.map.info.resolution = 0.0f;
-    response->label.map.info.width = 0;
-    response->label.map.info.height = 0;
+  if (!filesystem::exists(label_filename)) {
+    ERROR("label json filename(%s) is not exist.", label_filename.c_str());
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
+  }
+
+  // Load map's labels
+  std::vector<protocol::msg::Label> labels;
+  bool is_outdoor = false;
+  label_store_->Read(label_filename, labels, is_outdoor);
+  if (!labels.empty()) {
+    for (auto label : labels) {
+      response->label.labels.push_back(label);
+    }
+  }
+
+  if (is_outdoor) {
+    response->success = CheckVisonMapStatus();
+  } else {
+    if (map_name.empty()) {
+      WARN("User have not create map, map %s not exist.", map_name.c_str());
+      response->success = 2;
+      return;
+    }
   }
 
   // Load map's yaml config
@@ -120,21 +122,6 @@ void LabelServer::HandleGetLabelServiceCallback(
     WARN("Map yaml config file (%s) not exist.", map_yaml_config.c_str());
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
-  }
-
-  // Load map's labels
-  std::vector<protocol::msg::Label> labels;
-  bool is_outdoor = false;
-  label_store_->Read(label_filename, labels, is_outdoor);
-
-  if (!labels.empty()) {
-    for (auto label : labels) {
-      response->label.labels.push_back(label);
-    }
-  }
-
-  if (is_outdoor) {
-    response->success = CheckVisonMapStatus();
   }
 
   if (response->success == 0) {
@@ -428,7 +415,7 @@ int LabelServer::CheckVisonMapStatus()
     //   0: 重定位地图可用
     // 300: 重定位地图不可用，正在构建中
     // 301: 重定位地图不可用，上次离线建图出错，需要重新建图
-    // 302: 重定位地图不可用，需要重新扫图⁣ 
+    // 302: 重定位地图不可用，需要重新扫图⁣
     auto future_result = map_result_client_->invoke(request, std::chrono::seconds(10));
     if (future_result->code == 0) {
       INFO("Relocation map is available");
