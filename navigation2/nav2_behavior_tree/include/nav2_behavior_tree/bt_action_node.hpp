@@ -198,8 +198,7 @@ public:
             node_->get_logger(),
             "Timed out while waiting for action server to acknowledge goal request for %s",
             action_name_.c_str());
-          if(future_goal_handle_)
-            future_goal_handle_.reset();
+          future_goal_handle_.reset();
           return BT::NodeStatus::FAILURE;
         }
       }
@@ -224,8 +223,7 @@ public:
               node_->get_logger(),
               "Timed out while waiting for action server to acknowledge goal request for %s",
               action_name_.c_str());
-            if(future_goal_handle_)
-              future_goal_handle_.reset();
+            future_goal_handle_.reset();
             return BT::NodeStatus::FAILURE;
           }
         }
@@ -234,10 +232,6 @@ public:
 
         // check if, after invoking spin_some(), we finally received the result
         if (!goal_result_available_) {
-          auto elapsed = (node_->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
-          if (elapsed > server_timeout_) {
-            return BT::NodeStatus::FAILURE;
-          }
           // Yield this Action, returning RUNNING
           return BT::NodeStatus::RUNNING;
         }
