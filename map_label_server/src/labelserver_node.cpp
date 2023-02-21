@@ -79,36 +79,44 @@ void LabelServer::HandleGetLabelServiceCallback(
   std::shared_ptr<protocol::srv::GetMapLabel::Response> response)
 {
   std::unique_lock<std::mutex> ulk(mut);
+  response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
+
   INFO("----------GetLabel----------");
   INFO("request map_name : %s", request->map_name.c_str());
 
   std::string map_name = GetMapName(label_store_->map_label_directory());
   if (map_name.empty()) {
-    WARN("User have not create map, map and labels file not exist.");
-    response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
-    return;
+    map_name = request->map_name.c_str();
   }
 
   std::string map_filename = label_store_->map_label_directory() + map_name + ".pgm";
   std::string label_filename = label_store_->map_label_directory() + map_name + ".json";
   std::string map_yaml_config = label_store_->map_label_directory() + map_name + ".yaml";
 
-  // bool map_status = false;
-  // bool ready = ReqeustVisionBuildingMapAvailable(map_status, label_filename);
-  // if (!ready && !map_status) {
-  //   WARN("Current map not available.");
-  //   return;
-  // }
-
-  if (!label_store_->IsExist(map_filename)) {
-    WARN("Map file (%s) not exist.", map_filename.c_str());
-    // clear map data
-    response->label.map.data.clear();
-    response->label.map.info.resolution = 0.0f;
-    response->label.map.info.width = 0;
-    response->label.map.info.height = 0;
+  if (!filesystem::exists(label_filename)) {
+    ERROR("label json filename(%s) is not exist.", label_filename.c_str());
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
     return;
+  }
+
+  // Load map's labels
+  std::vector<protocol::msg::Label> labels;
+  bool is_outdoor = false;
+  label_store_->Read(label_filename, labels, is_outdoor);
+  if (!labels.empty()) {
+    for (auto label : labels) {
+      response->label.labels.push_back(label);
+    }
+  }
+
+  if (is_outdoor) {
+    response->success = CheckVisonMapStatus();
+  } else {
+    if (map_name.empty()) {
+      WARN("User have not create map, map %s not exist.", map_name.c_str());
+      response->success = 2;
+      return;
+    }
   }
 
   // Load map's yaml config
@@ -120,28 +128,18 @@ void LabelServer::HandleGetLabelServiceCallback(
     return;
   }
 
-  // Load map's labels
-  std::vector<protocol::msg::Label> labels;
-  bool is_outdoor = false;
-  label_store_->Read(label_filename, labels, is_outdoor);
-
-  if (!labels.empty()) {
-    for (auto label : labels) {
-      response->label.labels.push_back(label);
-    }
+  if (response->success == 0) {
+    // Set response result.
+    response->label.map.info.resolution = map.info.resolution;
+    response->label.map.info.width = map.info.width;
+    response->label.map.info.height = map.info.height;
+    response->label.map.info.origin = map.info.origin;
+    response->label.map.data = map.data;
   }
-
-  // Set response result.
-  response->label.map.info.resolution = map.info.resolution;
-  response->label.map.info.width = map.info.width;
-  response->label.map.info.height = map.info.height;
-  response->label.map.info.origin = map.info.origin;
-  response->label.map.data = map.data;
 
   // is_outdoor
   response->label.is_outdoor = is_outdoor;
   response->label.map_name = map_name;
-  response->success = protocol::srv::GetMapLabel_Response::RESULT_SUCCESS;
   INFO("Get outdoor value : %d", is_outdoor);
 
   // publish map
@@ -393,6 +391,52 @@ bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
   label_store_->Read(filename, labels, outdoor);
   INFO("Read from file %s outdoor value : %d", filename.c_str(), outdoor);
   return true;
+}
+
+int LabelServer::CheckVisonMapStatus()
+{
+  int status = -1;
+  if (map_result_client_ == nullptr) {
+    map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
+      "get_miloc_status", shared_from_this());
+  }
+
+  // Client request
+  bool connect = map_result_client_->wait_for_service(std::chrono::seconds(2));
+  if (!connect) {
+    ERROR("Waiting for miloc map handler the service timeout.");
+    status = 4;
+    return status;
+  }
+
+  // Set request data
+  auto request = std::make_shared<MapAvailableResult::Request>();
+  request->map_id = 1;
+
+  // success = 2 —— 正在构建地图
+  // success = 3 —— 构建地图失败,请重新建图
+  // success = 4 —— 查询地图失败，请重启机器狗
+  try {
+    //   0: 重定位地图可用
+    // 300: 重定位地图不可用，正在构建中
+    // 301: 重定位地图不可用，上次离线建图出错，需要重新建图
+    // 302: 重定位地图不可用，需要重新扫图⁣
+    auto future_result = map_result_client_->invoke(request, std::chrono::seconds(5));
+    if (future_result->code == 0) {
+      INFO("Relocation map is available");
+      status = 0;
+    } else if (future_result->code == 300) {
+      ERROR("Current vision map is building.");
+      status = 2;
+    } else if (future_result->code == 301 || future_result->code == 302) {
+      ERROR("Current vision map is unavailable, please remapping.");
+      status = 3;
+    }
+  } catch (const std::exception & e) {
+    ERROR("%s", e.what());
+    status = 4;
+  }
+  return status;
 }
 
 }  // namespace CYBERDOG_NAV
