@@ -85,6 +85,10 @@ void LabelServer::HandleGetLabelServiceCallback(
   INFO("request map_name : %s", request->map_name.c_str());
 
   std::string map_name = GetMapName(label_store_->map_label_directory());
+  if (map_name.empty()) {
+    map_name = request->map_name.c_str();
+  }
+
   std::string map_filename = label_store_->map_label_directory() + map_name + ".pgm";
   std::string label_filename = label_store_->map_label_directory() + map_name + ".json";
   std::string map_yaml_config = label_store_->map_label_directory() + map_name + ".yaml";
@@ -391,6 +395,7 @@ bool LabelServer::GetOutdoorValue(const std::string & filename, bool & outdoor)
 
 int LabelServer::CheckVisonMapStatus()
 {
+  int status = -1;
   if (map_result_client_ == nullptr) {
     map_result_client_ = std::make_shared<nav2_util::ServiceClient<MapAvailableResult>>(
       "get_miloc_status", shared_from_this());
@@ -400,7 +405,8 @@ int LabelServer::CheckVisonMapStatus()
   bool connect = map_result_client_->wait_for_service(std::chrono::seconds(2));
   if (!connect) {
     ERROR("Waiting for miloc map handler the service timeout.");
-    return false;
+    status = 4;
+    return status;
   }
 
   // Set request data
@@ -410,7 +416,6 @@ int LabelServer::CheckVisonMapStatus()
   // success = 2 —— 正在构建地图
   // success = 3 —— 构建地图失败,请重新建图
   // success = 4 —— 查询地图失败，请重启机器狗
-  int status = -1;
   try {
     //   0: 重定位地图可用
     // 300: 重定位地图不可用，正在构建中
