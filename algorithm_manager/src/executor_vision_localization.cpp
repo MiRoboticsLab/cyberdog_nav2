@@ -279,7 +279,7 @@ bool ExecutorVisionLocalization::IsDependsReady()
   INFO("IsDependsReady(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   INFO("IsDependsReady(): Success to get lifecycle_mutex");
-  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name(), 35000);
   if (!acivate_success) {
     return false;
   }
@@ -473,7 +473,7 @@ bool ExecutorVisionLocalization::ResetAllLifecyceNodes()
   INFO("ResetAllLifecyceNodes():Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   INFO("ResetAllLifecyceNodes():Success to get lifecycle_mutex");
-  return DeactivateDepsLifecycleNodes();
+  return DeactivateDepsLifecycleNodes(35000);
 }
 
 bool ExecutorVisionLocalization::SendServerRequest(

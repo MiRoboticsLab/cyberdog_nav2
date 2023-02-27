@@ -137,7 +137,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!connect) {
     ERROR("Connect navigation AB point server failed.");
     UpdateFeedback(kErrorConnectActionServer);
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(30000);
     task_abort_callback_();
     return;
   }
@@ -148,7 +148,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
     UpdateFeedback(kErrorTargetGoalIsEmpty);
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(30000);
     task_abort_callback_();
     return;
   }
@@ -169,7 +169,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // Send goal request
   if (!SendGoal(goal->poses[0])) {
     ERROR("Send navigation AB point send target goal request failed.");
-    DeactivateDepsLifecycleNodes();
+    DeactivateDepsLifecycleNodes(30000);
     UpdateFeedback(kErrorSendGoalTarget);
     task_abort_callback_();
     return;
@@ -269,8 +269,8 @@ bool ExecutorAbNavigation::IsDependsReady()
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   INFO("IsDependsReady(): Success to get lifecycle_mutex_");
   // Nav lifecycle
-  if (!ActivateDepsLifecycleNodes(this->get_name())) {
-    DeactivateDepsLifecycleNodes();
+  if (!ActivateDepsLifecycleNodes(this->get_name()), 30000) {
+    DeactivateDepsLifecycleNodes(30000);
     return false;
   }
 
@@ -461,7 +461,7 @@ bool ExecutorAbNavigation::ResetAllLifecyceNodes()
   INFO("ResetAllLifecyceNodes(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
   INFO("ResetAllLifecyceNodes(): Success to get lifecycle_mutex_");
-  bool success = DeactivateDepsLifecycleNodes();
+  bool success = DeactivateDepsLifecycleNodes(30000);
   return success;
 }
 

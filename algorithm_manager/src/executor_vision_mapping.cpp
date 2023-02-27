@@ -199,7 +199,7 @@ void ExecutorVisionMapping::Cancel()
 bool ExecutorVisionMapping::IsDependsReady()
 {
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name(), 35000);
   if (!acivate_success) {
     return false;
   }
@@ -440,7 +440,7 @@ bool ExecutorVisionMapping::InvokeOutdoorFlag(const std::string & mapname)
 bool ExecutorVisionMapping::ResetAllLifecyceNodes()
 {
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  return DeactivateDepsLifecycleNodes();
+  return DeactivateDepsLifecycleNodes(35000);
 }
 
 bool ExecutorVisionMapping::CheckExit()
