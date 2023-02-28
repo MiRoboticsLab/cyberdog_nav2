@@ -2,7 +2,7 @@
 [[behavior_ids]]
 behavior_id = 1
 property = "motion"
-motion_id = 143
+motion_id = 146
 vel_des = [0.0, 0.0, 0.0]
 rpy_des = [0.0, 0.0, 0.0]
 pos_des = [0.0, 0.0, 0.0]
@@ -10,7 +10,7 @@ step_height = [0.0, 0.0]
 duration = 0
 module_name = "node_"  
 is_online = true
-text = "铁蛋在这坐一会儿，顺便伸个懒腰"
+text = "铁蛋休息一会儿，顺便伸个懒腰"
 occupation = true
 client = "tracking"
 target = 1
