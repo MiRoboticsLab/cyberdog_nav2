@@ -228,15 +228,6 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   (void)keep_distance;
   SetFeedbackCode(500);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
-  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
-    ERROR("ActivateDepsLifecycleNodes failed");
-    ReportPreparationFinished(506);
-    if (!DeactivateDepsLifecycleNodes(3000)) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
-    }
-    task_abort_callback_();
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  }
   if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(506);
@@ -246,6 +237,16 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
     task_abort_callback_();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
+  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
+    ERROR("ActivateDepsLifecycleNodes failed");
+    ReportPreparationFinished(506);
+    if (!DeactivateDepsLifecycleNodes(3000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  }
+
   start_vision_tracking_ = true;
   SetFeedbackCode(501);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
