@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef PLUGINS__OBSTACLE_LAYER_HPP_
-#define PLUGINS__OBSTACLE_LAYER_HPP_
+#ifndef LIDAR_OBSTACLE_LAYER__LIDAR_OBSTACLE_LAYER_HPP_
+#define LIDAR_OBSTACLE_LAYER__LIDAR_OBSTACLE_LAYER_HPP_
 
 #include <memory>
 #include <string>
@@ -35,20 +35,20 @@
 #include "nav2_costmap_2d/observation_buffer.hpp"
 #include "nav2_costmap_2d/footprint.hpp"
 
-namespace nav2_costmap_2d
+namespace lidar_obstacle_layer
 {
 
 /**
  * @class ObstacleLayer
  * @brief Takes in laser and pointcloud data to populate into 2D costmap
  */
-class NavObstacleLayer : public CostmapLayer
+class ObstacleLayer : public nav2_costmap_2d::CostmapLayer
 {
 public:
   /**
    * @brief A constructor
    */
-  NavObstacleLayer()
+  ObstacleLayer()
   {
     costmap_ = NULL;  // this is the unsigned char* member of parent class Costmap2D.
   }
@@ -56,7 +56,7 @@ public:
   /**
    * @brief A destructor
    */
-  virtual ~NavObstacleLayer();
+  virtual ~ObstacleLayer();
   /**
    * @brief Initialization process of layer on startup
    */
@@ -220,6 +220,6 @@ protected:
   int combination_method_;
 };
 
-}  // namespace nav2_costmap_2d
+}  // namespace lidar_obstacle_layer
 
-#endif  // PLUGINS__OBSTACLE_LAYER_HPP_
+#endif  // LIDAR_OBSTACLE_LAYER__LIDAR_OBSTACLE_LAYER_HPP_

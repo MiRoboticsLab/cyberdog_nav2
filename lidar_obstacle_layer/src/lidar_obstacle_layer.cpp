@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "plugins/obstacle_layer.hpp"
+
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
@@ -23,8 +23,10 @@
 #include "pluginlib/class_list_macros.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "nav2_costmap_2d/costmap_math.hpp"
+#include "nav2_costmap_2d/obstacle_layer.hpp"
+#include "lidar_obstacle_layer/lidar_obstacle_layer.hpp"
 
-PLUGINLIB_EXPORT_CLASS(nav2_costmap_2d::NavObstacleLayer, nav2_costmap_2d::Layer)
+PLUGINLIB_EXPORT_CLASS(lidar_obstacle_layer::ObstacleLayer, nav2_costmap_2d::Layer)
 
 using nav2_costmap_2d::NO_INFORMATION;
 using nav2_costmap_2d::LETHAL_OBSTACLE;
@@ -33,17 +35,19 @@ using nav2_costmap_2d::FREE_SPACE;
 using nav2_costmap_2d::ObservationBuffer;
 using nav2_costmap_2d::Observation;
 
-namespace nav2_costmap_2d
+using namespace nav2_costmap_2d;  // NOLINT
+
+namespace lidar_obstacle_layer
 {
 
-NavObstacleLayer::~NavObstacleLayer()
+ObstacleLayer::~ObstacleLayer()
 {
   for (auto & notifier : observation_notifiers_) {
     notifier.reset();
   }
 }
 
-void NavObstacleLayer::onInitialize()
+void ObstacleLayer::onInitialize()
 {
   bool track_unknown_space;
   double transform_tolerance;
@@ -92,7 +96,7 @@ void NavObstacleLayer::onInitialize()
     default_value_ = FREE_SPACE;
   }
 
-  NavObstacleLayer::matchSize();
+  ObstacleLayer::matchSize();
   current_ = true;
   was_reset_ = false;
 
@@ -114,7 +118,7 @@ void NavObstacleLayer::onInitialize()
     declareParameter(source + "." + "expected_update_rate", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "data_type", rclcpp::ParameterValue(std::string("LaserScan")));
     declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(-2.0));
-    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(10.0));
+    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(5.0));
     declareParameter(source + "." + "inf_is_valid", rclcpp::ParameterValue(false));
     declareParameter(source + "." + "marking", rclcpp::ParameterValue(true));
     declareParameter(source + "." + "clearing", rclcpp::ParameterValue(false));
@@ -163,15 +167,6 @@ void NavObstacleLayer::onInitialize()
       source.c_str(), topic.c_str(),
       sensor_frame.c_str());
 
-    RCLCPP_DEBUG(
-      logger_,
-      "obstacle_max_range: %lf, obstacle_min_range: %lf", obstacle_max_range, obstacle_min_range);
-
-    RCLCPP_DEBUG(
-      logger_,
-      "max_obstacle_height: %lf, min_obstacle_height: %lf", max_obstacle_height,
-      min_obstacle_height);
-
     // create an observation buffer
     observation_buffers_.push_back(
       std::shared_ptr<ObservationBuffer
@@ -218,13 +213,13 @@ void NavObstacleLayer::onInitialize()
       if (inf_is_valid) {
         filter->registerCallback(
           std::bind(
-            &NavObstacleLayer::laserScanValidInfCallback, this, std::placeholders::_1,
+            &ObstacleLayer::laserScanValidInfCallback, this, std::placeholders::_1,
             observation_buffers_.back()));
 
       } else {
         filter->registerCallback(
           std::bind(
-            &NavObstacleLayer::laserScanCallback, this, std::placeholders::_1,
+            &ObstacleLayer::laserScanCallback, this, std::placeholders::_1,
             observation_buffers_.back()));
       }
 
@@ -251,7 +246,7 @@ void NavObstacleLayer::onInitialize()
 
       filter->registerCallback(
         std::bind(
-          &NavObstacleLayer::pointCloud2Callback, this, std::placeholders::_1,
+          &ObstacleLayer::pointCloud2Callback, this, std::placeholders::_1,
           observation_buffers_.back()));
 
       observation_subscribers_.push_back(sub);
@@ -268,7 +263,7 @@ void NavObstacleLayer::onInitialize()
 }
 
 void
-NavObstacleLayer::laserScanCallback(
+ObstacleLayer::laserScanCallback(
   sensor_msgs::msg::LaserScan::ConstSharedPtr message,
   const std::shared_ptr<nav2_costmap_2d::ObservationBuffer> & buffer)
 {
@@ -295,10 +290,6 @@ NavObstacleLayer::laserScanCallback(
     return;
   }
 
-
-  // Print cloud data
-  RCLCPP_INFO(logger_, "[NavObstacleLayer] PointCloud2 data size: %d", cloud.data.size());
-
   // buffer the point cloud
   buffer->lock();
   buffer->bufferCloud(cloud);
@@ -306,7 +297,7 @@ NavObstacleLayer::laserScanCallback(
 }
 
 void
-NavObstacleLayer::laserScanValidInfCallback(
+ObstacleLayer::laserScanValidInfCallback(
   sensor_msgs::msg::LaserScan::ConstSharedPtr raw_message,
   const std::shared_ptr<nav2_costmap_2d::ObservationBuffer> & buffer)
 {
@@ -349,7 +340,7 @@ NavObstacleLayer::laserScanValidInfCallback(
 }
 
 void
-NavObstacleLayer::pointCloud2Callback(
+ObstacleLayer::pointCloud2Callback(
   sensor_msgs::msg::PointCloud2::ConstSharedPtr message,
   const std::shared_ptr<ObservationBuffer> & buffer)
 {
@@ -360,7 +351,7 @@ NavObstacleLayer::pointCloud2Callback(
 }
 
 void
-NavObstacleLayer::updateBounds(
+ObstacleLayer::updateBounds(
   double robot_x, double robot_y, double robot_yaw, double * min_x,
   double * min_y, double * max_x, double * max_y)
 {
@@ -397,10 +388,6 @@ NavObstacleLayer::updateBounds(
 
     const sensor_msgs::msg::PointCloud2 & cloud = *(obs.cloud_);
 
-    if (cloud.data.empty()) {
-      RCLCPP_INFO(logger_, "[NavObstacleLayer] empty data ...... ");
-    }
-
     double sq_obstacle_max_range = obs.obstacle_max_range_ * obs.obstacle_max_range_;
     double sq_obstacle_min_range = obs.obstacle_min_range_ * obs.obstacle_min_range_;
 
@@ -411,10 +398,7 @@ NavObstacleLayer::updateBounds(
     for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
       double px = *iter_x, py = *iter_y, pz = *iter_z;
 
-      RCLCPP_DEBUG(logger_, "[px = %lf, py = %lf, pz = %lf]", px, py, pz);
-
       // if the obstacle is too high or too far away from the robot we won't add it
-      RCLCPP_DEBUG(logger_, "max_obstacle_height: %lf", max_obstacle_height_);
       if (pz > max_obstacle_height_) {
         RCLCPP_DEBUG(logger_, "The point is too high");
         continue;
@@ -427,15 +411,12 @@ NavObstacleLayer::updateBounds(
         (pz - obs.origin_.z) * (pz - obs.origin_.z);
 
       // if the point is far enough away... we won't consider it
-      RCLCPP_DEBUG(logger_, "sq_dist: %lf", sq_dist);
-      RCLCPP_DEBUG(logger_, "sq_obstacle_max_range: %lf", sq_obstacle_max_range);
       if (sq_dist >= sq_obstacle_max_range) {
         RCLCPP_DEBUG(logger_, "The point is too far away");
         continue;
       }
 
       // if the point is too close, do not conisder it
-      RCLCPP_DEBUG(logger_, "sq_obstacle_min_range: %lf", sq_obstacle_min_range);
       if (sq_dist < sq_obstacle_min_range) {
         RCLCPP_DEBUG(logger_, "The point is too close");
         continue;
@@ -448,7 +429,7 @@ NavObstacleLayer::updateBounds(
         continue;
       }
 
-      RCLCPP_DEBUG(logger_, "Insert scan data costmap");
+      RCLCPP_DEBUG(logger_, "The point is too far away");
       unsigned int index = getIndex(mx, my);
       costmap_[index] = LETHAL_OBSTACLE;
       touch(px, py, min_x, min_y, max_x, max_y);
@@ -459,7 +440,7 @@ NavObstacleLayer::updateBounds(
 }
 
 void
-NavObstacleLayer::updateFootprint(
+ObstacleLayer::updateFootprint(
   double robot_x, double robot_y, double robot_yaw,
   double * min_x, double * min_y,
   double * max_x,
@@ -474,7 +455,7 @@ NavObstacleLayer::updateFootprint(
 }
 
 void
-NavObstacleLayer::updateCosts(
+ObstacleLayer::updateCosts(
   nav2_costmap_2d::Costmap2D & master_grid, int min_i, int min_j,
   int max_i,
   int max_j)
@@ -506,7 +487,7 @@ NavObstacleLayer::updateCosts(
 }
 
 void
-NavObstacleLayer::addStaticObservation(
+ObstacleLayer::addStaticObservation(
   nav2_costmap_2d::Observation & obs,
   bool marking, bool clearing)
 {
@@ -519,7 +500,7 @@ NavObstacleLayer::addStaticObservation(
 }
 
 void
-NavObstacleLayer::clearStaticObservations(bool marking, bool clearing)
+ObstacleLayer::clearStaticObservations(bool marking, bool clearing)
 {
   if (marking) {
     static_marking_observations_.clear();
@@ -530,7 +511,7 @@ NavObstacleLayer::clearStaticObservations(bool marking, bool clearing)
 }
 
 bool
-NavObstacleLayer::getMarkingObservations(std::vector<Observation> & marking_observations) const
+ObstacleLayer::getMarkingObservations(std::vector<Observation> & marking_observations) const
 {
   bool current = true;
   // get the marking observations
@@ -547,7 +528,7 @@ NavObstacleLayer::getMarkingObservations(std::vector<Observation> & marking_obse
 }
 
 bool
-NavObstacleLayer::getClearingObservations(std::vector<Observation> & clearing_observations) const
+ObstacleLayer::getClearingObservations(std::vector<Observation> & clearing_observations) const
 {
   bool current = true;
   // get the clearing observations
@@ -564,7 +545,7 @@ NavObstacleLayer::getClearingObservations(std::vector<Observation> & clearing_ob
 }
 
 void
-NavObstacleLayer::raytraceFreespace(
+ObstacleLayer::raytraceFreespace(
   const Observation & clearing_observation, double * min_x,
   double * min_y,
   double * max_x,
@@ -579,8 +560,11 @@ NavObstacleLayer::raytraceFreespace(
   if (!worldToMap(ox, oy, x0, y0)) {
     RCLCPP_WARN(
       logger_,
-      "Sensor origin at (%.2f, %.2f) is out of map bounds. The costmap cannot raytrace for it.",
-      ox, oy);
+      "Sensor origin at (%.2f, %.2f) is out of map bounds (%.2f, %.2f) to (%.2f, %.2f). "
+      "The costmap cannot raytrace for it.",
+      ox, oy,
+      origin_x_, origin_y_,
+      origin_x_ + getSizeInMetersX(), origin_y_ + getSizeInMetersY());
     return;
   }
 
@@ -652,7 +636,7 @@ NavObstacleLayer::raytraceFreespace(
 }
 
 void
-NavObstacleLayer::activate()
+ObstacleLayer::activate()
 {
   for (auto & notifier : observation_notifiers_) {
     notifier->clear();
@@ -667,7 +651,8 @@ NavObstacleLayer::activate()
   resetBuffersLastUpdated();
 }
 
-void NavObstacleLayer::deactivate()
+void
+ObstacleLayer::deactivate()
 {
   for (unsigned int i = 0; i < observation_subscribers_.size(); ++i) {
     if (observation_subscribers_[i] != NULL) {
@@ -677,7 +662,7 @@ void NavObstacleLayer::deactivate()
 }
 
 void
-NavObstacleLayer::updateRaytraceBounds(
+ObstacleLayer::updateRaytraceBounds(
   double ox, double oy, double wx, double wy, double max_range, double min_range,
   double * min_x, double * min_y, double * max_x, double * max_y)
 {
@@ -691,7 +676,8 @@ NavObstacleLayer::updateRaytraceBounds(
   touch(ex, ey, min_x, min_y, max_x, max_y);
 }
 
-void NavObstacleLayer::reset()
+void
+ObstacleLayer::reset()
 {
   resetMaps();
   resetBuffersLastUpdated();
@@ -699,7 +685,8 @@ void NavObstacleLayer::reset()
   was_reset_ = true;
 }
 
-void NavObstacleLayer::resetBuffersLastUpdated()
+void
+ObstacleLayer::resetBuffersLastUpdated()
 {
   for (unsigned int i = 0; i < observation_buffers_.size(); ++i) {
     if (observation_buffers_[i]) {
@@ -708,4 +695,4 @@ void NavObstacleLayer::resetBuffersLastUpdated()
   }
 }
 
-}  // namespace nav2_costmap_2d
+}  // namespace lidar_obstacle_layer

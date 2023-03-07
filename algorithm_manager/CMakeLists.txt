@@ -37,7 +37,6 @@ find_package(cyberdog_machine REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(pluginlib REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -143,12 +142,7 @@ target_include_directories(fake_nav_send_goal_action_test PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(fake_nav_send_goal_action_test PUBLIC c_std_99 cxx_std_17)
 
-add_library(nav_costmap_layers SHARED plugins/obstacle_layer.cpp)
-ament_target_dependencies(nav_costmap_layers  ${dependencies})
-target_compile_definitions(nav_costmap_layers PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS")
-
 install(TARGETS ${library_name}
-  nav_costmap_layers
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -176,12 +170,6 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(FILES costmap_plugins.xml
-  DESTINATION share/${PROJECT_NAME}
-)
-
-ament_export_libraries(nav_costmap_layers)
-
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -193,5 +181,4 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-pluginlib_export_plugin_description_file(nav2_costmap_2d costmap_plugins.xml)
 ament_package()
