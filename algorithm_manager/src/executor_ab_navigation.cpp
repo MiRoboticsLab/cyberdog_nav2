@@ -248,7 +248,7 @@ void ExecutorAbNavigation::HandleResultCallback(
       ERROR("Navigation AB run target goal aborted");
       UpdateFeedback(kErrorNavigationAbort);
       ResetPreprocessingValue();
-      // task_abort_callback_();
+      task_abort_callback_();
       break;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
