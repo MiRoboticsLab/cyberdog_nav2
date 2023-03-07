@@ -60,7 +60,7 @@ LabelServer::LabelServer()
   // Create a publisher using the QoS settings to emulate a ROS1 latched topic
   occ_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
     "map",
-    rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local());
 
   // outdoor flag
   outdoor_server_ = this->create_service<protocol::srv::SetMapLabel>(
