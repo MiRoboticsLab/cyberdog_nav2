@@ -129,8 +129,12 @@ void ObservationBuffer::bufferCloud(const sensor_msgs::msg::PointCloud2 & cloud)
 
     unsigned int cloud_size = global_frame_cloud.height * global_frame_cloud.width;
     sensor_msgs::PointCloud2Modifier modifier(observation_cloud);
+    RCLCPP_INFO(logger_, "cloud_size: %d", cloud_size);
     modifier.resize(cloud_size);
     unsigned int point_count = 0;
+
+    RCLCPP_INFO(logger_, "cloud_size [min_obstacle_height_ = %lf]", min_obstacle_height_);
+    RCLCPP_INFO(logger_, "cloud_size [max_obstacle_height_ = %lf]", max_obstacle_height_);
 
     // copy over the points that are within our height bounds
     sensor_msgs::PointCloud2Iterator<float> iter_z(global_frame_cloud, "z");
@@ -140,6 +144,8 @@ void ObservationBuffer::bufferCloud(const sensor_msgs::msg::PointCloud2 & cloud)
     for (; iter_global != iter_global_end; ++iter_z, iter_global +=
       global_frame_cloud.point_step)
     {
+
+      // RCLCPP_INFO(logger_, "cloud_size [iter_z = %lf]", *iter_z);
       if ((*iter_z) <= max_obstacle_height_ &&
         (*iter_z) >= min_obstacle_height_)
       {
@@ -150,7 +156,8 @@ void ObservationBuffer::bufferCloud(const sensor_msgs::msg::PointCloud2 & cloud)
     }
 
     // resize the cloud for the number of legal points
-    modifier.resize(point_count);
+    modifier.resize(point_count);RCLCPP_INFO(logger_, "point_count: %d", point_count);
+    RCLCPP_INFO(logger_, "point_count: %d", point_count);
     observation_cloud.header.stamp = cloud.header.stamp;
     observation_cloud.header.frame_id = global_frame_cloud.header.frame_id;
   } catch (tf2::TransformException & ex) {
@@ -190,6 +197,7 @@ void ObservationBuffer::purgeStaleObservations()
     std::list<Observation>::iterator obs_it = observation_list_.begin();
     // if we're keeping observations for no time... then we'll only keep one observation
     if (observation_keep_time_ == rclcpp::Duration(0.0s)) {
+      RCLCPP_INFO(logger_, "clear data if the observation is out of date, then we'll only keep one observation");
       observation_list_.erase(++obs_it, observation_list_.end());
       return;
     }
@@ -202,6 +210,7 @@ void ObservationBuffer::purgeStaleObservations()
       if ((clock_->now() - obs.cloud_->header.stamp) >
         observation_keep_time_)
       {
+        RCLCPP_INFO(logger_, "clear data if the observation is out of date");
         observation_list_.erase(obs_it, observation_list_.end());
         return;
       }

@@ -37,6 +37,7 @@
  *         Steve Macenski
  *********************************************************************/
 #include "nav2_costmap_2d/obstacle_layer.hpp"
+#include <boost/algorithm/string.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -94,6 +95,15 @@ void ObstacleLayer::onInitialize()
   node->get_parameter("transform_tolerance", transform_tolerance);
   node->get_parameter(name_ + "." + "observation_sources", topics_string);
 
+  std::string names = node->get_namespace();
+  std::vector<std::string> fields;
+  boost::split(fields, names, boost::is_any_of("/") );
+  if (fields.size() > 2) {
+    topics_string = "/" + fields[1] + "/" + topics_string;
+  } else {
+    topics_string = "/" + topics_string;
+  }
+
   RCLCPP_INFO(
     logger_,
     "Subscribed to Topics: %s", topics_string.c_str());
@@ -127,8 +137,8 @@ void ObstacleLayer::onInitialize()
     declareParameter(source + "." + "observation_persistence", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "expected_update_rate", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "data_type", rclcpp::ParameterValue(std::string("LaserScan")));
-    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(0.0));
-    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(0.0));
+    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(-2.0));
+    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(10.0));
     declareParameter(source + "." + "inf_is_valid", rclcpp::ParameterValue(false));
     declareParameter(source + "." + "marking", rclcpp::ParameterValue(true));
     declareParameter(source + "." + "clearing", rclcpp::ParameterValue(false));
@@ -176,6 +186,14 @@ void ObstacleLayer::onInitialize()
       "Creating an observation buffer for source %s, topic %s, frame %s",
       source.c_str(), topic.c_str(),
       sensor_frame.c_str());
+
+    RCLCPP_DEBUG(
+      logger_,
+      "obstacle_max_range: %lf, obstacle_min_range: %lf", obstacle_max_range, obstacle_min_range);
+
+    RCLCPP_DEBUG(
+      logger_,
+      "max_obstacle_height: %lf, min_obstacle_height: %lf", max_obstacle_height, min_obstacle_height);
 
     // create an observation buffer
     observation_buffers_.push_back(
@@ -300,6 +318,10 @@ ObstacleLayer::laserScanCallback(
     return;
   }
 
+
+  // Print cloud data
+  RCLCPP_INFO(logger_, "[ObstacleLayer] PointCloud2 data size: %d", cloud.data.size());
+
   // buffer the point cloud
   buffer->lock();
   buffer->bufferCloud(cloud);
@@ -365,6 +387,7 @@ ObstacleLayer::updateBounds(
   double robot_x, double robot_y, double robot_yaw, double * min_x,
   double * min_y, double * max_x, double * max_y)
 {
+  RCLCPP_INFO(logger_, "[ObstacleLayer] ObstacleLayer::updateBounds()");
   if (rolling_window_) {
     updateOrigin(robot_x - getSizeInMetersX() / 2, robot_y - getSizeInMetersY() / 2);
   }
@@ -390,6 +413,8 @@ ObstacleLayer::updateBounds(
     raytraceFreespace(clearing_observations[i], min_x, min_y, max_x, max_y);
   }
 
+  RCLCPP_INFO(logger_, "[ObstacleLayer] update data,  observations.size: %d", observations.size());
+
   // place the new obstacles into a priority queue... each with a priority of zero to begin with
   for (std::vector<Observation>::const_iterator it = observations.begin();
     it != observations.end(); ++it)
@@ -398,17 +423,26 @@ ObstacleLayer::updateBounds(
 
     const sensor_msgs::msg::PointCloud2 & cloud = *(obs.cloud_);
 
+    if (cloud.data.empty()) {
+      RCLCPP_INFO(logger_, "[ObstacleLayer] empty data ...... ");
+    }
+
     double sq_obstacle_max_range = obs.obstacle_max_range_ * obs.obstacle_max_range_;
     double sq_obstacle_min_range = obs.obstacle_min_range_ * obs.obstacle_min_range_;
 
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(cloud, "x");
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(cloud, "y");
-    sensor_msgs::PointCloud2ConstIterator<float> iter_z(cloud, "z");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_z(cloud, "z"); 
+
+    RCLCPP_INFO(logger_, "[ObstacleLayer] handle data ...... ");
 
     for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
       double px = *iter_x, py = *iter_y, pz = *iter_z;
 
+      RCLCPP_DEBUG(logger_, "[px = %lf, py = %lf, pz = %lf]", px, py, pz);
+
       // if the obstacle is too high or too far away from the robot we won't add it
+      RCLCPP_DEBUG(logger_, "max_obstacle_height: %lf", max_obstacle_height_);
       if (pz > max_obstacle_height_) {
         RCLCPP_DEBUG(logger_, "The point is too high");
         continue;
@@ -421,12 +455,15 @@ ObstacleLayer::updateBounds(
         (pz - obs.origin_.z) * (pz - obs.origin_.z);
 
       // if the point is far enough away... we won't consider it
+      RCLCPP_DEBUG(logger_, "sq_dist: %lf", sq_dist);
+      RCLCPP_DEBUG(logger_, "sq_obstacle_max_range: %lf", sq_obstacle_max_range);
       if (sq_dist >= sq_obstacle_max_range) {
         RCLCPP_DEBUG(logger_, "The point is too far away");
         continue;
       }
 
       // if the point is too close, do not conisder it
+      RCLCPP_DEBUG(logger_, "sq_obstacle_min_range: %lf", sq_obstacle_min_range);
       if (sq_dist < sq_obstacle_min_range) {
         RCLCPP_DEBUG(logger_, "The point is too close");
         continue;
@@ -439,6 +476,7 @@ ObstacleLayer::updateBounds(
         continue;
       }
 
+      RCLCPP_DEBUG(logger_, "Insert scan data costmap");
       unsigned int index = getIndex(mx, my);
       costmap_[index] = LETHAL_OBSTACLE;
       touch(px, py, min_x, min_y, max_x, max_y);
