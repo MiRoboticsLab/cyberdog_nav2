@@ -34,6 +34,7 @@
   <depend>cyberdog_visions_interfaces</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>pluginlib</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <export>
