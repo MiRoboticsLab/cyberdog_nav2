@@ -527,6 +527,8 @@ void ControllerServer::publishVelocity(const geometry_msgs::msg::TwistStamped & 
 {
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>(velocity.twist);
   if (vel_publisher_->is_activated() && vel_publisher_->get_subscription_count() > 0) {
+    RCLCPP_INFO(get_logger(), "[ControllerServer] cmd_vel [vx = %lf, vy = %lf, w = %lf]",
+      cmd_vel->linear.x, cmd_vel->linear.y, cmd_vel->angular.z );
     vel_publisher_->publish(std::move(cmd_vel));
   }
 }
