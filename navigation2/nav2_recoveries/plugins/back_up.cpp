@@ -111,6 +111,8 @@ Status BackUp::onCycleUpdate()
   //   return Status::FAILED;
   // }
 
+  RCLCPP_INFO(logger_, "[back_up] cmd_vel [vx = %lf, vy = %lf, w = %lf]",
+    cmd_vel->linear.x, cmd_vel->linear.y, cmd_vel->angular.z );
   vel_pub_->publish(std::move(cmd_vel));
 
   return Status::RUNNING;

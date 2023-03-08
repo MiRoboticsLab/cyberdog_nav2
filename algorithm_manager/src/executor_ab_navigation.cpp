@@ -207,7 +207,7 @@ void ExecutorAbNavigation::Stop(
   if (!success) {
     ERROR("Navigation AB will stop timeout.");
   }
-  // nav_goal_handle_.reset();
+  nav_goal_handle_.reset();
 
   response->result = success ? StopTaskSrv::Response::SUCCESS : StopTaskSrv::Response::FAILED;
   INFO("Navigation AB Stoped success");
