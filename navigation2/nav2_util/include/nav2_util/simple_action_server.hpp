@@ -145,7 +145,7 @@ public:
     }
 
     // debug_msg("Received request for goal cancellation");
-    info_msg("Received request for goal cancellation", );
+    info_msg("Received request for goal cancellation");
     return rclcpp_action::CancelResponse::ACCEPT;
   }
 
