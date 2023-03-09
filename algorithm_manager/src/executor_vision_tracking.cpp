@@ -202,12 +202,10 @@ bool ExecutorVisionTracking::CallVisionTrackAlgo(bool object_tracking)
   request->open_age = true;
   request->open_emotion = true;
 
-  while (!client_vision_algo_->wait_for_service(1s)) {
-    if (!rclcpp::ok()) {
-      ERROR("Interrupted while waiting for the service. Exiting.");
-      return false;
-    }
-    INFO("service not available, waiting again...");
+
+  if(!client_vision_algo_->wait_for_service(5s)) {
+    ERROR("service not available, please try again later.");
+    return false;
   }
   INFO("client_vision_algo_ service available! async_send_request");
   auto result = client_vision_algo_->async_send_request(request);
