@@ -203,7 +203,7 @@ bool ExecutorVisionTracking::CallVisionTrackAlgo(bool object_tracking)
   request->open_emotion = true;
 
 
-  if(!client_vision_algo_->wait_for_service(5s)) {
+  if (!client_vision_algo_->wait_for_service(5s)) {
     ERROR("service not available, please try again later.");
     return false;
   }
