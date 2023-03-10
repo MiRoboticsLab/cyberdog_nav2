@@ -297,6 +297,7 @@ protected:
             lifecycle_msgs::msg::Transition::
             TRANSITION_ACTIVATE, timeout))
         {
+          ERROR("Get [%s] lifecycle state : %d", client.name.c_str(), state);
           ERROR("Get error when activing [%s]", client.name.c_str());
           return false;
         }

@@ -245,13 +245,15 @@ void BtActionServer<ActionT>::executeCallback()
 
   auto is_canceling = [&]() {
       if (action_server_ == nullptr) {
-        RCLCPP_DEBUG(logger_, "Action server unavailable. Canceling.");
+        RCLCPP_INFO(logger_, "Action server unavailable. Canceling.");
         return true;
       }
       if (!action_server_->is_server_active()) {
-        RCLCPP_DEBUG(logger_, "Action server is inactive. Canceling.");
+        RCLCPP_INFO(logger_, "Action server is inactive. Canceling.");
         return true;
       }
+
+      RCLCPP_INFO(logger_, "Function executeCallback() action server is cancel request");
       return action_server_->is_cancel_requested();
     };
 

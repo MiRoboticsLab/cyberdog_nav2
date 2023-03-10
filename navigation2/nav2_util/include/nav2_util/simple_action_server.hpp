@@ -165,7 +165,7 @@ public:
       debug_msg("An older goal is active, moving the new goal to a pending slot.");
 
       if (is_active(pending_handle_)) {
-        debug_msg(
+        info_msg(
           "The pending slot is occupied."
           " The previous pending goal will be terminated and replaced.");
         terminate(pending_handle_);
@@ -194,7 +194,7 @@ public:
   void work()
   {
     while (rclcpp::ok() && !stop_execution_ && is_active(current_handle_)) {
-      debug_msg("Executing the goal...");
+      info_msg("Executing the goal...");
       try {
         execute_callback_();
       } catch (std::exception & ex) {
@@ -223,14 +223,14 @@ public:
       }
 
       if (is_active(pending_handle_)) {
-        debug_msg("Executing a pending handle on the existing thread.");
+        info_msg("Executing a pending handle on the existing thread.");
         accept_pending_goal();
       } else {
-        debug_msg("Done processing available goals.");
+        info_msg("Done processing available goals.");
         break;
       }
     }
-    debug_msg("Worker thread done.");
+    info_msg("Worker thread done.");
   }
 
   /**
@@ -407,6 +407,7 @@ public:
       return pending_handle_->is_canceling();
     }
 
+    info_msg("current_handle run canceling");
     return current_handle_->is_canceling();
   }
 
