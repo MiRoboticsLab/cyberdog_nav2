@@ -194,7 +194,7 @@ public:
   void work()
   {
     while (rclcpp::ok() && !stop_execution_ && is_active(current_handle_)) {
-      info_msg("Executing the goal...");
+      debug_msg("Executing the goal...");
       try {
         execute_callback_();
       } catch (std::exception & ex) {
