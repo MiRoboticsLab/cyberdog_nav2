@@ -1,0 +1,4 @@
+mapping_node:
+  ros__parameters:
+    map_filename: "map"
+    slam_type: "lidar" # or vision
