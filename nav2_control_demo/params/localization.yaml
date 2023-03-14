@@ -1,3 +1,0 @@
-localization_node:
-  ros__parameters:
-    slam_type: "lidar" # or vision

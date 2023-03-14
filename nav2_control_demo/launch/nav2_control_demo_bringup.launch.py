@@ -1,6 +1,4 @@
-#!/usr/bin/python3
-#
-# Copyright (c) 2021 Xiaomi Corporation
+# Copyright (c) 2018 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,106 +13,122 @@
 # limitations under the License.
 
 import os
-import sys
 
-import launch
-import subprocess
-import launch_ros.actions
-from ament_index_python.packages import get_package_prefix
 from ament_index_python.packages import get_package_share_directory
-import subprocess
-from launch.conditions import IfCondition, UnlessCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration, PythonExpression
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch_ros.substitutions import FindPackageShare
-from launch_ros.actions import LifecycleNode
+
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from nav2_common.launch import RewrittenYaml
 
+
 def generate_launch_description():
+    # Get the launch directory
+    bringup_dir = get_package_share_directory('nav2_control_demo')
 
-######################## shared ##############################
-    namespace = LaunchConfiguration('namespace', default='')
-    namespace_declare = DeclareLaunchArgument(
-        name='namespace',
-        default_value='',
-        description='Top-level namespace'
-        )
-    package_dir = get_package_share_directory('nav2_control_demo')
-    remappings = []
-    recoveries_params_file = LaunchConfiguration('params_file',
-        default=os.path.join(package_dir, 'params', 
-        'recoveries_params.yaml')
-        )
-    map_subscribe_transient_local = LaunchConfiguration(
-        'map_subscribe_transient_local',
-        default='true'
-        )
-    recoveries_params = RewrittenYaml(
-        source_file=recoveries_params_file,
-        root_key=namespace,
-        param_rewrites={},
-        convert_types=True
-        )
-    recoveries_cmd = Node(
-        package='nav2_recoveries',
-        executable='recoveries_server',
-        name='recoveries_server',
-        output='screen',
-        parameters=[recoveries_params],
-        namespace=namespace,
-        remappings=remappings
-        )
+    namespace = LaunchConfiguration('namespace')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    autostart = LaunchConfiguration('autostart')
+    params_file = LaunchConfiguration('params_file')
 
-    ab_params_file = LaunchConfiguration('ab_params_file',
-        default=os.path.join(package_dir, 'params', 
-        'navigate_to_pose_params.yaml')
-        )
-    configured_params_ab = RewrittenYaml(
-        source_file=ab_params_file,
-        root_key=namespace,
-        param_rewrites={},
-        convert_types=True
-        )
-    # SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
-    bt_navigator_ab_cmd = Node(
-        package='bt_navigators',
-        executable='bt_navigator_pose',
-        name='bt_navigator_ab',
-        output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings
-        )
-    controller_ab_cmd = Node(
-        package='nav2_controller',
-        executable='controller_server',
-        name='controller_server_ab',
-        output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings
-        )
-    planner_ab_cmd = Node(
-        package='nav2_planner',
-        executable='planner_server',
-        name='planner_server_ab',
-        output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings
-        )
+    lifecycle_nodes = ["camera/camera",
+                       "map_builder",
+                       "localization_node",
+                       'controller_server',
+                       'planner_server',
+                       'recoveries_server',
+                       'bt_navigator',
+                       'waypoint_follower']
 
-    ld = launch.LaunchDescription([
-        namespace_declare,
-        controller_ab_cmd,
-        planner_ab_cmd,
-        bt_navigator_ab_cmd,
-        recoveries_cmd,
-        # map_server_cmd
-    ])
-    return ld
+    remappings = [('/tf', 'tf'),
+                  ('/tf_static', 'tf_static')]
 
-if __name__ == '__main__':
-    generate_launch_description()
+    # Create our own temporary YAML files that include substitutions
+    param_substitutions = {
+        'use_sim_time': use_sim_time,
+        'autostart': autostart}
+
+    configured_params = RewrittenYaml(
+            source_file=params_file,
+            root_key=namespace,
+            param_rewrites=param_substitutions,
+            convert_types=True)
+
+    return LaunchDescription([
+        # Set env var to print messages to stdout immediately
+        SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
+
+        DeclareLaunchArgument(
+            'namespace', default_value='',
+            description='Top-level namespace'),
+
+        DeclareLaunchArgument(
+            'use_sim_time', default_value='false',
+            description='Use simulation (Gazebo) clock if true'),
+
+        DeclareLaunchArgument(
+            'autostart', default_value='true',
+            description='Automatically startup the nav2 stack'),
+
+        DeclareLaunchArgument(
+            'params_file',
+            default_value=os.path.join(bringup_dir, 'params', 'navigate_to_pose_params.yaml'),
+            description='Full path to the ROS2 parameters file to use'),
+
+        Node(
+            package='nav2_control_demo',
+            executable='nav2_control_demo',
+            output='screen',
+            parameters=[configured_params],
+            remappings=remappings) ])
+
+        # Node(
+        #     package='nav2_controller',
+        #     executable='controller_server',
+        #     output='screen',
+        #     parameters=[configured_params],
+        #     remappings=remappings),
+        #     # arguments=['--ros-args', '--log-level', 'debug']),
+
+        # Node(
+        #     package='nav2_planner',
+        #     executable='planner_server',
+        #     name='planner_server',
+        #     output='screen',
+        #     parameters=[configured_params],
+        #     remappings=remappings),
+        #     # arguments=['--ros-args', '--log-level', 'debug']),
+
+        # Node(
+        #     package='nav2_recoveries',
+        #     executable='recoveries_server',
+        #     name='recoveries_server',
+        #     output='screen',
+        #     parameters=[configured_params],
+        #     remappings=remappings),
+
+        # Node(
+        #     package='nav2_bt_navigator',
+        #     executable='bt_navigator',
+        #     name='bt_navigator',
+        #     output='screen',
+        #     parameters=[configured_params],
+        #     remappings=remappings),
+
+        # Node(
+        #     package='nav2_waypoint_follower',
+        #     executable='waypoint_follower',
+        #     name='waypoint_follower',
+        #     output='screen',
+        #     parameters=[configured_params],
+        #     remappings=remappings),
+
+        # Node(
+        #     package='nav2_lifecycle_manager',
+        #     executable='lifecycle_manager',
+        #     name='lifecycle_manager_navigation',
+        #     output='screen',
+        #     parameters=[{'use_sim_time': use_sim_time},
+        #                 {'autostart': autostart},
+        #                 {'node_names': lifecycle_nodes}]),])

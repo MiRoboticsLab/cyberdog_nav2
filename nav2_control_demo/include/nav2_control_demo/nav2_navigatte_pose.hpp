@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <string>
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -39,17 +40,33 @@ public:
     ~NavigattePose();
 
 private:
-    void HandleGoalCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
+    void HandleStartGoalCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
 
-    bool SendGoal(const geometry_msgs::msg::PoseStamped & pose);
+    void HandleCancelGoalCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
-    rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_sub_{nullptr};
+    void HandleGoalResponseCallback(NavigationGoalHandle::SharedPtr goal_handle);
+
+    void HandleFeedbackCallback(NavigationGoalHandle::SharedPtr, 
+        const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback);
+
+    void HandleResultCallback(const NavigationGoalHandle::WrappedResult result);
+
+    bool SendGoal(const geometry_msgs::msg::Pose & pose);
+
+    bool CancelGoal();
+
+    rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr send_goal_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr cancel_goal_sub_{nullptr};
 
     // nav client as request
     rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_ {nullptr};
 
     // navigation goal handle
     NavigationGoalHandle::SharedPtr nav_goal_handle_ {nullptr};
+
+    std::mutex cancel_goal_mutex_;
+    std::condition_variable cancel_goal_cv_;
+    bool cancel_goal_result_{true};
 };
 
 }  // namespace nav2_control_demo

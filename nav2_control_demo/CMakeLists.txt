@@ -13,7 +13,6 @@ find_package(std_srvs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav2_util REQUIRED)
-find_package(algorithm_manager REQUIRED)
 find_package(visualization REQUIRED)
 find_package(cyberdog_visions_interfaces REQUIRED)
 
@@ -26,7 +25,6 @@ set(dependencies
   nav2_msgs
   nav2_util
   visualization
-  algorithm_manager
   cyberdog_visions_interfaces)
 
 include_directories(include)
@@ -45,6 +43,8 @@ install(TARGETS
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

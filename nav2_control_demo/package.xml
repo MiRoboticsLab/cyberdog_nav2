@@ -15,7 +15,6 @@
   <depend>nav2_util</depend>
   <depend>nav2_msgs</depend>
   <depend>visualization</depend> 
-  <depend>algorithm_manager</depend>
   <depend>cyberdog_visions_interfaces</depend> 
 
   <test_depend>ament_lint_auto</test_depend>
