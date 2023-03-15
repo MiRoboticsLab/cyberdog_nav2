@@ -65,6 +65,7 @@ public:
         BT::InputPort<std::string>("controller_id", ""),
         BT::InputPort<std::string>("goal_checker_id", ""),
         BT::InputPort<std::string>("progress_checker_id", ""),
+        BT::OutputPort<unsigned int>("output_exception_code", ""),
       });
   }
 };
