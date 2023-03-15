@@ -24,6 +24,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 namespace cyberdog
 {
@@ -37,31 +38,20 @@ public:
     ~LocalizationNode();
 
 private:
-    void HandleStartMappingCallback(
-        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-        const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
-    void HandleStopMappingCallback(
-        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-        const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
-    enum class SLAMType {
-        Unknown,
-        Lidar,
-        Vision
-    };
-
-    bool Start(const SLAMType & type);
-    bool Stop(const SLAMType & type);
+    void HandleStartLidarLocalizationCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleStopLidarLocalizationCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleStartVisionLocalizationCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleStopVisionLocalizationCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
 
     bool StartLidar();
     bool StartVision();
-
-    bool StoptLidar();
+    bool StopLidar();
     bool StopVision();
 
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_server_ {nullptr};
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr start_server_ {nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_start_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_stop_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_start_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_stop_sub_{nullptr};
 
     std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
     std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};

@@ -25,57 +25,83 @@ MappingNode::MappingNode() : Node("mapping_node")
     declare_parameter("map_filename", defualt_map_filename_);
     get_parameter("map_filename", defualt_map_filename_);
 
-    stop_server_ = this->create_service<std_srvs::srv::SetBool>(
-        "stop_mapping", std::bind(
-        &MappingNode::HandleStartMappingCallback, this,
-        std::placeholders::_1, std::placeholders::_2));
+    lidar_start_sub_ = this->create_subscription<std_msgs::msg::Bool>("lidar_start_mapping", 1, 
+        std::bind(&MappingNode::HandleLidarStartMappingCallback, this, std::placeholders::_1));
 
-    start_server_ = this->create_service<std_srvs::srv::SetBool>(
-        "start_mapping", std::bind(
-        &MappingNode::HandleStopMappingCallback, this,
-        std::placeholders::_1, std::placeholders::_2));
+    lidar_stop_sub_ = this->create_subscription<std_msgs::msg::Bool>("lidar_stop_mapping", 1, 
+        std::bind(&MappingNode::HandleLidarStopMappingCallback, this, std::placeholders::_1));
+
+    vision_start_sub_ = this->create_subscription<std_msgs::msg::Bool>("vision_start_mapping", 1, 
+        std::bind(&MappingNode::HandleVisionStartMappingCallback, this, std::placeholders::_1));
+
+    vision_stop_sub_ = this->create_subscription<std_msgs::msg::Bool>("vision_stop_mapping", 1, 
+        std::bind(&MappingNode::HandleVisionStopMappingCallback, this, std::placeholders::_1));
 }
 
 MappingNode::~MappingNode()
 {
 }
 
-void MappingNode::HandleStartMappingCallback(
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    const std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+void MappingNode::HandleLidarStartMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg)
 {
-    if (mapping_start_) {
-        RCLCPP_WARN(this->get_logger(), "activate dependency lifecycle nodes haved success.");
-        response->success = true;
+    if (!msg->data) {
         return;
     }
 
-    response->success = true;
-}
-
-void MappingNode::HandleStopMappingCallback(
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    const std::shared_ptr<std_srvs::srv::SetBool::Response> response)
-{
-    if (!mapping_start_ || mapping_stop_) {
-        RCLCPP_WARN(this->get_logger(), "deactivate dependency lifecycle nodes haved success.");
-        response->success = true;
-        return;
-    }
-
-    std::string mapname = "map";
-    bool success = StopMapping(mapname);
+    bool success = StartLidarMapping();
     if (!success) {
-        RCLCPP_ERROR(this->get_logger(), "save map error");
-        response->success = false;
+        RCLCPP_ERROR(this->get_logger(), "start lidar mapping error.");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "start lidar mapping success.");
+    }
+}
+
+void MappingNode::HandleLidarStopMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg)
+{
+    if (!msg->data) {
         return;
     }
 
-    response->success = true;
+    std::string mapname = "lmap";
+    bool success = StopLidarMapping(mapname);
+    if (!success) {
+        RCLCPP_ERROR(this->get_logger(), "save lidar map error");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "save lidar mapping success.");
+    }
 }
 
+void MappingNode::HandleVisionStartMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg)
+{
+    if (!msg->data) {
+        return;
+    }
 
-bool MappingNode::StartMapping()
+    bool success = VisionStartLidarMapping();
+    if (!success) {
+        RCLCPP_ERROR(this->get_logger(), "start vision mapping error.");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "start vision mapping success.");
+    }
+
+}
+
+void MappingNode::HandleVisionStopMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg)
+{
+    if (!msg->data) {
+        return;
+    }
+
+    std::string mapname = "vmap";
+    bool success = VisionStopLidarMapping(mapname);
+    if (!success) {
+        RCLCPP_ERROR(this->get_logger(), "save vision map error");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "stop vision mapping success.");
+    }
+}
+
+bool MappingNode::StartLidarMapping()
 {
   if (mapping_start_client_ == nullptr) {
     mapping_start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
@@ -107,7 +133,7 @@ bool MappingNode::StartMapping()
   return result;
 }
 
-bool MappingNode::StopMapping(const std::string& map_filename)
+bool MappingNode::StopLidarMapping(const std::string& map_filename)
 {
     if (mapping_stop_client_ == nullptr) {
         mapping_stop_client_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
@@ -144,6 +170,16 @@ bool MappingNode::StopMapping(const std::string& map_filename)
     }
 
     return result;
+}
+
+bool MappingNode::VisionStartLidarMapping()
+{
+    return true;
+}
+
+bool MappingNode::VisionStopLidarMapping(const std::string& map_filename)
+{
+    return true;
 }
 
 }  // namespace nav2_control_demo

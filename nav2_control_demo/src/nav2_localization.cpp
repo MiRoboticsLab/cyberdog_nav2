@@ -24,58 +24,83 @@ LocalizationNode::LocalizationNode() : Node("localization_node")
     // Declare this node's parameters
     declare_parameter("slam_type", defualt_slam_type_);
     get_parameter("slam_type", defualt_slam_type_);
+
+    lidar_start_sub_ = this->create_subscription<std_msgs::msg::Bool>("lidar_start_localization", 1, 
+        std::bind(&LocalizationNode::HandleStartLidarLocalizationCallback, this, std::placeholders::_1));
+
+    lidar_stop_sub_ = this->create_subscription<std_msgs::msg::Bool>("lidar_stop_localization", 1, 
+        std::bind(&LocalizationNode::HandleStopLidarLocalizationCallback, this, std::placeholders::_1));
+
+    vision_start_sub_ = this->create_subscription<std_msgs::msg::Bool>("vision_start_localization", 1, 
+        std::bind(&LocalizationNode::HandleStartVisionLocalizationCallback, this, std::placeholders::_1));
+
+    vision_stop_sub_ = this->create_subscription<std_msgs::msg::Bool>("vision_stop_localization", 1, 
+        std::bind(&LocalizationNode::HandleStopVisionLocalizationCallback, this, std::placeholders::_1));
 }
 
 LocalizationNode::~LocalizationNode()
 {
 }
 
-void LocalizationNode::HandleStartMappingCallback(
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    const std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+void LocalizationNode::HandleStartLidarLocalizationCallback(
+    const std::shared_ptr<std_msgs::msg::Bool> msg)
 {
-    if (localization_finished_start_) {
-        response->success = true;
+    if (!msg->data) {
         return;
     }
 
-    bool success = false;
-    if (defualt_slam_type_ == "lidar") {
-        success = StartLidar();
-    } else if (defualt_slam_type_ == "vision") {
-        success = StartVision();
+    bool ret = StartLidar();
+    if (!ret) {
+        RCLCPP_ERROR(this->get_logger(), "start lidar localization failed");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "start lidar localization success");
     }
-
-    if (!success) {
-        response->success = false;
-    }
-
-    response->success = true;
 }
 
-void LocalizationNode::HandleStopMappingCallback(
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    const std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+void LocalizationNode::HandleStopLidarLocalizationCallback(
+    const std::shared_ptr<std_msgs::msg::Bool> msg)
 {
-    if (localization_finished_stop_) {
-        response->success = true;
+    if (!msg->data) {
         return;
     }
 
-    bool success = false;
-    if (defualt_slam_type_ == "lidar") {
-        success = StoptLidar();
-    } else if (defualt_slam_type_ == "vision") {
-        success = StopVision();
+    bool ret = StopLidar();
+    if (!ret) {
+        RCLCPP_ERROR(this->get_logger(), "stop lidar localization failed");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "stop lidar localization success");
     }
-
-    if (!success) {
-        response->success = false;
-    }
-
-    response->success = true;
 }
 
+void LocalizationNode::HandleStartVisionLocalizationCallback(
+    const std::shared_ptr<std_msgs::msg::Bool> msg)
+{
+    if (!msg->data) {
+        return;
+    }
+
+    bool ret = StartVision();
+    if (!ret) {
+        RCLCPP_ERROR(this->get_logger(), "start vision localization failed");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "start vision localization success");
+    }
+}
+
+void LocalizationNode::HandleStopVisionLocalizationCallback(
+    const std::shared_ptr<std_msgs::msg::Bool> msg)
+{
+    if (!msg->data) {
+        return;
+    }
+
+    bool ret = StopVision();
+    if (!ret) {
+        RCLCPP_ERROR(this->get_logger(), "stop vision localization failed");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "stop vision localization success");
+    }
+}
 
 bool LocalizationNode::StartLidar()
 {
@@ -116,7 +141,7 @@ bool LocalizationNode::StartVision()
     return true;
 }
 
-bool LocalizationNode::StoptLidar()
+bool LocalizationNode::StopLidar()
 {
     // Control lidar relocalization turn off
     if (stop_client_ == nullptr) {

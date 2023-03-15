@@ -21,6 +21,7 @@
 #include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
@@ -37,20 +38,20 @@ public:
     ~MappingNode();
 
 private:
-    void HandleStartMappingCallback(
-        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-        const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+    void HandleLidarStartMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleLidarStopMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleVisionStartMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
+    void HandleVisionStopMappingCallback(const std::shared_ptr<std_msgs::msg::Bool> msg);
 
-    void HandleStopMappingCallback(
-        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-        const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+    bool StartLidarMapping();
+    bool StopLidarMapping(const std::string& map_filename);
+    bool VisionStartLidarMapping();
+    bool VisionStopLidarMapping(const std::string& map_filename);
 
-    bool StartMapping();
-
-    bool StopMapping(const std::string& map_filename);
-
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_server_ {nullptr};
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr start_server_ {nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_start_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_stop_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_start_sub_{nullptr};
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_stop_sub_{nullptr};
 
     std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> mapping_start_client_ {nullptr};
     std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> mapping_stop_client_ {nullptr};

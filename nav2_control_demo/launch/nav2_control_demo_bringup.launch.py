@@ -32,17 +32,10 @@ def generate_launch_description():
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
 
-    lifecycle_nodes = ["camera/camera",
-                       "map_builder",
-                       "localization_node",
-                       'controller_server',
+    lifecycle_nodes = ['controller_server',
                        'planner_server',
                        'recoveries_server',
-                       'bt_navigator',
-                       'waypoint_follower']
-
-    remappings = [('/tf', 'tf'),
-                  ('/tf_static', 'tf_static')]
+                       'bt_navigator']
 
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
@@ -56,9 +49,6 @@ def generate_launch_description():
             convert_types=True)
 
     return LaunchDescription([
-        # Set env var to print messages to stdout immediately
-        SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
-
         DeclareLaunchArgument(
             'namespace', default_value='',
             description='Top-level namespace'),
@@ -79,56 +69,56 @@ def generate_launch_description():
         Node(
             package='nav2_control_demo',
             executable='nav2_control_demo',
+            name='nav2_control_demo',
+            namespace=namespace,
             output='screen',
-            parameters=[configured_params],
-            remappings=remappings) ])
+            parameters=[configured_params]),
 
-        # Node(
-        #     package='nav2_controller',
-        #     executable='controller_server',
-        #     output='screen',
-        #     parameters=[configured_params],
-        #     remappings=remappings),
-        #     # arguments=['--ros-args', '--log-level', 'debug']),
+        Node(
+            package='nav2_controller',
+            executable='controller_server',
+            output='screen',
+            parameters=[configured_params]),
 
-        # Node(
-        #     package='nav2_planner',
-        #     executable='planner_server',
-        #     name='planner_server',
-        #     output='screen',
-        #     parameters=[configured_params],
-        #     remappings=remappings),
-        #     # arguments=['--ros-args', '--log-level', 'debug']),
+        Node(
+            package='nav2_planner',
+            executable='planner_server',
+            name='planner_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[configured_params]),
+        
+         Node(
+            package='nav2_map_server',
+            executable='map_server',
+            namespace=namespace,
+            name='map_server',
+            output='screen',
+            parameters=[configured_params]),
 
-        # Node(
-        #     package='nav2_recoveries',
-        #     executable='recoveries_server',
-        #     name='recoveries_server',
-        #     output='screen',
-        #     parameters=[configured_params],
-        #     remappings=remappings),
+        Node(
+            package='nav2_recoveries',
+            executable='recoveries_server',
+            name='recoveries_server',
+            namespace=namespace,
+            output='screen',
+            parameters=[configured_params]),
 
-        # Node(
-        #     package='nav2_bt_navigator',
-        #     executable='bt_navigator',
-        #     name='bt_navigator',
-        #     output='screen',
-        #     parameters=[configured_params],
-        #     remappings=remappings),
+        Node(
+            package='nav2_bt_navigator',
+            executable='bt_navigator',
+            name='bt_navigator',
+            namespace=namespace,
+            output='screen',
+            parameters=[configured_params]),
 
-        # Node(
-        #     package='nav2_waypoint_follower',
-        #     executable='waypoint_follower',
-        #     name='waypoint_follower',
-        #     output='screen',
-        #     parameters=[configured_params],
-        #     remappings=remappings),
-
-        # Node(
-        #     package='nav2_lifecycle_manager',
-        #     executable='lifecycle_manager',
-        #     name='lifecycle_manager_navigation',
-        #     output='screen',
-        #     parameters=[{'use_sim_time': use_sim_time},
-        #                 {'autostart': autostart},
-        #                 {'node_names': lifecycle_nodes}]),])
+        Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_navigation',
+            namespace=namespace,
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time},
+                        {'autostart': autostart},
+                        {'node_names': lifecycle_nodes}]),
+    ])

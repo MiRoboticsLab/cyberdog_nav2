@@ -92,6 +92,7 @@ bool NavigattePose::SendGoal(const geometry_msgs::msg::Pose & pose)
     // Normalize the goal pose
     goal.pose.pose = pose;
     goal.pose.header.frame_id = "map";
+    goal.pose.header.stamp = this->get_clock()->now();
 
     auto future_goal_handle = action_client_->async_send_goal(goal, send_goal_options);
 
