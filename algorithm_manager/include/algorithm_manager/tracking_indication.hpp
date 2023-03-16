@@ -108,6 +108,7 @@ private:
   rclcpp::Client<protocol::srv::LedExecute>::SharedPtr led_execute_client_ {nullptr};
   rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_ {nullptr};
   Status status_{Status::kIdle};
+  bool first_send_{false};
 };
 }  // namespace algorithm
 }  // namespace cyberdog
