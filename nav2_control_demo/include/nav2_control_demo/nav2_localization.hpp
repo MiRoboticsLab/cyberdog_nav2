@@ -53,8 +53,10 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_start_sub_{nullptr};
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_stop_sub_{nullptr};
 
-    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
-    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
+    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> lidar_start_client_ {nullptr};
+    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> lidar_stop_client_ {nullptr};
+    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> vision_start_client_ {nullptr};
+    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> vision_stop_client_ {nullptr};
 
     std::string defualt_slam_type_;
 

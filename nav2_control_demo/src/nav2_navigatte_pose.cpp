@@ -96,7 +96,7 @@ bool NavigattePose::SendGoal(const geometry_msgs::msg::Pose & pose)
 
     auto future_goal_handle = action_client_->async_send_goal(goal, send_goal_options);
 
-    std::chrono::seconds timeout{5};
+    std::chrono::seconds timeout{10};
     if (future_goal_handle.wait_for(timeout) != std::future_status::ready) {
         RCLCPP_ERROR(this->get_logger(), "Wait navigation server timeout.");
         return false;
@@ -113,7 +113,7 @@ bool NavigattePose::SendGoal(const geometry_msgs::msg::Pose & pose)
 bool NavigattePose::CancelGoal()
 {
     if (!nav_goal_handle_) {
-        RCLCPP_WARN(this->get_logger(), "No need to cancel the goal because goal handle is null");
+        RCLCPP_WARN(this->get_logger(), "Cancel the goal faiiled, because goal handle is null");
         return false;
     }
 

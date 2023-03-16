@@ -25,6 +25,8 @@
 
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
+#include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "cyberdog_visions_interfaces/srv/finish_map.hpp"
 
 namespace cyberdog
 {
@@ -34,6 +36,9 @@ namespace nav2_control_demo
 class MappingNode : public rclcpp::Node
 {
 public:
+    using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
+    using MapRequest = cyberdog_visions_interfaces::srv::FinishMap;
+
     MappingNode();
     ~MappingNode();
 
@@ -45,16 +50,21 @@ private:
 
     bool StartLidarMapping();
     bool StopLidarMapping(const std::string& map_filename);
-    bool VisionStartLidarMapping();
-    bool VisionStopLidarMapping(const std::string& map_filename);
+    bool StartVisionMapping();
+    bool StopVisionMapping(const std::string& map_filename);
 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_start_sub_{nullptr};
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr lidar_stop_sub_{nullptr};
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_start_sub_{nullptr};
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr vision_stop_sub_{nullptr};
 
+    // lidar mapping
     std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> mapping_start_client_ {nullptr};
     std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> mapping_stop_client_ {nullptr};
+
+    // vision mapping
+    std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> vision_start_client_ {nullptr};
+    std::shared_ptr<nav2_util::ServiceClient<MapRequest>> vision_stop_client_ {nullptr};
 
     std::unordered_map<std::string, std::shared_ptr<nav2_util::LifecycleServiceClient>> lifecycle_nodes_;
 

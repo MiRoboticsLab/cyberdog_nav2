@@ -105,52 +105,81 @@ void LocalizationNode::HandleStopVisionLocalizationCallback(
 bool LocalizationNode::StartLidar()
 {
     // Control lidar relocalization turn on
-  if (start_client_ == nullptr) {
-    start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "start_location", shared_from_this());
-  }
+    if (lidar_start_client_ == nullptr) {
+        lidar_start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+        "start_location", shared_from_this());
+    }
 
-  // Wait service
-  bool connect = start_client_->wait_for_service(std::chrono::seconds(2));
-  if (!connect) {
-    RCLCPP_ERROR(this->get_logger(), "Waiting for the service(start_location). but cannot connect the service.");
-    return false;
-  }
+    // Wait service
+    bool connect = lidar_start_client_->wait_for_service(std::chrono::seconds(2));
+    if (!connect) {
+        RCLCPP_ERROR(this->get_logger(), "Waiting for the service(start_location). but cannot connect the service.");
+        return false;
+    }
 
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = true;
+    // Set request data
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
 
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Trying to get service_mutex_");
-    std::lock_guard<std::mutex> lock(service_mutex_);
-    RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Success to get service_mutex_");
-    auto future_result = start_client_->invoke(request, std::chrono::seconds(50));
-    result = future_result->success;
-  } catch (const std::exception & e) {
-    RCLCPP_ERROR(this->get_logger(), "%s", e.what());
-  }
-  return result;
+    // Send request
+    // return start_->invoke(request, response);
+    bool result = false;
+    try {
+        RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Trying to get service_mutex_");
+        std::lock_guard<std::mutex> lock(service_mutex_);
+        RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Success to get service_mutex_");
+        auto future_result = lidar_start_client_->invoke(request, std::chrono::seconds(50));
+        result = future_result->success;
+    } catch (const std::exception & e) {
+        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    }
+    return result;
 }
 
 bool LocalizationNode::StartVision()
 {
-    return true;
+    if (vision_start_client_ == nullptr) {
+        vision_start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+        "start_vins_location", shared_from_this());
+    }
+
+    // Wait service
+    bool connect = vision_start_client_->wait_for_service(std::chrono::seconds(2));
+    if (!connect) {
+        RCLCPP_ERROR(this->get_logger(), "Waiting for the service(start_vins_location) timeout");
+        return false;
+    }
+
+    // Set request data
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
+
+    // Send request
+    // return start_->invoke(request, response);
+    bool result = false;
+
+    try {
+        RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Trying to get service mutex");
+        std::lock_guard<std::mutex> lock(service_mutex_);
+        RCLCPP_INFO(this->get_logger(), "EnableRelocalization(): Success to get service mutex");
+        auto future_result = vision_start_client_->invoke(request, std::chrono::seconds(50));
+        result = future_result->success;
+    } catch (const std::exception & e) {
+        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    }
+    return result;
 }
 
 bool LocalizationNode::StopLidar()
 {
     // Control lidar relocalization turn off
-    if (stop_client_ == nullptr) {
-        stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+    if (lidar_stop_client_ == nullptr) {
+        lidar_stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
         "stop_location", shared_from_this());
     }
 
     // Wait service
-    bool connect = stop_client_->wait_for_service(std::chrono::seconds(2));
+    bool connect = lidar_stop_client_->wait_for_service(std::chrono::seconds(2));
     if (!connect) {
         RCLCPP_ERROR(this->get_logger(),"Waiting for the service(stop_location). but cannot connect the service.");
         return false;
@@ -164,10 +193,10 @@ bool LocalizationNode::StopLidar()
     // return start_->invoke(request, response);
     bool result = false;
     try {
-        RCLCPP_INFO(this->get_logger(),"DisableRelocalization(): Trying to get service_mutex_");
+        RCLCPP_INFO(this->get_logger(), "DisableRelocalization(): Trying to get service_mutex_");
         std::lock_guard<std::mutex> lock(service_mutex_);
         RCLCPP_INFO_SKIPFIRST(this->get_logger(),"DisableRelocalization(): Success to get service_mutex_");
-        auto future_result = stop_client_->invoke(request, std::chrono::seconds(10));
+        auto future_result = lidar_stop_client_->invoke(request, std::chrono::seconds(10));
         result = future_result->success;
     } catch (const std::exception & e) {
        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
@@ -177,7 +206,36 @@ bool LocalizationNode::StopLidar()
 
 bool LocalizationNode::StopVision()
 {
-    return true;
+    if (vision_stop_client_ == nullptr) {
+        vision_stop_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+        "stop_vins_location", shared_from_this());
+    }
+
+    // Wait service
+    bool connect = vision_stop_client_->wait_for_service(std::chrono::seconds(2));
+    if (!connect) {
+        RCLCPP_ERROR(this->get_logger(), "Waiting for the service(stop_vins_location) timeout");
+        return false;
+    }
+
+    // Set request data
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
+
+    // Send request
+    // return start_->invoke(request, response);
+    bool result = false;
+
+    try {
+        RCLCPP_INFO(this->get_logger(), "DisableRelocalization(): Trying to get service mutex");
+        std::lock_guard<std::mutex> lock(service_mutex_);
+        RCLCPP_INFO(this->get_logger(), "DisableRelocalization(): Success to get service mutex");
+        auto future_result = vision_stop_client_->invoke(request, std::chrono::seconds(10));
+        result = future_result->success;
+    } catch (const std::exception & e) {
+        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    }
+    return result;
 }
 
 }  // namespace nav2_control_demo

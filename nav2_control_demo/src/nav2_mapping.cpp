@@ -62,7 +62,7 @@ void MappingNode::HandleLidarStopMappingCallback(const std::shared_ptr<std_msgs:
         return;
     }
 
-    std::string mapname = "lmap";
+    std::string mapname = "map";
     bool success = StopLidarMapping(mapname);
     if (!success) {
         RCLCPP_ERROR(this->get_logger(), "save lidar map error");
@@ -77,7 +77,7 @@ void MappingNode::HandleVisionStartMappingCallback(const std::shared_ptr<std_msg
         return;
     }
 
-    bool success = VisionStartLidarMapping();
+    bool success = StartVisionMapping();
     if (!success) {
         RCLCPP_ERROR(this->get_logger(), "start vision mapping error.");
     } else {
@@ -92,8 +92,8 @@ void MappingNode::HandleVisionStopMappingCallback(const std::shared_ptr<std_msgs
         return;
     }
 
-    std::string mapname = "vmap";
-    bool success = VisionStopLidarMapping(mapname);
+    std::string mapname = "map";
+    bool success = StopVisionMapping(mapname);
     if (!success) {
         RCLCPP_ERROR(this->get_logger(), "save vision map error");
     } else {
@@ -172,14 +172,76 @@ bool MappingNode::StopLidarMapping(const std::string& map_filename)
     return result;
 }
 
-bool MappingNode::VisionStartLidarMapping()
+bool MappingNode::StartVisionMapping()
 {
+    if (vision_start_client_ == nullptr) {
+        vision_start_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+        "start_vins_mapping", shared_from_this());
+    }
+
+    // Wait service
+    bool connect = vision_start_client_->wait_for_service(std::chrono::seconds(2));
+    if (!connect) {
+        RCLCPP_ERROR(this->get_logger(), "Waiting for the service(start_vins_mapping) timeout.");
+        return false;
+    }
+
+    // Set request data
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
+
+    // Send request
+    // return start_->invoke(request, response);
+    bool result = false;
+    try {
+        std::lock_guard<std::mutex> lock(service_mutex_);
+        auto future_result = vision_start_client_->invoke(request, std::chrono::seconds(5));
+        result = future_result->success;
+    } catch (const std::exception & e) {
+        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    }
+
+  return result;
     return true;
 }
 
-bool MappingNode::VisionStopLidarMapping(const std::string& map_filename)
+bool MappingNode::StopVisionMapping(const std::string& map_filename)
 {
-    return true;
+    if (vision_stop_client_ == nullptr) {
+        vision_stop_client_ = std::make_shared<nav2_util::ServiceClient<MapRequest>>(
+        "stop_vins_mapping", shared_from_this());
+    }
+
+    // Wait service
+    bool connect = vision_stop_client_->wait_for_service(std::chrono::seconds(2));
+    if (!connect) {
+        RCLCPP_ERROR(this->get_logger(), "Waiting for the service(stop_vins_mapping) timeout.");
+        return false;
+    }
+
+    // Set request data
+    auto request = std::make_shared<MapRequest::Request>();
+    if (map_filename.empty()) {
+        RCLCPP_WARN(this->get_logger(), "User set map name is empty");
+        request->finish = false;
+        request->map_name = "";
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Saved map building filename: %s", map_filename.c_str());
+        request->finish = true;
+        request->map_name = map_filename;
+    }
+
+    // Send request
+    bool result = false;
+    try {
+        std::lock_guard<std::mutex> lock(service_mutex_);
+        auto future_result = vision_stop_client_->invoke(request, std::chrono::seconds(10));
+        result = future_result->success;
+    } catch (const std::exception & e) {
+        RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    }
+
+    return result;
 }
 
 }  // namespace nav2_control_demo
