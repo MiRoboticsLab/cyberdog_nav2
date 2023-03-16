@@ -61,6 +61,7 @@ void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedP
         AudioInfo audio_play{"tracking", false, 31000};
         ReqAudio(audio_play);
         status_ = Status::kStartUwb;
+        first_send_ = false;
       }
       break;
 
@@ -146,6 +147,11 @@ void LedManagerNode::AlgoTaskStatus(const protocol::msg::AlgoTaskStatus::SharedP
 
     default:
       break;
+  }
+  if (msg->task_sub_status == 15 && !first_send_) {
+    AudioInfo audio_play{"tracking", false, 31037};
+    ReqAudio(audio_play);
+    first_send_ = true;
   }
 }
 
