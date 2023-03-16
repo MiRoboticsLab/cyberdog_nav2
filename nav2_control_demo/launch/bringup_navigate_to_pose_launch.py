@@ -35,10 +35,10 @@ def generate_launch_description():
     map_file = LaunchConfiguration(
         'map_file', default=os.path.join('/home/mi/mapping/', 'lmap.yaml'))
 
-    lifecycle_nodes = ['controller_server_ab',
-                       'planner_server_ab',
+    lifecycle_nodes = ['controller_server',
+                       'planner_server',
                        'recoveries_server',
-                       'bt_navigator_ab']
+                       'bt_navigator']
     remappings = []
 
     # Create our own temporary YAML files that include substitutions
@@ -75,8 +75,24 @@ def generate_launch_description():
 
         Node(
             package='nav2_control_demo',
-            executable='nav2_control_demo',
-            name='nav2_control_demo',
+            executable='nav2_mapping',
+            name='nav2_mapping',
+            namespace=namespace,
+            output='screen',
+            parameters=[configured_params]),
+
+        Node(
+            package='nav2_control_demo',
+            executable='nav2_localization',
+            name='nav2_localization',
+            namespace=namespace,
+            output='screen',
+            parameters=[configured_params]),
+
+        Node(
+            package='nav2_control_demo',
+            executable='nav2_navigatte_pose',
+            name='nav2_navigatte_pose',
             namespace=namespace,
             output='screen',
             parameters=[configured_params]),

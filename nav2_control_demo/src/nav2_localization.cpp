@@ -14,16 +14,19 @@
 
 #include "nav2_control_demo/nav2_localization.hpp"
 
+#include <memory>
+#include "rclcpp/rclcpp.hpp"
+
 namespace cyberdog
 {
 namespace nav2_control_demo
 {
 
-LocalizationNode::LocalizationNode() : Node("localization_node")
+LocalizationNode::LocalizationNode() : Node("nav2_localization_node")
 {
     // Declare this node's parameters
-    declare_parameter("slam_type", defualt_slam_type_);
-    get_parameter("slam_type", defualt_slam_type_);
+    // declare_parameter("slam_type", defualt_slam_type_);
+    // get_parameter("slam_type", defualt_slam_type_);
 
     lidar_start_sub_ = this->create_subscription<std_msgs::msg::Bool>("lidar_start_localization", 1, 
         std::bind(&LocalizationNode::HandleStartLidarLocalizationCallback, this, std::placeholders::_1));
@@ -240,3 +243,13 @@ bool LocalizationNode::StopVision()
 
 }  // namespace nav2_control_demo
 }  // namespace cyberdog
+
+int main(int argc, char ** argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<cyberdog::nav2_control_demo::LocalizationNode>();
+    rclcpp::spin(node->get_node_base_interface());
+    rclcpp::shutdown();
+
+    return 0;
+}

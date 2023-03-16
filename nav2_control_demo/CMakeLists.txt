@@ -29,17 +29,23 @@ set(dependencies
 
 include_directories(include)
 
-# nav2_control_demo
-add_executable(nav2_control_demo 
-  src/main.cpp
-  src/nav2_mapping.cpp
-  src/nav2_localization.cpp
-  src/nav2_navigatte_pose.cpp)
-ament_target_dependencies(nav2_control_demo ${dependencies})
+# nav2_mapping
+add_executable(nav2_mapping src/nav2_mapping.cpp)
+ament_target_dependencies(nav2_mapping ${dependencies})
+
+# nav2_localization
+add_executable(nav2_localization src/nav2_localization.cpp)
+ament_target_dependencies(nav2_localization ${dependencies})
+
+# nav2_navigatte_pose
+add_executable(nav2_navigatte_pose src/nav2_navigatte_pose.cpp)
+ament_target_dependencies(nav2_navigatte_pose ${dependencies})
 
 # install
 install(TARGETS
-  nav2_control_demo
+  nav2_mapping
+  nav2_localization
+  nav2_navigatte_pose
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

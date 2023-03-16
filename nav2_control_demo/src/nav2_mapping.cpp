@@ -19,7 +19,7 @@ namespace cyberdog
 namespace nav2_control_demo
 {
 
-MappingNode::MappingNode() : Node("mapping_node")
+MappingNode::MappingNode() : Node("nav2_mapping_node")
 {
     // Declare this node's parameters
     declare_parameter("map_filename", defualt_map_filename_);
@@ -246,3 +246,13 @@ bool MappingNode::StopVisionMapping(const std::string& map_filename)
 
 }  // namespace nav2_control_demo
 }  // namespace cyberdog
+
+int main(int argc, char ** argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<cyberdog::nav2_control_demo::MappingNode>();
+    rclcpp::spin(node->get_node_base_interface());
+    rclcpp::shutdown();
+
+    return 0;
+}

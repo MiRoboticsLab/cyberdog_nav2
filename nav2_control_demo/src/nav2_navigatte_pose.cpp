@@ -23,7 +23,7 @@ namespace cyberdog
 namespace nav2_control_demo
 {
 
-NavigattePose::NavigattePose() : Node("navigatte_pose_node")
+NavigattePose::NavigattePose() : Node("nav2_navigatte_pose_node")
 {
     send_goal_sub_ = this->create_subscription<geometry_msgs::msg::Pose>("send_goal", 10,
         std::bind(&NavigattePose::HandleStartGoalCallback, this, std::placeholders::_1));
@@ -176,3 +176,13 @@ void NavigattePose::HandleResultCallback(const NavigationGoalHandle::WrappedResu
 
 }  // namespace nav2_control_demo
 }  // namespace cyberdog
+
+int main(int argc, char ** argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<cyberdog::nav2_control_demo::NavigattePose>();
+    rclcpp::spin(node->get_node_base_interface());
+    rclcpp::shutdown();
+
+    return 0;
+}
