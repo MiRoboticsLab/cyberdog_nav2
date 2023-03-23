@@ -232,6 +232,16 @@ public:
 
         // check if, after invoking spin_some(), we finally received the result
         if (!goal_result_available_) {
+          auto elapsed = (node_->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
+          if (elapsed > server_timeout_) {
+            RCLCPP_WARN(
+              node_->get_logger(),
+              "Spin some Timed out while waiting for action server to acknowledge goal request for %s",
+              action_name_.c_str());
+            future_goal_handle_.reset();
+            return BT::NodeStatus::FAILURE;
+          }
+
           // Yield this Action, returning RUNNING
           return BT::NodeStatus::RUNNING;
         }
