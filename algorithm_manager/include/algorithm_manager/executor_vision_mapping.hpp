@@ -20,11 +20,15 @@
 
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "cyberdog_visions_interfaces/srv/finish_map.hpp"
 #include "algorithm_manager/timer.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/create_timer_ros.h"
+#include "tf2_ros/transform_listener.h"
+#include "protocol/srv/set_map_label.hpp"
 
 namespace cyberdog
 {
@@ -34,7 +38,6 @@ namespace algorithm
 class ExecutorVisionMapping : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
   using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
@@ -91,17 +94,19 @@ private:
   bool CheckBuildMappingAvailable();
 
   /**
-   * @brief When robot mapping it's should walk smoother
+   * @brief Delete maps
+   * @return true Return success
+   * @return false Return failure
+   */
+  bool DeleteMap();
+
+  /**
+   * @brief Record outdoor flag
    *
    * @return true Return success
    * @return false Return failure
    */
-  bool VelocitySmoother();
-
-  /**
-   * @brief Vision is mapping
-   */
-  void PublishBuildMapType();
+  bool InvokeOutdoorFlag(const std::string & mapname);
 
   /**
   * @brief Set all lifecycle default state
@@ -109,7 +114,7 @@ private:
   * @return true Return success
   * @return false Return failure
   */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   /**
    * @brief Delete all vision in background viosn building data
@@ -122,27 +127,41 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // Control mivinsmapping lifecycle
-  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
+  bool CloseMappingService();
 
-  // service client
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  bool CanTransform(const std::string & parent_link, const std::string & clild_link);
+
+  void ResetFlags();
+
+  // feedback data
+  ExecutorData executor_laser_mapping_data_;
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_delete_client_ {nullptr};
 
   // vision mapping alive
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vision_mapping_trigger_pub_{nullptr};
+  rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
+
+  // record this sensor is open
+  bool is_open_realsense_camera_ {false};
+  bool is_exit_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
+
+  // tf
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

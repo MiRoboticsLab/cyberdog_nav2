@@ -296,6 +296,7 @@ bool ExecutorLaserMapping::StopBuildMapping(const std::string & map_filename)
     INFO("Trying (stop_mapping) invoke command resquest.");
     auto future_result = stop_->invoke(request, std::chrono::seconds(25s));
     INFO("Finished (stop_mapping) invoke command resquest.");
+    auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());

@@ -71,21 +71,27 @@ void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // exe_ab_nav_ptr_ -> Start(goal);
   SetFeedbackCode(500);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
-  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
-    ERROR("ActivateDepsLifecycleNodes failed");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
-    if (!DeactivateDepsLifecycleNodes(50000)) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
+
+  if (stage2_enable_) {
+    if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
+      ERROR("ActivateDepsLifecycleNodes failed");
+      ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+      if (!DeactivateDepsLifecycleNodes(50000)) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
+      task_abort_callback_();
+      return;
     }
-    task_abort_callback_();
-    return;
-  }
-  stage2_send_goal();
-  if (stage3_enable_) {
-    std::unique_lock<std::mutex> lk_stage3(stage3_process_mutex_);
-    stage3_process_cv_.wait(lk_stage3);
+    stage2_send_goal();
+    if (stage3_enable_) {
+      std::unique_lock<std::mutex> lk_stage3(stage3_process_mutex_);
+      stage3_process_cv_.wait(lk_stage3);
+      stage3_send_goal();
+    }
+  } else if (stage3_enable_) {
     stage3_send_goal();
   }
+
   // uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
   // if (goal_result != Navigation::Result::NAVIGATION_RESULT_TYPE_ACCEPT) {
   //   ERROR("ExecutorVisionTracking::Start Error");

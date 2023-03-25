@@ -117,12 +117,13 @@ public:
     std::shared_ptr<const typename ActionT::Goal>/*goal*/)
   {
     std::lock_guard<std::recursive_mutex> lock(update_mutex_);
+    info_msg("Received request for goal acceptance handle_goal");
 
     if (!server_active_) {
       return rclcpp_action::GoalResponse::REJECT;
     }
 
-    debug_msg("Received request for goal acceptance");
+    info_msg("Received request for goal acceptance");
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 
@@ -136,7 +137,8 @@ public:
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<ActionT>> handle)
   {
     std::lock_guard<std::recursive_mutex> lock(update_mutex_);
-
+    info_msg("Received request for goal cancelling");
+    
     if (!handle->is_active()) {
       warn_msg(
         "Received request for goal cancellation,"
@@ -144,7 +146,8 @@ public:
       return rclcpp_action::CancelResponse::REJECT;
     }
 
-    debug_msg("Received request for goal cancellation");
+    // debug_msg("Received request for goal cancellation");
+    info_msg("Received request for goal cancellation");
     return rclcpp_action::CancelResponse::ACCEPT;
   }
 
@@ -155,13 +158,14 @@ public:
   void handle_accepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<ActionT>> handle)
   {
     std::lock_guard<std::recursive_mutex> lock(update_mutex_);
-    debug_msg("Receiving a new goal");
+    // debug_msg("Receiving a new goal");
+    info_msg("Receiving a new goal");
 
     if (is_active(current_handle_) || is_running()) {
       debug_msg("An older goal is active, moving the new goal to a pending slot.");
 
       if (is_active(pending_handle_)) {
-        debug_msg(
+        info_msg(
           "The pending slot is occupied."
           " The previous pending goal will be terminated and replaced.");
         terminate(pending_handle_);
@@ -179,7 +183,7 @@ public:
       current_handle_ = handle;
 
       // Return quickly to avoid blocking the executor, so spin up a new thread
-      debug_msg("Executing goal asynchronously.");
+      info_msg("Executing goal asynchronously.");
       execution_future_ = std::async(std::launch::async, [this]() {work();});
     }
   }
@@ -219,14 +223,14 @@ public:
       }
 
       if (is_active(pending_handle_)) {
-        debug_msg("Executing a pending handle on the existing thread.");
+        info_msg("Executing a pending handle on the existing thread.");
         accept_pending_goal();
       } else {
-        debug_msg("Done processing available goals.");
+        info_msg("Done processing available goals.");
         break;
       }
     }
-    debug_msg("Worker thread done.");
+    info_msg("Worker thread done.");
   }
 
   /**
@@ -244,7 +248,7 @@ public:
    */
   void deactivate()
   {
-    debug_msg("Deactivating...");
+    info_msg("Deactivating...");
 
     {
       std::lock_guard<std::recursive_mutex> lock(update_mutex_);
@@ -273,7 +277,7 @@ public:
       }
     }
 
-    debug_msg("Deactivation completed.");
+    info_msg("Deactivation completed.");
   }
 
   /**
@@ -403,6 +407,7 @@ public:
       return pending_handle_->is_canceling();
     }
 
+    info_msg("current_handle run canceling");
     return current_handle_->is_canceling();
   }
 

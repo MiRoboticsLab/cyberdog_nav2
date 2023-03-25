@@ -74,7 +74,7 @@ bool AlgorithmTaskManager::Init()
   std::thread{[this]() {
       while (rclcpp::ok()) {
         this->PublishStatus();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }}.detach();
   code_ptr_ = std::make_shared<system::CyberdogCode<AlgoTaskCode>>(
@@ -201,9 +201,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
       status != ManagerStatus::kExecutingLaserLocalization &&
       status != ManagerStatus::kExecutingVisLocalization &&
       status != ManagerStatus::kLaserLocalizing &&
-      status != ManagerStatus::kVisLocalizing &&
-      status != ManagerStatus::kLaserLocalizationFailed &&
-      status != ManagerStatus::kVisLocalizationFailed)
+      status != ManagerStatus::kVisLocalizing)
     {
       ERROR("Cannot Reset Nav when %d", (int)status);
       response->result = protocol::srv::StopAlgoTask::Response::FAILED;
@@ -229,7 +227,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
     auto status_reparsed = ReParseStatus(status);
     if (status_reparsed != request->task_id) {
       ERROR(
-        "Cannot execute to stop %d when %d(%d)", request->task_id, (int)status_reparsed,
+        "Cannot execute to stop %d when %d(raw: %d)", request->task_id, (int)status_reparsed,
         (int)status);
       return;
     }
@@ -238,6 +236,7 @@ void AlgorithmTaskManager::HandleStopTaskCallback(
   if (activated_executor_ != nullptr) {
     activated_executor_->Stop(request, response);
   }
+  INFO("Executors finished stop, will setting status");
   if (!reset_all) {
     if (status == ManagerStatus::kExecutingLaserAbNavigation) {
       SetStatus(ManagerStatus::kLaserLocalizing);
@@ -269,9 +268,16 @@ rclcpp_action::GoalResponse AlgorithmTaskManager::HandleAlgorithmManagerGoal(
   }
   std::string task_name;
   for (auto task : task_map_) {
-    if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
-      task_name = task.first;
-      break;
+    if (goal->nav_type == AlgorithmMGR::Goal::NAVIGATION_TYPE_START_AB) {
+      if (task.second.id == goal->nav_type) {
+        task_name = task.first;
+        break;
+      }
+    } else {
+      if (task.second.id == goal->nav_type && task.second.out_door == goal->outdoor) {
+        task_name = task.first;
+        break;
+      }
     }
   }
   auto iter = task_map_.find(task_name);
@@ -309,6 +315,7 @@ rclcpp_action::CancelResponse AlgorithmTaskManager::HandleAlgorithmManagerCancel
 void AlgorithmTaskManager::HandleAlgorithmManagerAccepted(
   const std::shared_ptr<GoalHandleAlgorithmMGR> goal_handle)
 {
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   SetTaskHandle(goal_handle);
   std::thread{[this, goal_handle]() {
       activated_executor_->Start(goal_handle->get_goal());
@@ -321,7 +328,15 @@ void AlgorithmTaskManager::TaskFeedBack(const AlgorithmMGR::Feedback::SharedPtr 
   if (goal_handle_executing_ != nullptr &&
     GetStatus() != ManagerStatus::kStoppingTask)
   {
+    if (feedback->feedback_code == last_feedback_) {
+      // WARN(
+      //   "Last Feedback: %d, new feedback: %d, will not send", last_feedback_,
+      //   feedback->feedback_code);
+      return;
+    }
+    INFO("Sending Feedback: %d", feedback->feedback_code);
     goal_handle_executing_->publish_feedback(feedback);
+    last_feedback_ = feedback->feedback_code;
   }
 }
 
@@ -330,7 +345,13 @@ void AlgorithmTaskManager::TaskSuccessd()
   INFO("Got Executor Success");
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_SUCCESS;
-  goal_handle_executing_->succeed(result);
+  if (goal_handle_executing_ != nullptr) {
+    try {
+      goal_handle_executing_->succeed(result);
+    } catch (const rclcpp::exceptions::RCLError & e) {
+      ERROR("%s", e.what());
+    }
+  }
   INFO("Manager success");
   ResetTaskHandle();
   INFO("Manager TaskHandle reset bc success");
@@ -357,7 +378,11 @@ void AlgorithmTaskManager::TaskCanceled()
   auto result = std::make_shared<AlgorithmMGR::Result>();
   result->result = AlgorithmMGR::Result::NAVIGATION_RESULT_TYPE_CANCEL;
   if (goal_handle_executing_ != nullptr) {
-    goal_handle_executing_->abort(result);
+    try {
+      goal_handle_executing_->abort(result);
+    } catch (const rclcpp::exceptions::RCLError & e) {
+      ERROR("%s", e.what());
+    }
     INFO("Manager canceled");
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc canceled");

@@ -27,6 +27,7 @@ from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
+from rclpy.task import Future
 import sensor_msgs.msg as sensor_msgs
 
 import std_msgs.msg as std_msgs
@@ -108,7 +109,7 @@ def compute_xy(z, scale):
 
 
 start_end_row_idx = np.zeros((4, 2))
-timer_period = 0.2  # seconds
+timer_period = 1.0  # seconds
 adjust_times = (int)(10 / timer_period)
 
 
@@ -135,7 +136,6 @@ class SeatAdjustServer(Node):
         self.x_adjust_sum = 0.00
         self.y_adjust_sum = 0.00
 
-        self.timer_nums = 0
         self.pcd_topic = []
         self.pcd_topic.append('left_head_pcd')
         self.pcd_topic.append('right_head_pcd')
@@ -162,10 +162,13 @@ class SeatAdjustServer(Node):
             self.pcd_publisher.append(pcd_publisher)
 
         self.create_init()
-
+        self.future = Future()
         self.timer_count = 0
         self.action_start = 0
+        self.action_sit_down = 0
         self.action_complete = 0
+        self.y_adjust_complete = 0
+        self.yaw_adjust_complete = 0
         self.get_logger().info('__init__0 complete')
 
     def create_init(self):
@@ -202,9 +205,21 @@ class SeatAdjustServer(Node):
         self.motion_req.step_height = [0.0, 0.0]
         self.motion_req.duration = 0
         self.send_motion_request()
+        while(not self.future.done()):
+            self.get_logger().info('Stand up...')
+        time.sleep(1)
+        self.motion_req.pos_des[0] = 0
+        self.motion_req.pos_des[1] = 0
+        self.motion_req.pos_des[2] = -0.02
+        self.motion_req.rpy_des[2] = 0
+        self.motion_req.motion_id = 212
+        self.motion_req.duration = (int)(1500)
+        self.send_motion_request()
 
+        self.motion_req.pos_des[2] = 0.0
         self.action_start = 1
         self.action_complete = 0
+        self.action_sit_down = 0
         return GoalResponse.ACCEPT
 
     def cancel_callback(self, goal_handle):
@@ -232,16 +247,16 @@ class SeatAdjustServer(Node):
                 self.get_logger().info('Goal canceled')
                 return SeatAdjust.Result()
 
-            self.get_logger().info(
-                'Publishing feedback: {0}'.format(feedback_msg.count)
-            )
+            # self.get_logger().info(
+            #     'Publishing feedback: {0}'.format(feedback_msg.count)
+            # )
 
             # Publish the feedback
             goal_handle.publish_feedback(feedback_msg)
             feedback_msg.count = feedback_msg.count + 1
             # Sleep for demonstration purposes
             time.sleep(timer_period)
-
+        # self.action_complete = 0
         goal_handle.succeed()
 
         # Populate result message
@@ -251,23 +266,6 @@ class SeatAdjustServer(Node):
         self.get_logger().info('Returning result: {0}'.format(result.result))
 
         return result
-
-    def final_sit_down_action(self):
-        self.motion_req.pos_des[0] = 0
-        self.motion_req.pos_des[1] = 0
-        self.motion_req.pos_des[2] = -0.05
-        self.motion_req.rpy_des[2] = 0
-        self.motion_req.motion_id = 212
-        self.motion_req.duration = (int)(timer_period * 1000 - 10)
-        self.send_motion_request()
-
-        self.motion_req.pos_des[0] = 0
-        self.motion_req.pos_des[1] = 0
-        self.motion_req.pos_des[2] = 0
-        self.motion_req.rpy_des[2] = 0
-        self.motion_req.motion_id = 101
-        self.motion_req.duration = 0
-        self.send_motion_request()
 
     def send_motion_request(self):
         self.future = self.motion_result_client_.call_async(self.motion_req)
@@ -375,7 +373,8 @@ class SeatAdjustServer(Node):
         find_first_edge = 0
         first_edge_idx = 0
         last_edge_idx = 0
-        judge_threshold = 0.01
+        self.y_adjust_complete = 0
+        judge_threshold = 0.012
         right_tof_depth = col_depth_sum[3]
         col_depth_sum_edge = (col_depth_sum[2] - right_tof_depth[::-1]) / 8
         for idx in range(0, 8):
@@ -385,19 +384,28 @@ class SeatAdjustServer(Node):
                 last_edge_idx = first_edge_idx
             elif find_first_edge and abs(col_depth_sum_edge[idx]) > judge_threshold:
                 last_edge_idx = idx
+            self.get_logger().info(
+                'col_depth_sum_edge[%d]' % (idx)
+                + '  %3f' % (col_depth_sum_edge[idx])
+            )
         delta_y = (
             np.sign(col_depth_sum_edge[first_edge_idx])
             * ((last_edge_idx - first_edge_idx) / 2)
         )
-        self.motion_req.pos_des[1] = 0.002 * delta_y
-        self.y_adjust_sum = self.y_adjust_sum + self.motion_req.pos_des[1]
-        self.motion_req.pos_des[1] = (
-            self.motion_req.pos_des[1] if (abs(self.y_adjust_sum) < self.y_limit) else 0
-        )
-        self.get_logger().info(
-            'y_adjust: %3f' % (self.motion_req.pos_des[1])
-            + '  y_adjust_sum: %3f' % (self.y_adjust_sum)
-        )
+        if (abs(last_edge_idx - first_edge_idx)):
+            self.motion_req.pos_des[1] = 0.002 * delta_y
+            self.y_adjust_sum = self.y_adjust_sum + self.motion_req.pos_des[1]
+            self.motion_req.pos_des[1] = (
+                self.motion_req.pos_des[1] if (abs(self.y_adjust_sum) < self.y_limit) else 0
+            )
+            self.get_logger().info(
+                'y_adjust: %3f' % (self.motion_req.pos_des[1])
+                + '  y_adjust_sum: %3f' % (self.y_adjust_sum)
+            )
+        else:
+            self.get_logger().info('y_adjust_ok!------- y_adjust_sum: %3f' % (self.y_adjust_sum))
+            self.motion_req.pos_des[1] = 0.0
+            self.y_adjust_complete = 1
 
     def yaw_adjust(self):
         # for idx in range(0,8):
@@ -408,6 +416,7 @@ class SeatAdjustServer(Node):
         diff_right_tof_depth = np.zeros((4, 8))
         depth_threshold = 0.015
         point_num_threshold = 2
+        self.yaw_adjust_complete = 0
         # heigh = 0.08
         step_length = 0.5
         for point_idx in range(0, 64):
@@ -439,29 +448,39 @@ class SeatAdjustServer(Node):
         #     + 'diff_right_points_num:%d  ' % deviation_right_num
         # )
         need_adjust_points = max(deviation_left_num, deviation_right_num)
-        delta_yaw = need_adjust_points / 2
-        if (
-            deviation_right_num > deviation_left_num
-            and need_adjust_points >= point_num_threshold
-        ):
-            self.motion_req.rpy_des[2] = step_length * 3.14 / 180 * delta_yaw
-        elif (
-            deviation_left_num > deviation_right_num
-            and need_adjust_points >= point_num_threshold
-        ):
-            self.motion_req.rpy_des[2] = -step_length * 3.14 / 180 * delta_yaw
-        else:
-            self.motion_req.rpy_des[2] = 0.00
-        self.yaw_adjust_sum = self.yaw_adjust_sum + self.motion_req.rpy_des[2]
-        self.motion_req.rpy_des[2] = (
-            self.motion_req.rpy_des[2]
-            if (abs(self.yaw_adjust_sum) < self.yaw_limit)
-            else 0
-        )
         self.get_logger().info(
-            'yaw_adjust: %3f' % (self.motion_req.rpy_des[2])
-            + '  yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
+                'need_adjust_points: %d' % (need_adjust_points)
         )
+        if (need_adjust_points > 6):
+            delta_yaw = need_adjust_points / 2
+            if (
+                deviation_right_num > deviation_left_num
+                and need_adjust_points >= point_num_threshold
+            ):
+                self.motion_req.rpy_des[2] = step_length * 3.14 / 180 * delta_yaw
+            elif (
+                deviation_left_num > deviation_right_num
+                and need_adjust_points >= point_num_threshold
+            ):
+                self.motion_req.rpy_des[2] = -step_length * 3.14 / 180 * delta_yaw
+            else:
+                self.motion_req.rpy_des[2] = 0.00
+            self.yaw_adjust_sum = self.yaw_adjust_sum + self.motion_req.rpy_des[2]
+            self.motion_req.rpy_des[2] = (
+                self.motion_req.rpy_des[2]
+                if (abs(self.yaw_adjust_sum) < self.yaw_limit)
+                else 0
+            )
+            self.get_logger().info(
+                'yaw_adjust: %3f' % (self.motion_req.rpy_des[2])
+                + '  yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
+            )
+        else:
+            self.get_logger().info(
+                'YAW_ADJUST_OK!------ yaw_adjust_sum: %3f' % (self.yaw_adjust_sum)
+            )
+            self.motion_req.rpy_des[2] = 0.0
+            self.yaw_adjust_complete = 1
 
     def point_depth_compute(self, points, tof_msg):
         for row_col_idx in range(0, 8):
@@ -501,46 +520,78 @@ class SeatAdjustServer(Node):
                     )
 
     def timer_callback(self):
-        if self.action_start and (self.timer_count < adjust_times):
-            self.timer_count = self.timer_count + 1
-            self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-            # self.x_pose_adjust()
-            self.y_pose_adjust()
-            self.yaw_adjust()
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
-        elif (self.timer_count >= adjust_times) and (
-            self.timer_count < (adjust_times + 10)
-        ):
-            self.timer_count = self.timer_count + 1
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = -0.015
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 212
-            self.motion_req.duration = (int)(timer_period * 1000 - 10)
-            self.send_motion_request()
-        elif self.timer_count >= (adjust_times + 10):
-            self.motion_req.pos_des[0] = 0
-            self.motion_req.pos_des[1] = 0
-            self.motion_req.pos_des[2] = 0
-            self.motion_req.rpy_des[2] = 0
-            self.motion_req.motion_id = 101
-            self.motion_req.duration = 0
-            self.send_motion_request()
+        if (self.action_start
+           and ((not self.y_adjust_complete) or (not self.yaw_adjust_complete))
+           and (self.future.done())):
+            self.get_logger().info('adjusting====')
+            response = self.future.result()
+            # self.timer_count = self.timer_count + 1
+            # self.get_logger().info('adjusting, timer_callback: %d ' % (self.timer_count))
+            if (response.result):
+                # self.x_pose_adjust()
+                self.y_pose_adjust()
+                self.yaw_adjust()
+                # self.y_adjust_complete = 1
+                # self.yaw_adjust_complete = 1
+                self.motion_req.motion_id = 212
+                self.motion_req.duration = 700
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result0 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+            else:
+                self.get_logger().info(
+                    'Result0 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+        elif ((self.action_start) and (self.y_adjust_complete)
+              and (self.yaw_adjust_complete) and (self.future.done())):
+            self.get_logger().info('adjust completed. Waitting for sitting down...')
+            # self.timer_count = self.timer_count + 1
+            response = self.future.result()
+            if (response.result):
+                self.motion_req.pos_des[0] = 0
+                self.motion_req.pos_des[1] = 0
+                self.motion_req.pos_des[2] = -0.08
+                self.motion_req.rpy_des[2] = 0
+                self.motion_req.motion_id = 212
+                self.motion_req.duration = (int)(timer_period * 1000)
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result1 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+                # self.timer_count = 0
 
-            self.timer_count = 0
-            self.action_start = 0
-            self.action_complete = 1
-        # self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-        # if (self.action_start):
-        #     self.timer_count = self.timer_count + 1
-        #     self.get_logger().info('timer_callback: %d ' % (self.timer_count))
-        # if (self.timer_count == 20):
-        #     self.timer_count = 0
-        #     self.action_start = 0
-        #     self.action_complete = 1
+                self.action_start = 0
+                self.action_sit_down = 1
+                self.y_adjust_complete = 0
+                self.yaw_adjust_complete = 0
+            else:
+                self.get_logger().info(
+                    'Result1 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+        elif (self.action_sit_down) and (self.future.done()):
+            response = self.future.result()
+            if (response.result):
+                self.motion_req.pos_des[0] = 0
+                self.motion_req.pos_des[1] = 0
+                self.motion_req.pos_des[2] = 0
+                self.motion_req.rpy_des[2] = 0
+                self.motion_req.motion_id = 101
+                self.motion_req.duration = 0
+                self.send_motion_request()
+                self.get_logger().info(
+                    'Result2 ok:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
+                self.yaw_adjust_sum = 0.0
+                self.y_adjust_sum = 0.0
+
+                self.action_sit_down = 0
+                self.action_complete = 1
+                # self.timer_count = 0
+            else:
+                self.get_logger().info(
+                    'Result2 failed:motion_id: %d, result: %d, code: %d' %
+                    (response.motion_id, response.result, response.code))
 
 
 def point_cloud(points, parent_frame):

@@ -105,12 +105,14 @@ Status BackUp::onCycleUpdate()
   pose2d.y = current_pose.pose.position.y;
   pose2d.theta = tf2::getYaw(current_pose.pose.orientation);
 
-  if (!isCollisionFree(distance, cmd_vel.get(), pose2d)) {
-    stopRobot();
-    RCLCPP_WARN(logger_, "Collision Ahead - Exiting BackUp");
-    return Status::FAILED;
-  }
+  // if (!isCollisionFree(distance, cmd_vel.get(), pose2d)) {
+  //   stopRobot();
+  //   RCLCPP_WARN(logger_, "Collision Ahead - Exiting BackUp");
+  //   return Status::FAILED;
+  // }
 
+  RCLCPP_INFO(logger_, "[back_up] cmd_vel [vx = %lf, vy = %lf, w = %lf]",
+    cmd_vel->linear.x, cmd_vel->linear.y, cmd_vel->angular.z );
   vel_pub_->publish(std::move(cmd_vel));
 
   return Status::RUNNING;

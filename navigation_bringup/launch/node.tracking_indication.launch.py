@@ -30,7 +30,6 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
-from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
 
@@ -38,20 +37,20 @@ def generate_launch_description():
     namespace_declare = DeclareLaunchArgument(
         name='namespace',
         default_value='',
-        description='Top-level namespace'
+        description='Top-level namespace')
+
+    tracking_indication_cmd = Node(
+        package='algorithm_manager',
+        executable='tracking_indication',
+        # name='algorithm_manager',
+        namespace=namespace,
         )
-    lifecycle_nodes = ['map_server', 'mivinslocalization']
-    lifecycle_loc_cmd = Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_vis_localization',
-            namespace=namespace,
-            output='screen',
-            parameters=[{'node_names': lifecycle_nodes}])
+
     ld = launch.LaunchDescription([
         namespace_declare,
-        lifecycle_loc_cmd,
+        tracking_indication_cmd,
     ])
+
     return ld
 
 if __name__ == '__main__':

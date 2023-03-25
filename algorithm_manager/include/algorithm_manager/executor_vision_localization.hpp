@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
@@ -34,7 +33,6 @@ namespace algorithm
 class ExecutorVisionLocalization : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MapAvailableResult = cyberdog_visions_interfaces::srv::MilocMapHandler;
 
   /**
@@ -75,13 +73,6 @@ private:
   void HandleRelocalizationCallback(const std_msgs::msg::Int32::SharedPtr msg);
 
   /**
-   * @brief Handle some request stop location module
-   *
-   * @param msg Request command
-   */
-  void HandleStopTriggerCommandMessages(const std_msgs::msg::Bool::SharedPtr msg);
-
-  /**
   * @brief Check `camera/camera` real sense sensor status
   *
   * @return true Return success
@@ -96,7 +87,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool WaitRelocalization(std::chrono::seconds timeout);
+  bool WaitRelocalization(std::chrono::seconds timeout, bool & force_quit);
 
   /**
    * @brief Enable Lidar Relocalization turn on
@@ -112,7 +103,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool DisenableRelocalization();
+  bool DisableRelocalization();
 
   /**
    * @brief Turn on ot turn off report realtime robot pose
@@ -129,7 +120,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool CheckMapAvailable();
+  bool CheckMapAvailable(int & code);
 
   /**
    * @brief Set all lifecycle default state
@@ -137,7 +128,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   /**
    * @brief Activate all nav2 lifecycle nodes
@@ -158,24 +149,34 @@ private:
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // Control localization_node lifecycle
-  std::shared_ptr<LifecycleController> localization_lifecycle_ {nullptr};
+  bool SendServerRequest(
+    const rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client,
+    const std_srvs::srv::SetBool::Request::SharedPtr & request,
+    std_srvs::srv::SetBool::Response::SharedPtr & response);
 
-  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
+  void HandleStopCallback(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> respose);
 
-  // service client
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  bool StopLocalizationFunctions();
+
+  bool CheckExit();
+
+  // feedback data
+  ExecutorData executor_laser_mapping_data_;
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> pose_server_client_ {nullptr};
 
+  // serice reset(stop current robot running)
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
+
   // Subscription lidar localization topic result
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr relocalization_sub_{nullptr};
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stop_trigger_sub_{nullptr};
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> map_result_client_ {nullptr};
@@ -186,6 +187,15 @@ private:
 
   // in service
   bool is_activate_ {false};
+  bool is_exit_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
+  std::mutex task_mutex_;
 };  // class ExecutorLaserLocalization
 }  // namespace algorithm
 }  // namespace cyberdog

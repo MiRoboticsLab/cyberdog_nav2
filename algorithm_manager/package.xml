@@ -30,7 +30,10 @@
   <depend>visualization</depend>
   <depend>behavior_manager</depend>
   <depend>filesystem</depend>
+  <depend>cyberdog_machine</depend>
   <depend>cyberdog_visions_interfaces</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <export>

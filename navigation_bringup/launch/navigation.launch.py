@@ -39,7 +39,6 @@ def generate_launch_description():
     nav2_dir = FindPackageShare(package='navigation_bringup').find('navigation_bringup')
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     node_lists = [
-        # 'static_tf',
         'state_publisher',
         'vision_manager',
         'camera_server',
@@ -54,12 +53,6 @@ def generate_launch_description():
         'report_dog_pose',
         'laser_mapping',
         'laser_localization',
-        # 'lifecycle_mgr_laser_loc',
-        # 'lifecycle_mgr_nav',
-        # 'lifecycle_mgr_laser_mapping',
-        # 'lifecycle_mgr_mcr_uwb',
-        # 'lifecycle_mgr_vis_vo',
-        # 'navigation_interfaces',
         'mivins_localization',
         'mivins_mapping',
         'mivins_vo',
@@ -71,7 +64,8 @@ def generate_launch_description():
         'head_tof_pc_publisher',
         'stair_align',
         'charging_localization',
-        'seat_adjust_server'
+        'seat_adjust_server',
+        'tracking_indication'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),

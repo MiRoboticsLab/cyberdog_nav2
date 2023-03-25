@@ -1,0 +1,5 @@
+<library path="lidar_obstacle_layer_plugin">
+	<class name="lidar_obstacle_layer/ObstacleLayer" type="lidar_obstacle_layer::ObstacleLayer" base_class_type="nav2_costmap_2d::Layer">
+	  <description>This is an example plugin which lidar_obstacle_layer.</description>
+	</class>
+</library>

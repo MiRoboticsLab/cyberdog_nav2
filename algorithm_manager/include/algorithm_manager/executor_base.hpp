@@ -31,7 +31,6 @@
 // #include "nav2_util/geometry_utils.hpp"
 // #include "protocol/msg/follow_points.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "algorithm_manager/realsense_lifecycle_manager.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
 // #include "algorithm_manager/algorithm_task_manager.hpp"
@@ -43,6 +42,8 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
 #include "behavior_manager/behavior_manager.hpp"
+
+using namespace std::chrono_literals;   // NOLINT
 
 namespace cyberdog
 {
@@ -101,7 +102,6 @@ using Nav2LifecyleMgrClientMap =
     std::shared_ptr<Nav2LifecyleMgrClient>>>;
 using LifecyleNodesMap =
   std::unordered_map<std::string, std::unordered_map<std::string, LifecycleClients>>;
-using RealSenseClient = RealSenseLifecycleServiceClient;
 using StopTaskSrv = protocol::srv::StopAlgoTask;
 struct ExecutorData
 {
@@ -268,8 +268,9 @@ protected:
     lifecycle_activated_.clear();
     for (auto client : GetDepsLifecycleNodes(task_name)) {
       INFO("Trying to launch [%s]", client.name.c_str());
-      if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
-        ERROR("Lifecycle [%s] not exist", client.name.c_str());
+      int lifecycle_query = 5;
+      if (!client.lifecycle_client->service_exist(std::chrono::seconds(lifecycle_query))) {
+        ERROR("Lifecycle [%s] not exist in %ds", client.name.c_str(), lifecycle_query);
         return false;
       }
       bool is_timeout = false;
@@ -297,7 +298,7 @@ protected:
             lifecycle_msgs::msg::Transition::
             TRANSITION_ACTIVATE, timeout))
         {
-          ERROR("Get error when activing [%s]", client.name.c_str());
+          ERROR("Get error when activing [%s] with state: %d", client.name.c_str(), state);
           return false;
         }
         lifecycle_activated_.push_back(client);
@@ -320,8 +321,11 @@ protected:
       lifecycle_activated_rtr != lifecycle_activated_.rend(); lifecycle_activated_rtr++)
     {
       auto client = *lifecycle_activated_rtr;
-      if (!client.lifecycle_client->service_exist(std::chrono::seconds(2))) {
-        WARN("Lifecycle [%s] not exist, will not deactive it", client.name.c_str());
+      int lifecycle_query = 5;
+      if (!client.lifecycle_client->service_exist(std::chrono::seconds(lifecycle_query))) {
+        WARN(
+          "Lifecycle [%s] not exist in %ds, will not deactive it",
+          client.name.c_str(), lifecycle_query);
         continue;
       }
       bool is_timeout = false;
@@ -396,10 +400,12 @@ protected:
 
   void UpdateFeedback(int32_t feedback_code)
   {
-    if (feedback_code == last_feedback_->feedback_code) {
-      // INFO("Current set feedback_code = %d", feedback_code);
-      return;
-    }
+    // if (feedback_code == last_feedback_->feedback_code) {
+    //   WARN(
+    //     "Last Feedback: %d, new feedback: %d, will not send", last_feedback_->feedback_code,
+    //     feedback_code);
+    //   return;
+    // }
     std::lock_guard<std::mutex> lk(feedback_mutex_);
     last_feedback_->feedback_code = feedback_code;
     feedback_->feedback_code = feedback_code;

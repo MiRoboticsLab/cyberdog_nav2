@@ -42,6 +42,7 @@
       <input_port name="path">Path to follow</input_port>
       <input_port name="goal_checker_id" default="GoalChecker">Goal checker</input_port>
       <input_port name="progress_checker_id" default="progress_checker">Progress checker</input_port>
+      <output_port name="output_exception_code">Exception code for the real reason</output_port>
     </Action>
 
     <Action ID="NavigateToPose">

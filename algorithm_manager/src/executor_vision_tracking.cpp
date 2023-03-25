@@ -202,12 +202,10 @@ bool ExecutorVisionTracking::CallVisionTrackAlgo(bool object_tracking)
   request->open_age = true;
   request->open_emotion = true;
 
-  while (!client_vision_algo_->wait_for_service(1s)) {
-    if (!rclcpp::ok()) {
-      ERROR("Interrupted while waiting for the service. Exiting.");
-      return false;
-    }
-    INFO("service not available, waiting again...");
+
+  if (!client_vision_algo_->wait_for_service(5s)) {
+    ERROR("service not available, please try again later.");
+    return false;
   }
   INFO("client_vision_algo_ service available! async_send_request");
   auto result = client_vision_algo_->async_send_request(request);
@@ -228,15 +226,6 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   (void)keep_distance;
   SetFeedbackCode(500);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
-  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
-    ERROR("ActivateDepsLifecycleNodes failed");
-    ReportPreparationFinished(506);
-    if (!DeactivateDepsLifecycleNodes(3000)) {
-      ERROR("DeactivateDepsLifecycleNodes failed");
-    }
-    task_abort_callback_();
-    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
-  }
   if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
     ReportPreparationFinished(506);
@@ -246,6 +235,16 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
     task_abort_callback_();
     return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
   }
+  if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
+    ERROR("ActivateDepsLifecycleNodes failed");
+    ReportPreparationFinished(506);
+    if (!DeactivateDepsLifecycleNodes(3000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return Navigation::Result::NAVIGATION_RESULT_TYPE_FAILED;
+  }
+
   start_vision_tracking_ = true;
   SetFeedbackCode(501);
   INFO("FeedbackCode: %d", feedback_->feedback_code);
@@ -388,8 +387,7 @@ void ExecutorVisionTracking::HandleResultCallback(
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Vision Tracking reported aborted");
       target_tracking_goal_handle_.reset();
-      feedback_->feedback_code =
-        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_EMPTY_TARGET;
+      feedback_->feedback_code = 509;
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");

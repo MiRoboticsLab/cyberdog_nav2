@@ -17,15 +17,19 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 
 #include "std_msgs/msg/bool.hpp"
 #include "algorithm_manager/executor_base.hpp"
-#include "algorithm_manager/lifecycle_node_manager.hpp"
 #include "visualization/srv/stop.hpp"
 #include "nav2_util/service_client.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "algorithm_manager/timer.hpp"
 #include "cyberdog_visions_interfaces/srv/miloc_map_handler.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/create_timer_ros.h"
+#include "tf2_ros/transform_listener.h"
+#include "protocol/srv/set_map_label.hpp"
 
 namespace cyberdog
 {
@@ -35,9 +39,9 @@ namespace algorithm
 class ExecutorLaserMapping : public ExecutorBase
 {
 public:
-  using LifeCycleNodeType = LifecycleNodeManager::LifeCycleNode;
   using MotionServiceCommand = protocol::srv::MotionResultCmd;
   using MilocMapHandler = cyberdog_visions_interfaces::srv::MilocMapHandler;
+  using LabelParam = protocol::srv::SetMapLabel;
 
   explicit ExecutorLaserMapping(std::string node_name);
   ~ExecutorLaserMapping();
@@ -47,8 +51,6 @@ public:
     const StopTaskSrv::Request::SharedPtr request,
     StopTaskSrv::Response::SharedPtr response) override;
   void Cancel() override;
-  // void UpdateStatus(const ExecutorStatus & executor_status) override;
-  // void GetFeedback(protocol::action::Navigation::Feedback::SharedPtr feedback) override;
 
 private:
   /**
@@ -104,22 +106,6 @@ private:
   bool CheckAvailable();
 
   /**
-   * @brief Enable Lidar Localization turn off
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool DisenableLocalization();
-
-  /**
-   * @brief When robot mapping it's should walk smoother
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool VelocitySmoother();
-
-  /**
    * @brief Radar is mapping
    */
   void PublishBuildMapType();
@@ -130,41 +116,33 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool ResetLifecycleDefaultValue();
+  bool ResetAllLifecyceNodes();
 
   /**
-   * @brief Delete all vision in background viosn building data
+   * @brief Record outdoor flag
    *
    * @return true Return success
    * @return false Return failure
    */
-  bool DeleteBackgroundVisionMapDatasets();
+  bool InvokeOutdoorFlag(const std::string & mapname);
+
+  bool CheckExit();
+
+  bool CloseMappingService();
+
+  bool CanTransform(const std::string & parent_link, const std::string & clild_link);
+
+  void ResetFlags();
 
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
-  // // Control lidar mapping lifecycle(Nav2 lifecycle)
-  // nav2_lifecycle_manager::LifecycleManagerClient client_mapping_{nullptr};
-
-  // Lifecycle controller
-  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> mapping_client_ {nullptr};
-  // std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> localization_client_ {nullptr};
-
   // service client
-  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr start_client_ {nullptr};
-  // rclcpp::Client<visualization::srv::Stop>::SharedPtr stop_client_ {nullptr};
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
-
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
-
-  // Control realsense camera lifecycle
-  std::shared_ptr<LifecycleController> localization_client_ {nullptr};
-  std::shared_ptr<LifecycleController> mapping_client_ {nullptr};
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr stop_client_ {nullptr};
+  rclcpp::Client<LabelParam>::SharedPtr outdoor_client_ {nullptr};
 
   // lidar mapping alive
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr lidar_mapping_trigger_pub_{nullptr};
@@ -180,8 +158,18 @@ private:
   int pose_report_service_timeout_;
   int velocity_smoother_service_timeout_;
 
-  // record this sensor is open
-  bool is_open_realsense_camera_ {false};
+  bool is_exit_ {false};
+  bool is_slam_service_activate_ {false};
+  bool is_realtime_pose_service_activate_ {false};
+
+  // mutex
+  std::mutex lifecycle_mutex_;
+  std::mutex service_mutex_;
+  std::mutex realtime_pose_mutex_;
+
+  // tf
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

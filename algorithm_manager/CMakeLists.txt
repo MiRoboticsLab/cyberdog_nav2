@@ -6,6 +6,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 include_directories(include)
+include_directories(plugins)
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -31,6 +33,10 @@ find_package(visualization REQUIRED)
 find_package(cyberdog_visions_interfaces REQUIRED)
 find_package(behavior_manager REQUIRED)
 find_package(filesystem REQUIRED)
+find_package(cyberdog_machine REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -60,6 +66,9 @@ set(dependencies
   cyberdog_visions_interfaces
   behavior_manager
   filesystem
+  cyberdog_machine
+  tf2
+  tf2_ros
 )
 
 set(sources
@@ -76,8 +85,7 @@ set(sources
   src/executor_vision_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
-  src/lifecycle_node_manager.cpp
-  src/lifecycle_controller.cpp
+  src/global_pose_publisher.cpp
   src/timer.cpp
 )
 
@@ -106,6 +114,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+add_executable(tracking_indication src/tracking_indication.cpp)
+ament_target_dependencies(tracking_indication
+  ${dependencies}
+)
+target_include_directories(tracking_indication PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(tracking_indication PUBLIC c_std_99 cxx_std_17)
+
 add_executable(fake_action test/fake_action.cpp)
 ament_target_dependencies(fake_action
   ${dependencies}
@@ -131,6 +148,10 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
+install(TARGETS ${PROJECT_NAME} tracking_indication
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
 install(TARGETS ${PROJECT_NAME} fake_action
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
@@ -148,7 +169,6 @@ install(DIRECTORY
   params
   DESTINATION share/${PROJECT_NAME}
 )
-
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
