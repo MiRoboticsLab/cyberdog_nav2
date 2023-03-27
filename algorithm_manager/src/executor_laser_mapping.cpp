@@ -405,6 +405,8 @@ bool ExecutorLaserMapping::CloseMappingService()
   if (stop_ == nullptr) {
     stop_ = std::make_shared<nav2_util::ServiceClient<visualization::srv::Stop>>(
       "stop_mapping", shared_from_this());
+  } else {
+    ERROR("Create stop_mapping client error.");
   }
 
   // Wait service
@@ -423,7 +425,9 @@ bool ExecutorLaserMapping::CloseMappingService()
   bool result = false;
   try {
     std::lock_guard<std::mutex> lock(service_mutex_);
-    auto future_result = stop_->invoke(request, std::chrono::seconds(15s));
+    INFO("Trying invoke(stop_mapping) request");
+    auto future_result = stop_->invoke(request, std::chrono::seconds(25s));
+    INFO("Finished invoke(stop_mapping) request");
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
