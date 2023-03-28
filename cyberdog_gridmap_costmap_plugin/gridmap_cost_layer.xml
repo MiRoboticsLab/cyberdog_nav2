@@ -1,5 +1,0 @@
-<library path="cyberdog_gridmap_costmap_plugin_core">
-  <class name="cyberdog_gridmap_costmap_plugin/GridMapCostLayer" type="cyberdog_gridmap_costmap_plugin::GridMapCostLayer" base_class_type="nav2_costmap_2d::Layer">
-    <description>convert gred map to nav2 cost map</description>
-  </class>
-</library>
