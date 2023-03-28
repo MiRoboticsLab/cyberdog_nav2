@@ -379,6 +379,7 @@ PlannerServer::computePlanThroughPoses()
 
       // check path for validity
       if (!validatePath(action_server_poses_, curr_goal, curr_path, goal->planner_id)) {
+        publishPlan(curr_path);
         return;
       }
 
