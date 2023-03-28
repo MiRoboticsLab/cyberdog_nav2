@@ -231,7 +231,7 @@ bool ExecutorVisionMapping::StartBuildMapping()
   try {
     std::lock_guard<std::mutex> lock(service_mutex_);
     is_slam_service_activate_ = true;
-    auto future_result = start_client_->invoke(request, std::chrono::seconds(5s));
+    auto future_result = start_client_->invoke(request, std::chrono::seconds(25s));
     result = future_result->success;
   } catch (const std::exception & e) {
     ERROR("%s", e.what());
