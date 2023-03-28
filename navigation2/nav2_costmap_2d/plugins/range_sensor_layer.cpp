@@ -149,10 +149,6 @@ void RangeSensorLayer::onInitialize()
         "and forgot to choose the subscriber for it?",
         name_.c_str(), sensor_type_name.c_str());
     }
-    
-    if(topic_name[0] != '/')
-      topic_name = client_node_->get_namespace() + std::string("/") + topic_name;
-
     range_subs_.push_back(
       node->create_subscription<sensor_msgs::msg::Range>(
         topic_name, rclcpp::SensorDataQoS(), std::bind(
@@ -297,7 +293,9 @@ void RangeSensorLayer::updateCostmap(
   in.header.frame_id = range_message.header.frame_id;
 
   if (!tf_->canTransform(
-      in.header.frame_id, global_frame_, tf2_ros::fromMsg(in.header.stamp)))
+      in.header.frame_id, global_frame_,
+      tf2_ros::fromMsg(in.header.stamp),
+      tf2_ros::fromRclcpp(transform_tolerance_)))
   {
     RCLCPP_INFO(
       logger_, "Range sensor layer can't transform from %s to %s",

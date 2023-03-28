@@ -240,7 +240,6 @@ Costmap2DROS::on_activate(const rclcpp_lifecycle::State & /*state*/)
     std::bind(
       &Costmap2DROS::mapUpdateLoop, this, map_update_frequency_));
 
-  initialized_ = true;
   start();
 
   return nav2_util::CallbackReturn::SUCCESS;
