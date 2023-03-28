@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
@@ -23,7 +22,6 @@
 #include "pluginlib/class_list_macros.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "nav2_costmap_2d/costmap_math.hpp"
-#include "nav2_costmap_2d/obstacle_layer.hpp"
 #include "lidar_obstacle_layer/lidar_obstacle_layer.hpp"
 
 PLUGINLIB_EXPORT_CLASS(lidar_obstacle_layer::ObstacleLayer, nav2_costmap_2d::Layer)
@@ -34,8 +32,6 @@ using nav2_costmap_2d::FREE_SPACE;
 
 using nav2_costmap_2d::ObservationBuffer;
 using nav2_costmap_2d::Observation;
-
-using namespace nav2_costmap_2d;  // NOLINT
 
 namespace lidar_obstacle_layer
 {
@@ -75,18 +71,9 @@ void ObstacleLayer::onInitialize()
   node->get_parameter("transform_tolerance", transform_tolerance);
   node->get_parameter(name_ + "." + "observation_sources", topics_string);
 
-  std::string names = node->get_namespace();
-  std::vector<std::string> fields;
-  boost::split(fields, names, boost::is_any_of("/") );
-  if (fields.size() > 2) {
-    topics_string = "/" + fields[1] + "/" + topics_string;
-  } else {
-    topics_string = "/" + topics_string;
-  }
-
   RCLCPP_INFO(
     logger_,
-    "Subscribed to Topics: %s", topics_string.c_str());
+    "Subscribed to Topics111: %s", topics_string.c_str());
 
   rolling_window_ = layered_costmap_->isRolling();
 
@@ -117,8 +104,8 @@ void ObstacleLayer::onInitialize()
     declareParameter(source + "." + "observation_persistence", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "expected_update_rate", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "data_type", rclcpp::ParameterValue(std::string("LaserScan")));
-    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(-2.0));
-    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(5.0));
+    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(0.0));
+    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "inf_is_valid", rclcpp::ParameterValue(false));
     declareParameter(source + "." + "marking", rclcpp::ParameterValue(true));
     declareParameter(source + "." + "clearing", rclcpp::ParameterValue(false));
@@ -160,6 +147,9 @@ void ObstacleLayer::onInitialize()
     node->get_parameter(name_ + "." + source + "." + "raytrace_min_range", raytrace_min_range);
     node->get_parameter(name_ + "." + source + "." + "raytrace_max_range", raytrace_max_range);
 
+    if (topic[0] != '/') {
+      topic = client_node_->get_namespace() + std::string("/") + topic;
+    }
 
     RCLCPP_DEBUG(
       logger_,
@@ -429,7 +419,6 @@ ObstacleLayer::updateBounds(
         continue;
       }
 
-      RCLCPP_DEBUG(logger_, "The point is too far away");
       unsigned int index = getIndex(mx, my);
       costmap_[index] = LETHAL_OBSTACLE;
       touch(px, py, min_x, min_y, max_x, max_y);

@@ -35,6 +35,8 @@
 #include "nav2_costmap_2d/observation_buffer.hpp"
 #include "nav2_costmap_2d/footprint.hpp"
 
+using namespace nav2_costmap_2d;  // NOLINT
+
 namespace lidar_obstacle_layer
 {
 
@@ -42,7 +44,7 @@ namespace lidar_obstacle_layer
  * @class ObstacleLayer
  * @brief Takes in laser and pointcloud data to populate into 2D costmap
  */
-class ObstacleLayer : public nav2_costmap_2d::CostmapLayer
+class ObstacleLayer : public CostmapLayer
 {
 public:
   /**
