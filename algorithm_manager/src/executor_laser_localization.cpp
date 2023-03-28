@@ -129,6 +129,9 @@ void ExecutorLaserLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr g
   timer.Start();
   success = WaitRelocalization(std::chrono::seconds(120s), force_quit);
   if (!success) {
+    // Close handle localizaiton reuslt
+    is_activate_ = false;
+
     UpdateFeedback(relocalization::kSLAMTimeout);
 
     if (!force_quit) {
