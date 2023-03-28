@@ -1,17 +1,41 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
+/*********************************************************************
+ *
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2008, 2013, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author: Eitan Marder-Eppstein
+ *         David V. Lu!!
+ *         Steve Macenski
+ *********************************************************************/
 
 #include <boost/algorithm/string.hpp>
 
@@ -23,7 +47,6 @@
 #include "pluginlib/class_list_macros.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "nav2_costmap_2d/costmap_math.hpp"
-#include "nav2_costmap_2d/obstacle_layer.hpp"
 #include "lidar_obstacle_layer/lidar_obstacle_layer.hpp"
 
 PLUGINLIB_EXPORT_CLASS(lidar_obstacle_layer::ObstacleLayer, nav2_costmap_2d::Layer)
@@ -34,8 +57,6 @@ using nav2_costmap_2d::FREE_SPACE;
 
 using nav2_costmap_2d::ObservationBuffer;
 using nav2_costmap_2d::Observation;
-
-using namespace nav2_costmap_2d;  // NOLINT
 
 namespace lidar_obstacle_layer
 {
@@ -75,18 +96,9 @@ void ObstacleLayer::onInitialize()
   node->get_parameter("transform_tolerance", transform_tolerance);
   node->get_parameter(name_ + "." + "observation_sources", topics_string);
 
-  std::string names = node->get_namespace();
-  std::vector<std::string> fields;
-  boost::split(fields, names, boost::is_any_of("/") );
-  if (fields.size() > 2) {
-    topics_string = "/" + fields[1] + "/" + topics_string;
-  } else {
-    topics_string = "/" + topics_string;
-  }
-
   RCLCPP_INFO(
     logger_,
-    "Subscribed to Topics: %s", topics_string.c_str());
+    "Subscribed to Topics111: %s", topics_string.c_str());
 
   rolling_window_ = layered_costmap_->isRolling();
 
@@ -117,8 +129,8 @@ void ObstacleLayer::onInitialize()
     declareParameter(source + "." + "observation_persistence", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "expected_update_rate", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "data_type", rclcpp::ParameterValue(std::string("LaserScan")));
-    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(-2.0));
-    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(5.0));
+    declareParameter(source + "." + "min_obstacle_height", rclcpp::ParameterValue(0.0));
+    declareParameter(source + "." + "max_obstacle_height", rclcpp::ParameterValue(0.0));
     declareParameter(source + "." + "inf_is_valid", rclcpp::ParameterValue(false));
     declareParameter(source + "." + "marking", rclcpp::ParameterValue(true));
     declareParameter(source + "." + "clearing", rclcpp::ParameterValue(false));
@@ -160,6 +172,8 @@ void ObstacleLayer::onInitialize()
     node->get_parameter(name_ + "." + source + "." + "raytrace_min_range", raytrace_min_range);
     node->get_parameter(name_ + "." + source + "." + "raytrace_max_range", raytrace_max_range);
 
+    if(topic[0] != '/')
+      topic = client_node_->get_namespace() + std::string("/") + topic;
 
     RCLCPP_DEBUG(
       logger_,
@@ -429,7 +443,6 @@ ObstacleLayer::updateBounds(
         continue;
       }
 
-      RCLCPP_DEBUG(logger_, "The point is too far away");
       unsigned int index = getIndex(mx, my);
       costmap_[index] = LETHAL_OBSTACLE;
       touch(px, py, min_x, min_y, max_x, max_y);
