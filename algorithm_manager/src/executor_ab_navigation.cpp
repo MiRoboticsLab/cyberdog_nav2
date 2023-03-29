@@ -158,7 +158,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");
     return;
   }
- 
+
   timer.Start();
   // Print set target goal pose
   Debug2String(goal->poses[0]);
