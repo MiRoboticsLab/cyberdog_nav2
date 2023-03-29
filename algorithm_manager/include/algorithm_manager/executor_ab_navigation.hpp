@@ -141,14 +141,6 @@ private:
   void NormalizedGoal(const geometry_msgs::msg::PoseStamped & pose);
 
   /**
-   * @brief When robot mapping it's should walk smoother
-   *
-   * @return true Return success
-   * @return false Return failure
-   */
-  bool VelocitySmoother();
-
-  /**
    * @brief Print target goal pose
    *
    * @param pose APP or rviz set target pose goal
@@ -205,9 +197,6 @@ private:
   // Lifecycle controller
   std::unique_ptr<nav2_lifecycle_manager::LifecycleManagerClient> nav_client_ {nullptr};
   rclcpp::Time time_goal_sent_;
-
-  // velocity smoother 'velocity_adaptor_gait'
-  std::shared_ptr<nav2_util::ServiceClient<MotionServiceCommand>> velocity_smoother_ {nullptr};
 
   // Control `map server` lifecycle node
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};

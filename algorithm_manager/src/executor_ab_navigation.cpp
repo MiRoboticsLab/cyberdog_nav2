@@ -158,10 +158,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
     WARN("Navigation AB is stop, not need start velocity smoother and send target goal.");
     return;
   }
-
-  // Smoother walk
-  VelocitySmoother();
-  INFO("[4] Invoke velocity smoother service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+ 
   timer.Start();
   // Print set target goal pose
   Debug2String(goal->poses[0]);
@@ -367,44 +364,6 @@ void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped 
   target_goal_.pose = pose;
   target_goal_.pose.header.frame_id = "map";
   target_goal_.pose.pose.orientation.w = 1;
-}
-
-bool ExecutorAbNavigation::VelocitySmoother()
-{
-  if (start_velocity_smoother_finished_) {
-    INFO("Current start velocity smoother finished.");
-    return true;
-  }
-
-  if (velocity_smoother_ == nullptr) {
-    velocity_smoother_ = std::make_shared<nav2_util::ServiceClient<MotionServiceCommand>>(
-      "velocity_adaptor_gait", shared_from_this());
-  }
-
-  bool connect = velocity_smoother_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for the service(velocity_adaptor_gait). but cannot connect the service.");
-    return false;
-  }
-
-  // Set request data
-  auto request = std::make_shared<MotionServiceCommand::Request>();
-  std::vector<float> step_height{0.05, 0.05};
-  request->motion_id = 303;
-  request->value = 2;
-  request->step_height = step_height;
-
-  // Send request
-  bool result = false;
-  try {
-    auto future_result = velocity_smoother_->invoke(request, std::chrono::seconds(5s));
-    result = future_result->result;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-
-  start_velocity_smoother_finished_ = true;
-  return result;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
