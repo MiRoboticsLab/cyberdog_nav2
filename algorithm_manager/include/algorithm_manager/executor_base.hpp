@@ -268,7 +268,7 @@ protected:
     lifecycle_activated_.clear();
     for (auto client : GetDepsLifecycleNodes(task_name)) {
       INFO("Trying to launch [%s]", client.name.c_str());
-      int lifecycle_query = 5;
+      int lifecycle_query = 10;
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(lifecycle_query))) {
         ERROR("Lifecycle [%s] not exist in %ds", client.name.c_str(), lifecycle_query);
         return false;
@@ -321,7 +321,7 @@ protected:
       lifecycle_activated_rtr != lifecycle_activated_.rend(); lifecycle_activated_rtr++)
     {
       auto client = *lifecycle_activated_rtr;
-      int lifecycle_query = 5;
+      int lifecycle_query = 10;
       if (!client.lifecycle_client->service_exist(std::chrono::seconds(lifecycle_query))) {
         WARN(
           "Lifecycle [%s] not exist in %ds, will not deactive it",
