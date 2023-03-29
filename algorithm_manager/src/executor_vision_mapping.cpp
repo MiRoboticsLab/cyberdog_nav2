@@ -199,7 +199,7 @@ void ExecutorVisionMapping::Cancel()
 bool ExecutorVisionMapping::IsDependsReady()
 {
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
-  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
+  bool acivate_success = ActivateDepsLifecycleNodes(this->get_name(), 40000);
   if (!acivate_success) {
     return false;
   }
