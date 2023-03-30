@@ -228,7 +228,8 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   INFO("FeedbackCode: %d", feedback_->feedback_code);
   if (!CallVisionTrackAlgo(object_tracking)) {
     ERROR("CallVisionTrackAlgo failed");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_STARTING_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_STARTING_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -237,7 +238,8 @@ uint8_t ExecutorVisionTracking::StartVisionTracking(
   }
   if (!ActivateDepsLifecycleNodes(this->get_name(), 50000)) {
     ERROR("ActivateDepsLifecycleNodes failed");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_STARTING_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_STARTING_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -267,7 +269,8 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     res->success = true;
   } else {
     ERROR("TrackingClientCallService failed");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -280,7 +283,8 @@ void ExecutorVisionTracking::TrackingSrvCallback(
     std::chrono::seconds(5));
   if (!is_action_server_ready) {
     ERROR("Tracking target action server is not available.");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -312,7 +316,8 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   INFO("target_tracking_action_client_ async_send_goal");
   if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
     ERROR("Cannot Get result target_tracking_action_client_");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
     }
@@ -326,7 +331,8 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   target_tracking_goal_handle_ = future_goal_handle.get();
   if (!target_tracking_goal_handle_) {
     ERROR("Goal was rejected by server");
-    ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
+    ReportPreparationFinished(
+      AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_SELECTED_FAILED);
     if (!DeactivateDepsLifecycleNodes(3000)) {
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
@@ -341,17 +347,21 @@ void ExecutorVisionTracking::HandleFeedbackCallback(
   const std::shared_ptr<const McrTargetTracking::Feedback> feedback)
 {
   // INFO("HandleFeedbackCallback: %d", feedback->exception_code);
-  if (feedback_->feedback_code == AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_LOSE) {
+  if (feedback_->feedback_code ==
+    AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_LOSE)
+  {
     return;
   }
   switch (feedback->exception_code) {
     case 0:
-      feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_FOLLOWING;
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_FOLLOWING;
       // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_NOEXCEPTION;
       break;
 
     case 1000:
-      feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_DISAPPEAR;
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_DISAPPEAR;
       // AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_BASE_TRACKING_DETECOTOREXCEPTION;
       break;
 
@@ -387,11 +397,14 @@ void ExecutorVisionTracking::HandleResultCallback(
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("Vision Tracking reported aborted");
       target_tracking_goal_handle_.reset();
-      feedback_->feedback_code = AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_TARGET_EMPTY;
+      feedback_->feedback_code =
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_TARGET_EMPTY;
       break;
     case rclcpp_action::ResultCode::CANCELED:
       WARN("Vision Tracking reported canceled");
-      if (feedback_->feedback_code != AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_LOSE) {
+      if (feedback_->feedback_code !=
+        AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_OBJECT_LOSE)
+      {
         if (!DeactivateDepsLifecycleNodes(3000)) {
           ERROR("DeactivateDepsLifecycleNodes failed");
         }
@@ -439,7 +452,8 @@ void ExecutorVisionTracking::VisionManagerStatusCallback(const TrackingStatusT::
         INFO("FeedbackCode: %d", feedback_->feedback_code);
         if (!OnlyCancelNavStack()) {
           ERROR("OnlyCancelNavStack failed!");
-          ReportPreparationFinished(AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_RESET_FAILED);
+          ReportPreparationFinished(
+            AlgorithmMGR::Feedback::NAVIGATION_FEEDBACK_VISION_TRACKING_RESET_FAILED);
           INFO("FeedbackCode: %d", feedback_->feedback_code);
           if (!DeactivateDepsLifecycleNodes(3000)) {
             ERROR("DeactivateDepsLifecycleNodes failed");
