@@ -237,7 +237,7 @@ ControllerServer::on_deactivate(const rclcpp_lifecycle::State & state)
   }
   costmap_ros_->on_deactivate(state);
 
-  publishZeroVelocity();
+  // publishZeroVelocity();
   vel_publisher_->on_deactivate();
 
   // destroy bond connection
