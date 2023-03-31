@@ -253,7 +253,7 @@ void ExecutorAbNavigation::HandleResultCallback(
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("Navigation AB run target goal canceled");
       cancel_goal_cv_.notify_one();
-      // task_cancle_callback_();
+      task_cancle_callback_();
       break;
     default:
       ERROR("Navigation AB run target goal unknown result code");
