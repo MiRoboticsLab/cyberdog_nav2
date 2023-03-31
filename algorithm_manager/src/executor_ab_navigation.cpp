@@ -467,6 +467,7 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
       INFO("Stop running robot success");
     }
   }
+  std::this_thread::sleep_for(std::chrono::seconds(2));
   INFO("[0] Canceling nav goal Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   timer.Start();
   // 3 deactivate all navigation lifecycle nodes
