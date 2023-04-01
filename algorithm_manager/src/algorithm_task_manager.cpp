@@ -387,15 +387,15 @@ void AlgorithmTaskManager::TaskCanceled()
     ResetTaskHandle();
     INFO("Manager TaskHandle reset bc canceled");
     ResetManagerSubStatus();
-    auto status = GetStatus();
-    if (status == ManagerStatus::kExecutingLaserAbNavigation) {
-      SetStatus(ManagerStatus::kLaserLocalizing);
-      return;
-    } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
-      SetStatus(ManagerStatus::kVisLocalizing);
-      return;
-    }
-    ResetManagerStatus();
+    // auto status = GetStatus();
+    // if (status == ManagerStatus::kExecutingLaserAbNavigation) {
+    //   SetStatus(ManagerStatus::kLaserLocalizing);
+    //   return;
+    // } else if (status == ManagerStatus::kExecutingVisAbNavigation) {
+    //   SetStatus(ManagerStatus::kVisLocalizing);
+    //   return;
+    // }
+    // ResetManagerStatus();
   } else {
     ERROR("GoalHandle is null when server executing cancel, this should never happen");
   }

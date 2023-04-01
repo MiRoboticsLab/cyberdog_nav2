@@ -106,7 +106,7 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   if (!exist) {
     ERROR("AB navigation can't start up, because current robot's map not exist");
     UpdateFeedback(kMapErrorNotExist);
-    task_cancle_callback_();
+    task_abort_callback_();
     return;
   }
   UpdateFeedback(kMapCheckingSuccess);
