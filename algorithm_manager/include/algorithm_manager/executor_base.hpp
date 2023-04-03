@@ -314,7 +314,7 @@ protected:
     return DeactivateDepsLifecycleNodes(timeout);
   }
 
-  bool DeactivateDepsLifecycleNodes(int timeout = 20000)
+  bool DeactivateDepsLifecycleNodes(int timeout = 20000, bool cleanup = false)
   {
     // for (auto client : lifecycle_activated_) {
     for (auto lifecycle_activated_rtr = lifecycle_activated_.rbegin();
@@ -347,6 +347,18 @@ protected:
           ERROR("Get error when deactive %s", client.name.c_str());
         } else {
           INFO("Success to deactive [%s]", client.name.c_str());
+        }
+        if (cleanup) {
+          if (client.name == std::string("vision_manager")) {
+            continue;
+          }
+          if (!client.lifecycle_client->change_state(
+              lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP, timeout))
+          {
+            ERROR("Get error when cleanup %s", client.name.c_str());
+          } else {
+            INFO("Success to cleanup [%s]", client.name.c_str());
+          }
         }
       }
     }
