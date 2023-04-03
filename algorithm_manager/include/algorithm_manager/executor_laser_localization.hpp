@@ -189,6 +189,7 @@ private:
   bool is_lifecycle_activate_ {false};
   bool is_slam_service_activate_ {false};
   bool is_realtime_pose_service_activate_ {false};
+  bool relocalization_timeout_{false};
 
   // mutex
   std::mutex lifecycle_mutex_;

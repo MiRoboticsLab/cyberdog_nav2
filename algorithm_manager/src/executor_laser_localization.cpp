@@ -262,7 +262,12 @@ void ExecutorLaserLocalization::HandleRelocalizationCallback(
     relocalization_success_ = true;
     INFO("Relocalization success.");
   } else if (msg->data == 100) {
-    UpdateFeedback(relocalization::kSLAMFailedContinueTrying);
+    if (relocalization_timeout_) {
+      UpdateFeedback(relocalization::kSLAMTimeout);
+      is_activate_ = false;
+    } else {
+      UpdateFeedback(relocalization::kSLAMFailedContinueTrying);
+    }
     WARN("Relocalization retrying.");
   } else if (msg->data == 200) {
     relocalization_failure_ = true;
@@ -331,6 +336,7 @@ bool ExecutorLaserLocalization::WaitRelocalization(std::chrono::seconds timeout,
     auto time_left = end - now;
     if (time_left <= std::chrono::seconds(0)) {
       WARN("Wait relocalization result timeout.");
+      relocalization_timeout_ = true;
       return false;
     }
 
@@ -463,6 +469,7 @@ void ExecutorLaserLocalization::ResetFlags()
   relocalization_failure_ = false;
   is_activate_ = false;
   is_exit_ = false;
+  relocalization_timeout_ = false;
 }
 
 bool ExecutorLaserLocalization::ResetAllLifecyceNodes()
