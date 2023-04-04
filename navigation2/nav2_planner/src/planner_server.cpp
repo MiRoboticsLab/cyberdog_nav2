@@ -507,6 +507,7 @@ PlannerServer::computePlan()
     result->path = getPlan(start, goal_pose, goal->planner_id);
 
     if (!validatePath(action_server_pose_, goal_pose, result->path, goal->planner_id)) {
+      publishPlan(result->path);
       return;
     }
 
