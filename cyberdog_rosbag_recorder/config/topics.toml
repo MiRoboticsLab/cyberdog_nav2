@@ -1,0 +1,3 @@
+use = true
+rosbag_file_path = "/home/quan/Downloads"
+topics = ["cmd_vel", "scan"]
