@@ -30,54 +30,52 @@
 namespace cyberdog
 {
 namespace rosbag
-
 {
 
 class TopicsRecorder : public rclcpp::Node
 {
 public:
-    TopicsRecorder();
-    ~TopicsRecorder();
-    bool Record();
+  TopicsRecorder();
+  ~TopicsRecorder();
+  bool Record();
 
 private:
-    void SnapshotServiceCallback(
-        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-        std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  void SnapshotServiceCallback(
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
-    std::vector<std::string> GetParams();
+  std::vector<std::string> GetParams();
 
-    bool CheckUseRosbag();
+  bool CheckUseRosbag();
 
-    void Start(const std::vector<std::string>& topics);
+  void Start(const std::vector<std::string> & topics);
 
-    void Stop();
+  void Stop();
 
-    void StartTask();
+  void StartTask();
 
-    void StopTask();
+  void StopTask();
 
-    std::string GetRosbagFilePath();
+  std::string GetRosbagFilePath();
 
-    std::string TimeAsStr();
+  std::string TimeAsStr();
 
-    std::string ExecuteCmdLine(const std::string & str_cmd);
+  std::string ExecuteCmdLine(const std::string & str_cmd);
 
-    std::unique_ptr<std::thread> start_thread_{nullptr};
-    std::unique_ptr<std::thread> stop_thread_{nullptr};
+  std::unique_ptr<std::thread> start_thread_{nullptr};
+  std::unique_ptr<std::thread> stop_thread_{nullptr};
 
-    std::mutex mutex_;
-    bool start_{false};
-    bool stop_{false};
-    bool use_rosbag_record_{false};
-    std::string rosbag_file_path_;
+  std::mutex mutex_;
+  bool start_{false};
+  bool stop_{false};
+  bool use_rosbag_record_{false};
+  std::string rosbag_file_path_;
 
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr nav_stop_server_{nullptr};
-    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_{nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr nav_stop_server_{nullptr};
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_{nullptr};
 };
 }  // namespace rosbag
 }  // namespace cyberdog
-
 
 
 #endif  // CYBERDOG_ROSBAG_RECORDER__ROSBAG_RECORD_HPP_
