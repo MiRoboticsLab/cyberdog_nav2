@@ -102,10 +102,6 @@ std::vector<std::string> TopicsRecorder::GetParams()
     namespace_topics.push_back(namespace_topic);
   }
 
-  for (auto topic: namespace_topics) {
-    std::cout << " topic: " << topic << std::endl;
-  }
-
   return namespace_topics;
 }
 
