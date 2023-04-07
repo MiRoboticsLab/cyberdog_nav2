@@ -80,7 +80,6 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr nav_stop_server_{nullptr};
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_{nullptr};
   rclcpp::Subscription<protocol::msg::AlgoTaskStatus>::SharedPtr navigator_status_sub_{nullptr};
-  std::deque<int> cmd_queue_;
 };
 }  // namespace rosbag
 }  // namespace cyberdog

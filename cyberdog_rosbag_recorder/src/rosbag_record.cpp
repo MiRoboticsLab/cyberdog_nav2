@@ -28,16 +28,12 @@ namespace cyberdog
 {
 namespace rosbag
 {
-
-constexpr uint8_t kQueueSize = 2;
 std::string kROSBagDirectory = "./";
 
 TopicsRecorder::TopicsRecorder()
 : Node("rosbag_snapshotter"),
   rosbag_file_path_(kROSBagDirectory)
 {
-  cmd_queue_.resize(kQueueSize);
-
   server_ = create_service<std_srvs::srv::SetBool>(
     "rosbag_snapshot_trigger",
     std::bind(
@@ -79,8 +75,6 @@ void TopicsRecorder::SnapshotServiceCallback(
 
 void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
 {
-  // 5 —— 激光建图
-  // 15 —— 视觉建图
   // 7 —— 激光定位
   // 17 —— 视觉定位
   // 1 —— 激光AB点导航
@@ -96,21 +90,16 @@ void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskSt
   // 101 —— 空闲
   // 103 —— 停止中
 
-  constexpr uint8_t kNavStatusRunning = 1;
+  constexpr uint8_t kNavStatusLidarRunning = 1;
+  constexpr uint8_t kNavStatusVisionRunning = 21;
   constexpr uint8_t kNavStatusStopping = 103;
 
-  while (cmd_queue_.size() >= kQueueSize) {
-    cmd_queue_.pop_front();
-  }
-  cmd_queue_.push_back(msg->task_status);
-
-  if (msg->task_status == kNavStatusRunning) {
+  if (msg->task_status == kNavStatusLidarRunning || msg->task_status == kNavStatusVisionRunning) {
     start_ = true;
     stop_ = false;
   }
 
-  if (msg->task_status == kNavStatusStopping && 
-      cmd_queue_.front() == kNavStatusRunning) {
+  if (msg->task_status == kNavStatusStopping && msg->task_sub_status == 0) {
     start_ = false;
     stop_ = true;
   }
@@ -197,8 +186,6 @@ void TopicsRecorder::StartTask()
     if (start_) {
       auto topics = GetParams();
       Start(topics);
-      start_ = false;
-      break;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -210,7 +197,6 @@ void TopicsRecorder::StopTask()
   while (true) {
     if (stop_) {
       Stop();
-      break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
