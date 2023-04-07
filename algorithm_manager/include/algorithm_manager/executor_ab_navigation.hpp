@@ -181,6 +181,8 @@ private:
 
   bool CancelGoal();
 
+  void RosbagRecord(bool enable);
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
@@ -200,6 +202,7 @@ private:
 
   // Control `map server` lifecycle node
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr vins_location_stop_client_ {nullptr};
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr rosbag_client_ {nullptr};
 
   // all depend is ready
   bool lifecycle_depend_ready_ {false};
