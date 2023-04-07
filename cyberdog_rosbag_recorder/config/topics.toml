@@ -1,3 +1,3 @@
 use = true
-rosbag_file_path = "/home/quan/Downloads"
-topics = ["cmd_vel", "scan"]
+rosbag_file_path = "/SDCARD/rosbags"
+topics = ["global_costmap/costmap", "global_costmap/footprint", "local_costmap/costmap", "local_plan", "odom", "odom_out", "odom_slam", "plan", "cmd_vel", "scan"]

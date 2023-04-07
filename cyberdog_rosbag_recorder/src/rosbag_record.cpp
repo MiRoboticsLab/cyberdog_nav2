@@ -99,7 +99,12 @@ std::vector<std::string> TopicsRecorder::GetParams()
   for (auto topic: topics) {
     auto namespace_topic = this->get_namespace() + std::string("/") + topic;
     INFO("topic: %s", namespace_topic.c_str());
-    namespace_topics.push_back(namespace_topic);
+
+    if (topic  == "tf_static" || topic == "tf") {
+      namespace_topics.push_back(topic);
+    } else {
+      namespace_topics.push_back(namespace_topic);
+    }
   }
 
   return namespace_topics;
