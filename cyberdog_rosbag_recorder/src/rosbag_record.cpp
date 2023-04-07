@@ -131,7 +131,7 @@ void TopicsRecorder::Start(const std::vector<std::string> & topics)
 
 void TopicsRecorder::Stop()
 {
-  std::string cmd = "ps -ef | grep \"ros2 bag record -o 20\" | grep -v grep | awk '{print $2}'";
+  std::string cmd = "ps -ef | grep \"ros2 bag record -o\" | grep -v grep | awk '{print $2}'";
   auto result = ExecuteCmdLine(cmd);
 
   auto pids = rcpputils::split(result, '\n');
