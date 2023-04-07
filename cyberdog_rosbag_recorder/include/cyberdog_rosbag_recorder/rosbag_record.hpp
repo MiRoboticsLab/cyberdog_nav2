@@ -77,6 +77,9 @@ private:
   bool use_rosbag_record_{false};
   std::string rosbag_file_path_;
 
+  std::condition_variable cond_start_;
+  std::condition_variable cond_stop_;
+
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr nav_stop_server_{nullptr};
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_{nullptr};
   rclcpp::Subscription<protocol::msg::AlgoTaskStatus>::SharedPtr navigator_status_sub_{nullptr};

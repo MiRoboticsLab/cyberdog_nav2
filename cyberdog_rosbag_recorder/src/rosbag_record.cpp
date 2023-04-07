@@ -65,9 +65,11 @@ void TopicsRecorder::SnapshotServiceCallback(
     // std::unique_lock<std::mutex> locker(mutex_);
     start_ = true;
     stop_ = false;
+    cond_start_.notify_one();
   } else {
     start_ = false;
     stop_ = true;
+    cond_stop_.notify_one();
   }
 
   response->success = true;
@@ -97,11 +99,13 @@ void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskSt
   if (msg->task_status == kNavStatusLidarRunning || msg->task_status == kNavStatusVisionRunning) {
     start_ = true;
     stop_ = false;
+    cond_start_.notify_one();
   }
 
   if (msg->task_status == kNavStatusStopping && msg->task_sub_status == 0) {
     start_ = false;
     stop_ = true;
+    cond_stop_.notify_one();
   }
 }
 
@@ -183,11 +187,15 @@ void TopicsRecorder::Stop()
 void TopicsRecorder::StartTask()
 {
   while (true) {
+    std::unique_lock<std::mutex> locker(mutex_);
+    cond_start_.wait(locker, [this]{return start_;});
+
     if (start_) {
       auto topics = GetParams();
       Start(topics);
     }
 
+    locker.unlock();
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
@@ -195,9 +203,13 @@ void TopicsRecorder::StartTask()
 void TopicsRecorder::StopTask()
 {
   while (true) {
+    std::unique_lock<std::mutex> locker(mutex_);
+    cond_stop_.wait(locker, [this]{return stop_;});
+
     if (stop_) {
       Stop();
     }
+    locker.unlock();
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
