@@ -82,8 +82,6 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
-  rosbag_client_ = create_client<std_srvs::srv::SetBool>("rosbag_snapshot_trigger");
-
   // spin
   std::thread{[this] {this->executor_->spin();}}.detach();
 }
@@ -178,9 +176,6 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   UpdateFeedback(kSuccessStartNavigation);
   INFO("Navigation AB point send target goal request success.");
   INFO("[Total] Start AB navition Elapsed time: %.5f [seconds]", total_timer.ElapsedSeconds());
-
-  // rosbag debug
-  RosbagRecord(true);
 }
 
 void ExecutorAbNavigation::Stop(
@@ -485,9 +480,6 @@ void ExecutorAbNavigation::HandleStopRobotNavCallback(
   INFO(
     "[Total] Stop AB nav when resetting Elapsed time: %.5f [seconds]",
     total_timer.ElapsedSeconds());
-
-  // rosbag debug
-  RosbagRecord(false);
 }
 
 bool ExecutorAbNavigation::CheckExit()
@@ -522,30 +514,6 @@ bool ExecutorAbNavigation::CancelGoal()
   // clear robot path
   PublishZeroPath();
   return cancel_goal_result_;
-}
-
-void ExecutorAbNavigation::RosbagRecord(bool enable)
-{
-  bool connect = rosbag_client_->wait_for_service(std::chrono::seconds(2));
-  if (!connect) {
-    ERROR("Connect server(%s) timeout.", rosbag_client_->get_service_name());
-    return;
-  }
-
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = enable;
-
-  auto future = rosbag_client_->async_send_request(request);
-  if (future.wait_for(std::chrono::seconds(60)) == std::future_status::timeout) {
-    ERROR("Cannot get response from service(%s) in 60s.", rosbag_client_->get_service_name());
-    return;
-  }
-
-  if (future.get()->success) {
-    INFO("Service [%s] return true.", rosbag_client_->get_service_name());
-  } else {
-    ERROR("Service [%s] return false.", rosbag_client_->get_service_name());
-  }
 }
 
 }  // namespace algorithm

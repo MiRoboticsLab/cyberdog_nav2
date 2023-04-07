@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rcpputils REQUIRED)
+find_package(protocol REQUIRED)
 find_package(cyberdog_common REQUIRED)
 
 include_directories(include)
@@ -18,6 +19,7 @@ set(dependencies
   rclcpp
   std_msgs
   rcpputils
+  protocol
   cyberdog_common)
 
 set(sources

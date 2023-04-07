@@ -15,6 +15,7 @@
   <depend>std_msgs</depend>
   <depend>rclcpp</depend>
   <depend>rcpputils</depend>
+  <depend>protocol</depend>
   <depend>cyberdog_common</depend>
 
   <export>

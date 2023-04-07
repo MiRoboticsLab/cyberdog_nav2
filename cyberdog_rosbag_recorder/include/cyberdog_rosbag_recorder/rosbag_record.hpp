@@ -22,11 +22,15 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <deque>
+
 #include <condition_variable>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "protocol/msg/algo_task_status.hpp"
+
 namespace cyberdog
 {
 namespace rosbag
@@ -43,6 +47,8 @@ private:
   void SnapshotServiceCallback(
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
+  void HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskStatus::SharedPtr msg);
 
   std::vector<std::string> GetParams();
 
@@ -73,6 +79,8 @@ private:
 
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr nav_stop_server_{nullptr};
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_{nullptr};
+  rclcpp::Subscription<protocol::msg::AlgoTaskStatus>::SharedPtr navigator_status_sub_{nullptr};
+  std::deque<int> cmd_queue_;
 };
 }  // namespace rosbag
 }  // namespace cyberdog

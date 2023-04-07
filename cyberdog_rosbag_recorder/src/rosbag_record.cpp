@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <chrono>
 #include <sstream>
+#include <functional>
 
 #include "rcpputils/split.hpp"
 #include "cyberdog_common/cyberdog_log.hpp"
@@ -28,17 +29,24 @@ namespace cyberdog
 namespace rosbag
 {
 
+constexpr uint8_t kQueueSize = 2;
 std::string kROSBagDirectory = "./";
 
 TopicsRecorder::TopicsRecorder()
 : Node("rosbag_snapshotter"),
   rosbag_file_path_(kROSBagDirectory)
 {
+  cmd_queue_.resize(kQueueSize);
+
   server_ = create_service<std_srvs::srv::SetBool>(
     "rosbag_snapshot_trigger",
     std::bind(
       &TopicsRecorder::SnapshotServiceCallback, this,
       std::placeholders::_1, std::placeholders::_2));
+
+  navigator_status_sub_ = this->create_subscription<protocol::msg::AlgoTaskStatus>(
+      "algo_task_status", 10, 
+          std::bind(&TopicsRecorder::HandleAlgoTaskStatusMessage, this, std::placeholders::_1));
 
   start_thread_ = std::make_unique<std::thread>(std::bind(&TopicsRecorder::StartTask, this));
   stop_thread_ = std::make_unique<std::thread>(std::bind(&TopicsRecorder::StopTask, this));
@@ -67,6 +75,45 @@ void TopicsRecorder::SnapshotServiceCallback(
   }
 
   response->success = true;
+}
+
+void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskStatus::SharedPtr msg)
+{
+  // 5 —— 激光建图
+  // 15 —— 视觉建图
+  // 7 —— 激光定位
+  // 17 —— 视觉定位
+  // 1 —— 激光AB点导航
+  // 21 —— 视觉AB点导航
+  // 6 —— 激光定位失败
+  // 16 —— 视觉定位失败
+  // 8 —— 激光后台定位中
+  // 18 —— 视觉后台定位中
+  // 9 —— 自动回充
+  // 11 —— 标签跟随
+  // 13 —— 人体跟随
+  // 3 —— 万物跟随
+  // 101 —— 空闲
+  // 103 —— 停止中
+
+  constexpr uint8_t kNavStatusRunning = 1;
+  constexpr uint8_t kNavStatusStopping = 103;
+
+  while (cmd_queue_.size() >= kQueueSize) {
+    cmd_queue_.pop_front();
+  }
+  cmd_queue_.push_back(msg->task_status);
+
+  if (msg->task_status == kNavStatusRunning) {
+    start_ = true;
+    stop_ = false;
+  }
+
+  if (msg->task_status == kNavStatusStopping && 
+      cmd_queue_.front() == kNavStatusRunning) {
+    start_ = false;
+    stop_ = true;
+  }
 }
 
 std::vector<std::string> TopicsRecorder::GetParams()
