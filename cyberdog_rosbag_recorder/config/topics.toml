@@ -1,4 +1,4 @@
-use = true
-use_nav_record = true
+use = false
+use_nav_record = false
 rosbag_file_path = "/SDCARD/rosbags"
 topics = ["tf", "tf_static", "global_costmap/costmap", "global_costmap/footprint", "local_costmap/costmap", "local_plan", "plan", "cmd_vel", "scan"]
