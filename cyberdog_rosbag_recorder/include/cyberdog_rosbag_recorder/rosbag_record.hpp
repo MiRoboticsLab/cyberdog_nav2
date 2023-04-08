@@ -50,9 +50,15 @@ private:
 
   void HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskStatus::SharedPtr msg);
 
-  std::vector<std::string> GetParams();
+  void GetParams();
 
   bool CheckUseRosbag();
+
+  std::vector<std::string> GetTopics();
+
+  bool IsUseNavRosBagbagRecorder();
+
+  bool IsUseBagbagRecorder();
 
   void Start(const std::vector<std::string> & topics);
 
@@ -66,16 +72,21 @@ private:
 
   std::string TimeAsStr();
 
+  std::string ExecuteCmdLineAndGetPID(const std::string & str_cmd, pid_t & pid);
+
   std::string ExecuteCmdLine(const std::string & str_cmd);
 
   std::unique_ptr<std::thread> start_thread_{nullptr};
   std::unique_ptr<std::thread> stop_thread_{nullptr};
 
-  std::mutex mutex_;
+  std::mutex start_mutex_;
+  std::mutex stop_mutex_;
   bool start_{false};
   bool stop_{false};
   bool use_rosbag_record_{false};
+  bool use_nav_record_{false};
   std::string rosbag_file_path_;
+  std::vector<std::string> topics_;
 
   std::condition_variable cond_start_;
   std::condition_variable cond_stop_;
