@@ -100,14 +100,10 @@ void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskSt
   // 101 —— 空闲
   // 103 —— 停止中
 
-  if (!IsUseNavRosBagbagRecorder()) {
-    WARN("Please enable use_nav_record flag, You can use rosbag record data.");
-    return;
-  }
-
   constexpr uint8_t kNavStatusLidarRunning = 1;
   constexpr uint8_t kNavStatusVisionRunning = 21;
-  constexpr uint8_t kNavStatusStopping = 101;
+  constexpr uint8_t kNavStatusIdle = 101;
+  constexpr uint8_t kNavStatusStopping = 103;
 
   if (msg->task_status == kNavStatusLidarRunning || msg->task_status == kNavStatusVisionRunning) {
     if (start_) {
@@ -120,7 +116,12 @@ void TopicsRecorder::HandleAlgoTaskStatusMessage(const protocol::msg::AlgoTaskSt
     cond_start_.notify_one();
   }
 
-  if (start_ && msg->task_status == kNavStatusStopping && msg->task_sub_status == 0) {
+
+  bool condition_a = (msg->task_status == kNavStatusStopping && msg->task_sub_status == 307);
+  bool condition_b = (msg->task_status == kNavStatusIdle && msg->task_sub_status == 0 );
+  bool condition_c = (msg->task_status == 18 || msg->task_sub_status == 8 );
+
+  if (start_ && (condition_a || condition_b || condition_c)) {
     if (stop_) {
       return;
     }
@@ -152,28 +153,24 @@ void TopicsRecorder::GetParams()
     return;
   }
 
-  // nav rosbag
-  use_nav_record_ = toml::find<bool>(toml_topics, "use_nav_record");
-  if (!use_nav_record_) {
-    WARN("Please set flag use_nav_record: true, you can record data.");
-  }
-
   // rosbag file path
   rosbag_file_path_ = toml::find<std::string>(toml_topics, "rosbag_file_path");
 
-  topics_ = toml::find<std::vector<std::string>>(toml_topics, "topics");
-  std::vector<std::string> namespace_topics;
+  auto topics = toml::find<std::vector<std::string>>(toml_topics, "topics");
+  std::vector<std::string> rosbag_topics;
 
-  for (auto topic : topics_) {
+  for (auto topic : topics) {
     auto namespace_topic = this->get_namespace() + std::string("/") + topic;
     INFO("topic: %s", namespace_topic.c_str());
 
     if (topic == "tf_static" || topic == "tf") {
-      namespace_topics.push_back(topic);
+      rosbag_topics.push_back(topic);
     } else {
-      namespace_topics.push_back(namespace_topic);
+      rosbag_topics.push_back(namespace_topic);
     }
   }
+
+  topics_ = rosbag_topics;
 }
 
 bool TopicsRecorder::CheckUseRosbag()
@@ -184,11 +181,6 @@ bool TopicsRecorder::CheckUseRosbag()
 std::vector<std::string> TopicsRecorder::GetTopics()
 {
   return topics_;
-}
-
-bool TopicsRecorder::IsUseNavRosBagbagRecorder()
-{
-  return use_nav_record_;
 }
 
 void TopicsRecorder::Start(const std::vector<std::string> & topics)
