@@ -181,8 +181,6 @@ private:
 
   bool CancelGoal();
 
-  void RosbagRecord(bool enable);
-
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
