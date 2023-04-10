@@ -39,11 +39,12 @@ def generate_launch_description():
         default_value='',
         description='Top-level namespace')
 
-    rosbag_recorder_dir = FindPackageShare(package='cyberdog_rosbag_recorder').find('cyberdog_rosbag_recorder') 
-    rosbag_recorder_cmd = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(rosbag_recorder_dir, 'launch/rosbag_recorder.launch.py')),
-            launch_arguments={'namespace': namespace}.items()
-        )   
+    rosbag_recorder_cmd = Node(
+        package='cyberdog_rosbag_recorder',
+        executable='rosbag_recorder',
+        name='cyberdog_rosbag_recorder',
+        namespace=namespace,
+    )
 
     ld = launch.LaunchDescription([
         namespace_declare,
