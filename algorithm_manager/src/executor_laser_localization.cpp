@@ -509,6 +509,13 @@ void ExecutorLaserLocalization::HandleStopCallback(
   if (!request->data) {
     return;
   }
+
+  if (!is_activate_) {
+    respose->success = true;
+    WARN("Laser localization not activate, not need disable relocalization and reset lifecycles");
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(task_mutex_);
   respose->success = StopLocalizationFunctions();
 }
