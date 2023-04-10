@@ -56,8 +56,6 @@ private:
 
   std::vector<std::string> GetTopics();
 
-  bool IsUseNavRosBagbagRecorder();
-
   bool IsUseBagbagRecorder();
 
   void Start(const std::vector<std::string> & topics);
