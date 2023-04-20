@@ -38,6 +38,7 @@ def generate_launch_description():
     namespace = LaunchConfiguration('namespace')
     use_namespace = LaunchConfiguration('use_namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    robot_name = LaunchConfiguration('robot_name')
     params_file = LaunchConfiguration('params_file')
 
     declare_namespace_cmd = DeclareLaunchArgument(
@@ -54,6 +55,11 @@ def generate_launch_description():
         'use_sim_time',
         default_value='false',
         description='Use simulation (Gazebo) clock if true')
+
+    robot_name_cmd = DeclareLaunchArgument(
+        'robot_name',
+        default_value='l91_p1_1',
+        description='cyberdog robot name')
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
@@ -93,6 +99,7 @@ def generate_launch_description():
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
+    ld.add_action(robot_name_cmd)
     ld.add_action(declare_params_file_cmd)
 
     # Add the actions to launch all of the navigation nodes
