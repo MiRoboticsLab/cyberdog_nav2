@@ -280,13 +280,14 @@ bool ExecutorVisionLocalization::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  is_activate_ = true;
   INFO("IsDependsReady(): Success to get lifecycle_mutex");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name(), 40000);
   if (!acivate_success) {
     return false;
   }
 
-  is_activate_ = true;
+  // is_activate_ = true;
   return true;
 }
 

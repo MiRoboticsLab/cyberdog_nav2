@@ -312,13 +312,14 @@ bool ExecutorLaserLocalization::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex_");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  is_activate_ = true;
   INFO("[IsDependsReady(): Success to get lifecycle_mutex_");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name());
   if (!acivate_success) {
     return false;
   }
 
-  is_activate_ = true;
+  // is_activate_ = true;
   return true;
 }
 
