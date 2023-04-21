@@ -24,7 +24,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import PushRosNamespace
 from launch_ros.actions import Node
-
+from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
     # Get the navigation launch directory
@@ -36,19 +36,8 @@ def generate_launch_description():
     use_namespace = LaunchConfiguration('use_namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
-    lifecycle_nodes = ['map_builder', 'localization_node']
-
-    remappings = [('/tf', 'tf'),
-                  ('/tf_static', 'tf_static')]
-
-    # Create our own temporary YAML files that include substitutions
-    param_substitutions = {
-        'use_sim_time': use_sim_time}
-
-    configured_params = RewrittenYaml(
-        root_key=namespace,
-        param_rewrites=param_substitutions,
-        convert_types=True)
+    # lifecycle_nodes = ['map_builder', 'localization_node']
+    lifecycle_nodes = ['localization_node']
 
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace',
@@ -65,7 +54,7 @@ def generate_launch_description():
         default_value='false',
         description='Use simulation (Gazebo) clock if true')
     
-    DeclareLaunchArgument(
+    declare_autostart_cmd = DeclareLaunchArgument(
         'autostart', default_value='true',
         description='Automatically startup the nav2 stack')
 
@@ -85,7 +74,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.laser_mapping.launch.py')),
             launch_arguments={'namespace': namespace,
-                                'use_sim_time': use_sim_time}.items()),
+                              'use_sim_time': use_sim_time}.items()),
     ])
 
     # Auto start lifecycle manager
@@ -105,6 +94,7 @@ def generate_launch_description():
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
+    ld.add_action(declare_autostart_cmd) 
 
     # Add the actions to launch all of the navigation nodes
     ld.add_action(bringup_cmd_group)

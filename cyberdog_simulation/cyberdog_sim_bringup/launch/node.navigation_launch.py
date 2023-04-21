@@ -23,7 +23,8 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import PushRosNamespace
-
+from launch_ros.actions import Node
+from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
     # Get the launch directory
@@ -37,16 +38,21 @@ def generate_launch_description():
     # Create the launch configuration variables
     namespace = LaunchConfiguration('namespace')
     use_namespace = LaunchConfiguration('use_namespace')
+    map_yaml_file = LaunchConfiguration('map')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
-    lifecycle_nodes = ['controller_server_ab',
-                       'planner_server_ab',
+    # lifecycle_nodes = ['controller_server_ab',
+    #                    'planner_server_ab',
+    #                    'map_server',
+    #                    'recoveries_server',
+    #                    'bt_navigator_ab']
+
+    lifecycle_nodes = ['planner_server_ab',
+                       'map_server',
                        'recoveries_server',
                        'bt_navigator_ab']
 
-    remappings = [('/tf', 'tf'),
-                  ('/tf_static', 'tf_static')]
 
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
@@ -69,40 +75,52 @@ def generate_launch_description():
         default_value='false',
         description='Whether to apply a namespace to the navigation stack')
 
+    declare_use_map_cmd = DeclareLaunchArgument(
+        'map',
+        default_value=os.path.join(bringup_dir, 'maps', 'map.yaml'),
+        description='Full path to map yaml file to load')
+
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='false',
+        default_value='true',
         description='Use simulation (Gazebo) clock if true')
 
-    DeclareLaunchArgument(
+    declare_autostart_cmd = DeclareLaunchArgument(
         'autostart', default_value='true',
         description='Automatically startup the nav2 stack')
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
-        default_value=os.path.join(bringup_dir, 'params', 'navigation.yaml'),
+        default_value=os.path.join(bringup_dir, 'params', 'navigation_pose_params.yaml'),
         description='Full path to the ROS2 parameters file to use for all launched nodes')
 
-    # Specify the actions
+    # map_server
+    map_server_cmd = Node(
+        package='nav2_map_server',
+        executable='map_server',
+        name='map_server',
+        output='screen',
+        parameters=[configured_params],
+        namespace=namespace)
+
     # bt_navigators
     bt_navigator_cmd = Node(
         package='bt_navigators',
         executable='bt_navigator_pose',
         name='bt_navigator_ab',
         output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings)
+        parameters=[configured_params],
+        namespace=namespace)
 
     # controller_server
-    controller_cmd = Node(
-        package='nav2_controller',
-        executable='controller_server',
-        name='controller_server_ab',
-        output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings)
+    # controller_cmd = Node(
+    #     package='nav2_controller',
+    #     executable='controller_server',
+    #     name='controller_server_ab',
+    #     output='screen',
+    #     parameters=[configured_params],
+    #     namespace=namespace,
+    #     remappings=remappings)
     
     # planner_server
     planner_cmd = Node(
@@ -110,9 +128,8 @@ def generate_launch_description():
         executable='planner_server',
         name='planner_server_ab',
         output='screen',
-        parameters=[configured_params_ab],
-        namespace=namespace,
-        remappings=remappings)
+        parameters=[configured_params],
+        namespace=namespace)
 
     # recoveries_server
     recovery_cmd = Node(
@@ -120,8 +137,8 @@ def generate_launch_description():
             executable='recoveries_server',
             name='recoveries_server',
             output='screen',
-            parameters=[configured_params],
-            remappings=remappings)
+            namespace=namespace,
+            parameters=[configured_params])
 
     # Auto start lifecycle manager
     lifecycle_manager_cmd = Node(
@@ -139,12 +156,15 @@ def generate_launch_description():
     # Declare the launch options
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_namespace_cmd)
+    ld.add_action(declare_use_map_cmd)
     ld.add_action(declare_use_sim_time_cmd)
+    ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_params_file_cmd)
 
-    # Add the actions to launch all of the navigation nodes
+    # Add the actions to launch all of the navigation nodes 
+    ld.add_action(map_server_cmd)
     ld.add_action(bt_navigator_cmd)
-    ld.add_action(controller_cmd)
+    # ld.add_action(controller_cmd)
     ld.add_action(planner_cmd)
     ld.add_action(recovery_cmd)
     ld.add_action(lifecycle_manager_cmd)

@@ -17,92 +17,61 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import (DeclareLaunchArgument, GroupAction,
-                            IncludeLaunchDescription, SetEnvironmentVariable)
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import PushRosNamespace
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from nav2_common.launch import RewrittenYaml
 
 
 def generate_launch_description():
-    # Get the launch directory
+    # Get the motion launch directory
     bringup_dir = get_package_share_directory('cyberdog_sim_bringup')
     launch_dir = os.path.join(bringup_dir, 'launch')
-
-    # Get the navigation launch directory
-    nav2_bringup_dir = get_package_share_directory('navigation_bringup')
-    nav2_launch_dir =  os.path.join(nav2_bringup_dir, 'launch')
-
-    # Create the launch configuration variables
+  
     namespace = LaunchConfiguration('namespace')
-    use_namespace = LaunchConfiguration('use_namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    robot_name = LaunchConfiguration('robot_name')
-    params_file = LaunchConfiguration('params_file')
 
     declare_namespace_cmd = DeclareLaunchArgument(
-        'namespace',
-        default_value='',
+        'namespace', default_value='',
         description='Top-level namespace')
 
-    declare_use_namespace_cmd = DeclareLaunchArgument(
-        'use_namespace',
-        default_value='false',
-        description='Whether to apply a namespace to the navigation stack')
-
     declare_use_sim_time_cmd = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
+        'use_sim_time', default_value='true',
         description='Use simulation (Gazebo) clock if true')
 
-    robot_name_cmd = DeclareLaunchArgument(
-        'robot_name',
-        default_value='l91_p1_1',
-        description='cyberdog robot name')
+    # motion
+    # motion_cmd = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.motion_launch.py')),
+    #     launch_arguments={'namespace': namespace,
+    #                       'use_sim_time': use_sim_time}.items())
 
-    declare_params_file_cmd = DeclareLaunchArgument(
-        'params_file',
-        default_value=os.path.join(bringup_dir, 'params', 'navigation.yaml'),
-        description='Full path to the ROS2 parameters file to use for all launched nodes')
+    # Get the state_publisher launch directory
+    urdf_bringup_dir = get_package_share_directory('navigation_bringup')
+    urdf_launch_dir = os.path.join(urdf_bringup_dir, 'launch')
 
-    # Specify the actions
-    bringup_cmd_group = GroupAction([
-        PushRosNamespace(
-            condition=IfCondition(use_namespace),
-            namespace=namespace),
+    # state_publisher
+    state_publisher_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(urdf_launch_dir, 'node.state_publisher.launch.py')),
+        launch_arguments={'namespace': namespace,
+                          'use_sim_time': use_sim_time}.items())
 
-        # motion_bridge_launch
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.motion_bridge_launch.py')),
-            launch_arguments={'namespace': namespace,
-                              'use_sim_time': use_sim_time,
-                              'params_file': params_file}.items()),
-        # motion_manager_launch
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.motion_manager_launch.py')),
-            launch_arguments={'namespace': namespace,
-                              'use_sim_time': use_sim_time,
-                              'params_file': params_file}.items()),
-        # nav2 and slam 
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'navigation.launch.py')),
-            launch_arguments={'namespace': namespace,
-                              'use_sim_time': use_sim_time}.items()),
-
-    ])
-
+    # navigation
+    navigation_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.navigation_launch.py')),
+        launch_arguments={'namespace': namespace,
+                          'use_sim_time': use_sim_time}.items())
+    
     # Create the launch description and populate
     ld = LaunchDescription()
 
     # Declare the launch options
     ld.add_action(declare_namespace_cmd)
-    ld.add_action(declare_use_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(robot_name_cmd)
-    ld.add_action(declare_params_file_cmd)
 
-    # Add the actions to launch all of the navigation nodes
-    ld.add_action(bringup_cmd_group)
+    # Add the actions to launch all of the fnavigation nodes
+    # ld.add_action(motion_cmd)
+    ld.add_action(state_publisher_cmd)
+    ld.add_action(navigation_cmd)
 
     return ld
