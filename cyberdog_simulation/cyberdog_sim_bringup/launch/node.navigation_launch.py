@@ -49,10 +49,9 @@ def generate_launch_description():
     #                    'bt_navigator_ab']
 
     lifecycle_nodes = ['planner_server_ab',
-                       'map_server',
+                       'controller_server_ab',
                        'recoveries_server',
                        'bt_navigator_ab']
-
 
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
@@ -113,14 +112,13 @@ def generate_launch_description():
         namespace=namespace)
 
     # controller_server
-    # controller_cmd = Node(
-    #     package='nav2_controller',
-    #     executable='controller_server',
-    #     name='controller_server_ab',
-    #     output='screen',
-    #     parameters=[configured_params],
-    #     namespace=namespace,
-    #     remappings=remappings)
+    controller_cmd = Node(
+        package='nav2_controller',
+        executable='controller_server',
+        name='controller_server_ab',
+        output='screen',
+        parameters=[configured_params],
+        namespace=namespace)
     
     # planner_server
     planner_cmd = Node(
@@ -162,9 +160,9 @@ def generate_launch_description():
     ld.add_action(declare_params_file_cmd)
 
     # Add the actions to launch all of the navigation nodes 
-    ld.add_action(map_server_cmd)
+    # ld.add_action(map_server_cmd)
     ld.add_action(bt_navigator_cmd)
-    # ld.add_action(controller_cmd)
+    ld.add_action(controller_cmd)
     ld.add_action(planner_cmd)
     ld.add_action(recovery_cmd)
     ld.add_action(lifecycle_manager_cmd)

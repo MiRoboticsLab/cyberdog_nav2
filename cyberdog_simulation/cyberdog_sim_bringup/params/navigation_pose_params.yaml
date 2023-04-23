@@ -154,7 +154,7 @@ local_costmap:
         enabled: True
         observation_sources: scan
         scan:
-          topic: scan
+          topic: /scan
           max_obstacle_height: 20.0
           min_obstacle_height: -20.0
           clearing: True
@@ -191,7 +191,7 @@ global_costmap:
         enabled: True
         observation_sources: scan
         scan:
-          topic: scan
+          topic: /scan
           max_obstacle_height: 20.0
           min_obstacle_height: -20.0
           clearing: True

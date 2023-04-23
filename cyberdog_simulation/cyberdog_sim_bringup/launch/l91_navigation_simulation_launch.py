@@ -41,10 +41,10 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true')
 
     # motion
-    # motion_cmd = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.motion_launch.py')),
-    #     launch_arguments={'namespace': namespace,
-    #                       'use_sim_time': use_sim_time}.items())
+    motion_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(launch_dir, 'node.motion_launch.py')),
+        launch_arguments={'namespace': namespace,
+                          'use_sim_time': use_sim_time}.items())
 
     # Get the state_publisher launch directory
     urdf_bringup_dir = get_package_share_directory('navigation_bringup')
@@ -70,7 +70,7 @@ def generate_launch_description():
     ld.add_action(declare_use_sim_time_cmd)
 
     # Add the actions to launch all of the fnavigation nodes
-    # ld.add_action(motion_cmd)
+    ld.add_action(motion_cmd)
     ld.add_action(state_publisher_cmd)
     ld.add_action(navigation_cmd)
 
