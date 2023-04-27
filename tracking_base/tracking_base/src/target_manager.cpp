@@ -46,7 +46,8 @@ namespace tracking_base
 
 using std::placeholders::_1;
 
-TargetManager::TargetManager(rclcpp_lifecycle::LifecycleNode::SharedPtr node){
+TargetManager::TargetManager(rclcpp_lifecycle::LifecycleNode::SharedPtr node)
+{
   node_ = node;
 
   distance_ = 0.0;
@@ -92,10 +93,11 @@ TargetManager::TargetManager(rclcpp_lifecycle::LifecycleNode::SharedPtr node){
     std::bind(&TargetManager::callback_updated_goal, this, _1));
 }
 
-bool TargetManager::getTarget(geometry_msgs::msg::PoseStamped& target)
+bool TargetManager::getTarget(geometry_msgs::msg::PoseStamped & target)
 {
-  if (last_goal_received_.header.frame_id == "" || 
-      (node_->now().seconds() - latest_timestamp_.seconds()) > overtime_) {
+  if (last_goal_received_.header.frame_id == "" ||
+    (node_->now().seconds() - latest_timestamp_.seconds()) > overtime_)
+  {
     RCLCPP_WARN(node_->get_logger(), "The target pose may be lost or invalid. %lf", overtime_);
     historical_poses_.clear();
     return false;
@@ -116,15 +118,15 @@ TargetManager::translatePoseByMode(const geometry_msgs::msg::PoseStamped & pose)
 
   unsigned char cur_mode = current_mode_;
 
-  if(cur_mode == mcr_msgs::action::TargetTracking::Goal::AUTO){
+  if (cur_mode == mcr_msgs::action::TargetTracking::Goal::AUTO) {
     double yaw = tf2::getYaw(pose.pose.orientation);
     double x0 = pose.pose.position.x;
     double y0 = pose.pose.position.y;
     double x1 = x0 + cos(yaw);
     double y1 = y0 + sin(yaw);
-    cur_mode = (x0 * y1 - x1 * y0) > 0 ? 
-                mcr_msgs::action::TargetTracking::Goal::LEFT : 
-                mcr_msgs::action::TargetTracking::Goal::RIGHT;
+    cur_mode = (x0 * y1 - x1 * y0) > 0 ?
+      mcr_msgs::action::TargetTracking::Goal::LEFT :
+      mcr_msgs::action::TargetTracking::Goal::RIGHT;
   }
 
   switch (cur_mode) {
@@ -158,7 +160,7 @@ TargetManager::translatePoseByMode(const geometry_msgs::msg::PoseStamped & pose)
         transform.transform.translation.z = 0.0;
         transform.transform.rotation.w = 1.0;
         tpose.pose.orientation = nav2_util::geometry_utils::orientationAroundZAxis(yaw);
-        
+
         break;
       }
   }
@@ -181,17 +183,17 @@ TargetManager::translatePoseByMode(const geometry_msgs::msg::PoseStamped & pose)
 }
 
 
-
 bool TargetManager::isValid(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-  if(msg->header.frame_id == ""){
+  if (msg->header.frame_id == "") {
     RCLCPP_WARN(node_->get_logger(), "invalid data for target's frame id is null.");
     return false;
   }
 
   geometry_msgs::msg::PoseStamped pose_based_on_global_frame;
-  if(!nav2_util::transformPoseInTargetFrame(
-    *msg, pose_based_on_global_frame, *tf_buffer_, global_frame_, 1.2)){
+  if (!nav2_util::transformPoseInTargetFrame(
+      *msg, pose_based_on_global_frame, *tf_buffer_, global_frame_, 1.2))
+  {
     RCLCPP_WARN(node_->get_logger(), "Failed to transform pose in target updater.");
     return false;
   }
@@ -207,7 +209,7 @@ bool TargetManager::isValid(const geometry_msgs::msg::PoseStamped::SharedPtr msg
 void
 TargetManager::callback_updated_goal(const geometry_msgs::msg::PoseStamped::SharedPtr m)
 {
-  
+
   distance_ = hypot(m->pose.position.x, m->pose.position.y);
 
   latest_timestamp_ = node_->now();

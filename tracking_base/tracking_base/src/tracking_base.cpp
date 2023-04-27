@@ -29,14 +29,15 @@
 
 using namespace std::chrono_literals;
 
-namespace tracking_base 
+namespace tracking_base
 {
 
 TrackingBase::TrackingBase()
 : LifecycleNode("tracking_base", "", true), name_{"teb"},
-  costmap_ros_(nullptr), tf_buffer_(nullptr), cfg_(new TebConfig()), costmap_model_(nullptr), 
+  costmap_ros_(nullptr), tf_buffer_(nullptr), cfg_(new TebConfig()), costmap_model_(nullptr),
   costmap_converter_loader_("costmap_converter", "costmap_converter::BaseCostmapToPolygons"),
-  custom_via_points_active_(false), no_infeasible_plans_(0), last_preferred_rotdir_(RotType::none), initialized_(false)
+  custom_via_points_active_(false), no_infeasible_plans_(0), last_preferred_rotdir_(RotType::none),
+  initialized_(false)
 {
   RCLCPP_INFO(get_logger(), "Creating tracking base...");
 
@@ -48,7 +49,7 @@ TrackingBase::TrackingBase()
   declare_parameter("rot_vel", rclcpp::ParameterValue(0.5));
 
   declare_parameter("speed_limit_topic", rclcpp::ParameterValue("speed_limit"));
-  
+
 }
 
 TrackingBase::~TrackingBase()
@@ -84,26 +85,31 @@ TrackingBase::on_configure(const rclcpp_lifecycle::State & state)
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // declare parameters (ros2-dashing)
-  intra_proc_node_.reset( 
-          new rclcpp::Node("costmap_converter", node->get_namespace(), 
-            rclcpp::NodeOptions()));
+  intra_proc_node_.reset(
+    new rclcpp::Node(
+      "costmap_converter", node->get_namespace(),
+      rclcpp::NodeOptions()));
   cfg_->declareParameters(node, name_);
 
   // get parameters of TebConfig via the nodehandle and override the default config
   cfg_->loadRosParamFromNodeHandle(node, name_);
-    
+
   // reserve some memory for obstacles
   obstacles_.reserve(500);
-        
+
   // create robot footprint/contour model for optimization
   RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>();
-    
-  planner_ = PlannerInterfacePtr(new TebOptimalPlanner(node, *cfg_.get(), &obstacles_, robot_model, visualization_, &via_points_));
+
+  planner_ =
+    PlannerInterfacePtr(
+    new TebOptimalPlanner(
+      node, *cfg_.get(), &obstacles_, robot_model,
+      visualization_, &via_points_));
   RCLCPP_INFO(logger_, "Parallel planning in distinctive topologies disabled.");
 
   visualization_ = std::make_shared<TebVisualization>(node, *cfg_);
   visualization_->on_configure();
-  planner_->setVisualization(visualization_); 
+  planner_->setVisualization(visualization_);
   clock_ = node->get_clock();
 
   // The costmap node is used in the implementation of the controller
@@ -126,32 +132,40 @@ TrackingBase::on_configure(const rclcpp_lifecycle::State & state)
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
   //Initialize a costmap to polygon converter
-  if (!cfg_->obstacles.costmap_converter_plugin.empty())
-  {
-    try
-    {
-      costmap_converter_ = costmap_converter_loader_.createSharedInstance(cfg_->obstacles.costmap_converter_plugin);
-      std::string converter_name = costmap_converter_loader_.getName(cfg_->obstacles.costmap_converter_plugin);
-      RCLCPP_INFO(logger_, "library path : %s", costmap_converter_loader_.getClassLibraryPath("costmap_converter").c_str());
+  if (!cfg_->obstacles.costmap_converter_plugin.empty()) {
+    try {
+      costmap_converter_ = costmap_converter_loader_.createSharedInstance(
+        cfg_->obstacles.costmap_converter_plugin);
+      std::string converter_name = costmap_converter_loader_.getName(
+        cfg_->obstacles.costmap_converter_plugin);
+      RCLCPP_INFO(
+        logger_, "library path : %s",
+        costmap_converter_loader_.getClassLibraryPath("costmap_converter").c_str());
       // replace '::' by '/' to convert the c++ namespace to a NodeHandle namespace
       boost::replace_all(converter_name, "::", "/");
 
       costmap_converter_->setOdomTopic(cfg_->odom_topic);
       costmap_converter_->initialize(intra_proc_node_);
       costmap_converter_->setCostmap2D(costmap_);
-      const auto rate = std::make_shared<rclcpp::Rate>((double)cfg_->obstacles.costmap_converter_rate);
-      costmap_converter_->startWorker(rate, costmap_, cfg_->obstacles.costmap_converter_spin_thread);
-      RCLCPP_INFO(logger_, "Costmap conversion plugin %s loaded.", cfg_->obstacles.costmap_converter_plugin.c_str());
-    }
-    catch(pluginlib::PluginlibException& ex)
-    {
-      RCLCPP_INFO(logger_,
-                 "The specified costmap converter plugin cannot be loaded. All occupied costmap cells are treaten as point obstacles. Error message: %s", ex.what());
+      const auto rate = std::make_shared<rclcpp::Rate>(
+        (double)cfg_->obstacles.costmap_converter_rate);
+      costmap_converter_->startWorker(
+        rate, costmap_,
+        cfg_->obstacles.costmap_converter_spin_thread);
+      RCLCPP_INFO(
+        logger_, "Costmap conversion plugin %s loaded.",
+        cfg_->obstacles.costmap_converter_plugin.c_str());
+    } catch (pluginlib::PluginlibException & ex) {
+      RCLCPP_INFO(
+        logger_,
+        "The specified costmap converter plugin cannot be loaded. All occupied costmap cells are treaten as point obstacles. Error message: %s",
+        ex.what());
       costmap_converter_.reset();
     }
-  }
-  else {
-    RCLCPP_INFO(logger_, "No costmap conversion plugin specified. All occupied costmap cells are treaten as point obstacles.");
+  } else {
+    RCLCPP_INFO(
+      logger_,
+      "No costmap conversion plugin specified. All occupied costmap cells are treaten as point obstacles.");
   }
 
   // Set subscribtion to the speed limiting topic
@@ -234,10 +248,10 @@ void TrackingBase::spin()
 {
   geometry_msgs::msg::PoseStamped p;
   geometry_msgs::msg::TwistStamped cmd_vel;
-  
+
   double scale = 1.0;
   target_manager_->getRawTarget(p);
-  if (p.pose.position.y < 0){
+  if (p.pose.position.y < 0) {
     scale = -1.0;
   }
 
@@ -296,13 +310,13 @@ void TrackingBase::computeControl()
 
       action_server_->publish_feedback(feedback);
 
-      if (!updateRobotPoseAndTarget()){
+      if (!updateRobotPoseAndTarget()) {
         feedback->exception_code = nav2_core::DETECTOREXCEPTION;
         spin();
         continue;
       }
 
-      if (isGoalReached(robot_pose_, robot_goal_)){
+      if (isGoalReached(robot_pose_, robot_goal_)) {
         // RCLCPP_INFO(get_logger(), "Reached the goal!");
         continue;
       }
@@ -319,7 +333,7 @@ void TrackingBase::computeControl()
       visualization_->publishObstacles(obstacles_);
       visualization_->publishViaPoints(via_points_);
       visualization_->publishGlobalPlan(global_plan_);
-  
+
       computeAndPublishVelocity();
 
     }
@@ -341,32 +355,34 @@ void TrackingBase::computeControl()
 void TrackingBase::computeAndPublishVelocity()
 {
   geometry_msgs::msg::TwistStamped cmd_vel;
-  
+
   cmd_vel.header.stamp = clock_->now();
   cmd_vel.header.frame_id = robot_base_frame_;
   cmd_vel.twist.linear.x = 0;
   cmd_vel.twist.linear.y = 0;
-  cmd_vel.twist.angular.z = 0;  
+  cmd_vel.twist.angular.z = 0;
   // Get the velocity command for this sampling interval
-  if (!planner_->getVelocityCommand(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.angular.z, cfg_->trajectory.control_look_ahead_poses))
+  if (!planner_->getVelocityCommand(
+      cmd_vel.twist.linear.x, cmd_vel.twist.linear.y,
+      cmd_vel.twist.angular.z, cfg_->trajectory.control_look_ahead_poses))
   {
     planner_->clearPlanner();
     throw nav2_core::PlannerException(
-      std::string("TebLocalPlannerROS: velocity command invalid. Resetting planner...")
+            std::string("TebLocalPlannerROS: velocity command invalid. Resetting planner...")
     );
   }
   publishVelocity(cmd_vel);
 }
 
 bool TrackingBase::updateRobotPoseAndTarget()
-{  
+{
   geometry_msgs::msg::PoseStamped target;
-  if(!target_manager_->getTarget(target)){
+  if (!target_manager_->getTarget(target)) {
     RCLCPP_WARN(get_logger(), "Invalid target, attempting to retrieve...");
     return false;
   }
   geometry_msgs::msg::PoseStamped robot_pose;
-  if (!getRobotPose(robot_pose)){
+  if (!getRobotPose(robot_pose)) {
     RCLCPP_WARN(get_logger(), "Invalid robot pose, attempting to retrieve...");
     return false;
   }
@@ -380,8 +396,9 @@ void TrackingBase::publishVelocity(const geometry_msgs::msg::TwistStamped & velo
 {
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>(velocity.twist);
   if (vel_publisher_->is_activated() && vel_publisher_->get_subscription_count() > 0) {
-    RCLCPP_INFO(get_logger(), "[TrackingBase] cmd_vel [vx = %lf, vy = %lf, w = %lf]",
-      cmd_vel->linear.x, cmd_vel->linear.y, cmd_vel->angular.z );
+    RCLCPP_INFO(
+      get_logger(), "[TrackingBase] cmd_vel [vx = %lf, vy = %lf, w = %lf]",
+      cmd_vel->linear.x, cmd_vel->linear.y, cmd_vel->angular.z);
     vel_publisher_->publish(std::move(cmd_vel));
   }
 }
@@ -400,8 +417,9 @@ void TrackingBase::publishZeroVelocity()
   publishVelocity(velocity);
 }
 
-bool TrackingBase::isGoalReached(const teb_local_planner::PoseSE2& s, 
-                                 const teb_local_planner::PoseSE2& g)
+bool TrackingBase::isGoalReached(
+  const teb_local_planner::PoseSE2 & s,
+  const teb_local_planner::PoseSE2 & g)
 {
   teb_local_planner::PoseSE2 k = s - g;
   return k.x() * k.x() + k.y() * k.y() < dist_tolerance_sq_;
@@ -411,9 +429,11 @@ bool TrackingBase::getRobotPose(geometry_msgs::msg::PoseStamped & pose)
 {
   geometry_msgs::msg::PoseStamped current_pose;
 
-  if (!nav2_util::getCurrentPose(current_pose, *tf_buffer_,
-    global_frame_, robot_base_frame_, transform_tolerance_)){
-      return false;
+  if (!nav2_util::getCurrentPose(
+      current_pose, *tf_buffer_,
+      global_frame_, robot_base_frame_, transform_tolerance_))
+  {
+    return false;
   }
 
   pose = current_pose;
@@ -430,72 +450,78 @@ void TrackingBase::speedLimitCallback(const nav2_msgs::msg::SpeedLimit::SharedPt
 
 void TrackingBase::updateObstacleContainerWithCostmapConverter()
 {
-  if (!costmap_converter_)
+  if (!costmap_converter_) {
     return;
-    
+  }
+
   //Get obstacles from costmap converter
   costmap_converter::ObstacleArrayConstPtr obstacles = costmap_converter_->getObstacles();
-  if (!obstacles)
+  if (!obstacles) {
     return;
+  }
 
-  for (std::size_t i=0; i<obstacles->obstacles.size(); ++i)
-  {
-    const costmap_converter_msgs::msg::ObstacleMsg* obstacle = &obstacles->obstacles.at(i);
-    const geometry_msgs::msg::Polygon* polygon = &obstacle->polygon;
+  for (std::size_t i = 0; i < obstacles->obstacles.size(); ++i) {
+    const costmap_converter_msgs::msg::ObstacleMsg * obstacle = &obstacles->obstacles.at(i);
+    const geometry_msgs::msg::Polygon * polygon = &obstacle->polygon;
 
-    if (polygon->points.size()==1 && obstacle->radius > 0) // Circle
-    {
-      obstacles_.push_back(ObstaclePtr(new CircularObstacle(polygon->points[0].x, polygon->points[0].y, obstacle->radius)));
-    }
-    else if (polygon->points.size()==1) // Point
-    {
-      obstacles_.push_back(ObstaclePtr(new PointObstacle(polygon->points[0].x, polygon->points[0].y)));
-    }
-    else if (polygon->points.size()==2) // Line
-    {
-      obstacles_.push_back(ObstaclePtr(new LineObstacle(polygon->points[0].x, polygon->points[0].y,
-                                                        polygon->points[1].x, polygon->points[1].y )));
-    }
-    else if (polygon->points.size()>2) // Real polygon
-    {
-        PolygonObstacle* polyobst = new PolygonObstacle;
-        for (std::size_t j=0; j<polygon->points.size(); ++j)
-        {
-            polyobst->pushBackVertex(polygon->points[j].x, polygon->points[j].y);
-        }
-        polyobst->finalizePolygon();
-        obstacles_.push_back(ObstaclePtr(polyobst));
+    if (polygon->points.size() == 1 && obstacle->radius > 0) { // Circle
+      obstacles_.push_back(
+        ObstaclePtr(
+          new CircularObstacle(
+            polygon->points[0].x,
+            polygon->points[0].y, obstacle->radius)));
+    } else if (polygon->points.size() == 1) { // Point
+      obstacles_.push_back(
+        ObstaclePtr(
+          new PointObstacle(
+            polygon->points[0].x,
+            polygon->points[0].y)));
+    } else if (polygon->points.size() == 2) { // Line
+      obstacles_.push_back(
+        ObstaclePtr(
+          new LineObstacle(
+            polygon->points[0].x, polygon->points[0].y,
+            polygon->points[1].x, polygon->points[1].y)));
+    } else if (polygon->points.size() > 2) { // Real polygon
+      PolygonObstacle * polyobst = new PolygonObstacle;
+      for (std::size_t j = 0; j < polygon->points.size(); ++j) {
+        polyobst->pushBackVertex(polygon->points[j].x, polygon->points[j].y);
+      }
+      polyobst->finalizePolygon();
+      obstacles_.push_back(ObstaclePtr(polyobst));
     }
 
     // Set velocity, if obstacle is moving
-    if(!obstacles_.empty())
-      obstacles_.back()->setCentroidVelocity(obstacles->obstacles[i].velocities, obstacles->obstacles[i].orientation);
+    if (!obstacles_.empty()) {
+      obstacles_.back()->setCentroidVelocity(
+        obstacles->obstacles[i].velocities,
+        obstacles->obstacles[i].orientation);
+    }
   }
 }
 
 void TrackingBase::updateObstacleContainerWithCostmap()
-{  
+{
   // Add costmap obstacles if desired
-  if (cfg_->obstacles.include_costmap_obstacles)
-  {
+  if (cfg_->obstacles.include_costmap_obstacles) {
     std::lock_guard<std::recursive_mutex> lock(*costmap_->getMutex());
 
     Eigen::Vector2d robot_orient = robot_pose_.orientationUnitVec();
-    
-    for (unsigned int i=0; i<costmap_->getSizeInCellsX()-1; ++i)
-    {
-      for (unsigned int j=0; j<costmap_->getSizeInCellsY()-1; ++j)
-      {
-        if (costmap_->getCost(i,j) == nav2_costmap_2d::LETHAL_OBSTACLE)
-        {
+
+    for (unsigned int i = 0; i < costmap_->getSizeInCellsX() - 1; ++i) {
+      for (unsigned int j = 0; j < costmap_->getSizeInCellsY() - 1; ++j) {
+        if (costmap_->getCost(i, j) == nav2_costmap_2d::LETHAL_OBSTACLE) {
           Eigen::Vector2d obs;
-          costmap_->mapToWorld(i,j,obs.coeffRef(0), obs.coeffRef(1));
-            
+          costmap_->mapToWorld(i, j, obs.coeffRef(0), obs.coeffRef(1));
+
           // check if obstacle is interesting (e.g. not far behind the robot)
-          Eigen::Vector2d obs_dir = obs-robot_pose_.position();
-          if ( obs_dir.dot(robot_orient) < 0 && obs_dir.norm() > cfg_->obstacles.costmap_obstacles_behind_robot_dist  )
+          Eigen::Vector2d obs_dir = obs - robot_pose_.position();
+          if (obs_dir.dot(robot_orient) < 0 &&
+            obs_dir.norm() > cfg_->obstacles.costmap_obstacles_behind_robot_dist)
+          {
             continue;
-            
+          }
+
           obstacles_.push_back(ObstaclePtr(new PointObstacle(obs)));
         }
       }

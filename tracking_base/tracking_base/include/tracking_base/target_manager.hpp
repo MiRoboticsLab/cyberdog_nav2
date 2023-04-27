@@ -27,7 +27,9 @@
 
 namespace tracking_base
 {
-static double poseDistanceSq(const geometry_msgs::msg::Pose & p1, const geometry_msgs::msg::Pose & p2)
+static double poseDistanceSq(
+  const geometry_msgs::msg::Pose & p1,
+  const geometry_msgs::msg::Pose & p2)
 {
   double dx = p2.position.x - p1.position.x;
   double dy = p2.position.y - p1.position.y;
@@ -46,11 +48,10 @@ public:
    * @param conf BT node configuration
    */
   TargetManager(rclcpp_lifecycle::LifecycleNode::SharedPtr node);
-  bool getTarget(geometry_msgs::msg::PoseStamped& target);
-  bool getRawTarget(geometry_msgs::msg::PoseStamped& target){ target = last_raw_goal_; }
+  bool getTarget(geometry_msgs::msg::PoseStamped & target);
+  bool getRawTarget(geometry_msgs::msg::PoseStamped & target) {target = last_raw_goal_;}
 
 protected:
-
 private:
   /**
    * @brief Callback function for goal update topic

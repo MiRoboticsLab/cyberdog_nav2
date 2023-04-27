@@ -145,8 +145,9 @@ protected:
    * @brief Checks if goal is reached
    * @return true or false
    */
-  bool isGoalReached(const teb_local_planner::PoseSE2& s, 
-                    const teb_local_planner::PoseSE2& g);
+  bool isGoalReached(
+    const teb_local_planner::PoseSE2 & s,
+    const teb_local_planner::PoseSE2 & g);
   /**
    * @brief Obtain current pose of the robot
    * @param pose To store current pose of the robot
@@ -221,12 +222,12 @@ private:
   rclcpp::Clock::SharedPtr clock_;
   rclcpp::Node::SharedPtr intra_proc_node_;
   // external objects (store weak pointers)
-  nav2_costmap_2d::Costmap2D* costmap_; //!< Pointer to the 2d costmap (obtained from the costmap ros wrapper)
+  nav2_costmap_2d::Costmap2D * costmap_; //!< Pointer to the 2d costmap (obtained from the costmap ros wrapper)
   // Transform listener
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;  
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   TebConfig::UniquePtr cfg_; //!< Config class that stores and manages all related parameters
-    
+
   // internal objects (memory management owned)
   PlannerInterfacePtr planner_; //!< Instance of the underlying optimal planner class
   ObstContainer obstacles_; //!< Obstacle vector that should be considered during local trajectory optimization
@@ -234,11 +235,11 @@ private:
   TebVisualizationPtr visualization_; //!< Instance of the visualization class (local/global plan, obstacles, ...)
   std::shared_ptr<dwb_critics::ObstacleFootprintCritic> costmap_model_;
   FailureDetector failure_detector_; //!< Detect if the robot got stucked
-  
+
   std::vector<geometry_msgs::msg::PoseStamped> global_plan_; //!< Store the current global plan
-  
+
   pluginlib::ClassLoader<costmap_converter::BaseCostmapToPolygons> costmap_converter_loader_; //!< Load costmap converter plugins at runtime
-  std::shared_ptr<costmap_converter::BaseCostmapToPolygons> costmap_converter_; //!< Store the current costmap_converter  
+  std::shared_ptr<costmap_converter::BaseCostmapToPolygons> costmap_converter_; //!< Store the current costmap_converter
 
   //std::shared_ptr< dynamic_reconfigure::Server<TebLocalPlannerReconfigureConfig> > dynamic_recfg_; //!< Dynamic reconfigure server to allow config modifications at runtime
   rclcpp::Subscription<costmap_converter_msgs::msg::ObstacleArrayMsg>::SharedPtr custom_obst_sub_; //!< Subscriber for custom obstacles received via a ObstacleMsg.
@@ -255,14 +256,14 @@ private:
   int no_infeasible_plans_; //!< Store how many times in a row the planner failed to find a feasible plan.
   RotType last_preferred_rotdir_; //!< Store recent preferred turning direction
   geometry_msgs::msg::Twist last_cmd_; //!< Store the last control command generated in computeVelocityCommands()
-  
-  std::vector<geometry_msgs::msg::Point> footprint_spec_; //!< Store the footprint of the robot 
+
+  std::vector<geometry_msgs::msg::Point> footprint_spec_; //!< Store the footprint of the robot
   double robot_inscribed_radius_; //!< The radius of the inscribed circle of the robot (collision possible)
   double robot_circumscribed_radius; //!< The radius of the circumscribed circle of the robot
-  
+
   std::string global_frame_; //!< The frame in which the controller will run
   std::string robot_base_frame_; //!< Used as the base frame id of the robot
-    
+
   rclcpp::Time last_valid_target_; //!< Store at which time stamp the last oscillation was detected
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
