@@ -68,58 +68,6 @@ def generate_launch_description():
         )
 ########################  shared  ##############################
 
-######################## tracking ##############################
-    follow_params_file = LaunchConfiguration(
-        'follow_params_file',
-        default=os.path.join(
-            os.path.join(package_dir, 'params'),
-            'follow_params.yaml')
-        )
-    default_target_tracking_bt_xml = LaunchConfiguration(
-        'default_target_tracking_bt_xml',
-        default=os.path.join(
-            os.path.join(package_dir, 'behavior_trees'),
-            'target_tracking.xml')
-        )
-    param_substitutions_tracking = {
-        'default_target_tracking_bt_xml': default_target_tracking_bt_xml,
-        'map_subscribe_transient_local': map_subscribe_transient_local
-        }
-    configured_params_f = RewrittenYaml(
-        source_file=follow_params_file,
-        root_key=namespace,
-        param_rewrites=param_substitutions_tracking,
-        convert_types=True
-        )
-    controller_tracking_cmd = Node(
-        package='mcr_controller',
-        executable='controller_server',
-        name='controller_server_tracking',
-        namespace=namespace,
-        output='screen',
-        parameters=[{configured_params_f}],
-        remappings=remappings
-        )
-    planner_tracking_cmd = Node(
-        package='mcr_planner',
-        executable='mcr_planner_server',
-        name='planner_server_tracking',
-        namespace=namespace,
-        output='screen',
-        parameters=[{configured_params_f}],
-        remappings=remappings
-        )
-    bt_navigator_tracking_cmd = Node(
-        package='bt_navigators',
-        executable='bt_navigator_tracking',
-        name='bt_navigator_tracking',
-        namespace=namespace,
-        output='screen',
-        parameters=[{configured_params_f}],
-        remappings=remappings
-        )
-######################## tracking ##############################
-
 ######################## docking  ##############################
     auto_docking_file = LaunchConfiguration(
         'auto_charing_file',
@@ -214,9 +162,6 @@ def generate_launch_description():
 
     ld = launch.LaunchDescription([
         namespace_declare,
-        controller_tracking_cmd,
-        planner_tracking_cmd,
-        bt_navigator_tracking_cmd,
         controller_docking_cmd,
         planner_docking_cmd,
         bt_navigator_docking_cmd,

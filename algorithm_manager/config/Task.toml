@@ -3,7 +3,7 @@ TaskName = "UwbTracking"
 Id = 11
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb", 'controller_server_tracking', "planner_server_tracking", "recoveries_server", "bt_navigator_tracking"]
+DepsLifecycleNodes = ["camera/camera_align", "mivinsfollowing", "mcr_uwb", "tracking_base"]
 
 [[task]]
 TaskName = "LaserMapping"
@@ -45,7 +45,7 @@ TaskName = "VisionTracking"
 Id = 13
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "controller_server_tracking", "planner_server_tracking", "recoveries_server", "bt_navigator_tracking", "vision_manager"]
+DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "tracking_base", "vision_manager"]
 
 [[task]]
 TaskName = "ResetNav"

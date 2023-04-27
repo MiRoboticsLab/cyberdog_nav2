@@ -66,7 +66,8 @@ def generate_launch_description():
         # 'charging_localization',
         # 'seat_adjust_server',
         'tracking_indication',
-        'rosbag_recorder'
+        'rosbag_recorder',
+        'tracking_base'
         ]
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
