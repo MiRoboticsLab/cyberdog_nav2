@@ -25,7 +25,7 @@ import subprocess
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction, LogInfo
 from launch_ros.substitutions import FindPackageShare
 sys.path.append(os.path.join(get_package_share_directory('cyberdog_bringup'), 'bringup'))
 from manual import get_namespace
@@ -40,15 +40,15 @@ def generate_launch_description():
     nav2_launch_dir = os.path.join(nav2_dir, 'launch')
     node_lists = [
         'state_publisher',
-        'vision_manager',
-        'camera_server',
+        # 'vision_manager',
+        # 'camera_server',
         'tracking',
         'realsense',
         'realsense_align',
         'mcr_uwb',
         'mcr_voice',
         'velocity_adaptor',
-        'nav2_base',
+        # 'nav2_base',
         'map_label_server',
         'report_dog_pose',
         'laser_mapping',
@@ -57,9 +57,9 @@ def generate_launch_description():
         'mivins_mapping',
         'mivins_vo',
         'miloc',
-        'stereo_camera',
-        'occmap',
-        'algorithm_manager',
+        # 'stereo_camera',
+        # 'occmap',
+        # 'algorithm_manager',
         'elevation_mapping_odom',
         'head_tof_pc_publisher',
         'stair_align',
@@ -68,10 +68,62 @@ def generate_launch_description():
         'tracking_indication',
         'rosbag_recorder'
         ]
+    node_lists_camera = [
+        'camera_server',
+        'vision_manager',
+        'stereo_camera'
+        ]
+
     lds = [IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
         launch_arguments = {'namespace': namespace}.items()) for node in node_lists]
-    return launch.LaunchDescription(lds + [namespace_declare])
+    lds_camera = [IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node + '.launch.py')),
+        launch_arguments = {'namespace': namespace}.items()) for node in node_lists_camera]
+    
+    # return launch.LaunchDescription(lds + [namespace_declare])
+    
+    launch_list = [LogInfo(msg=('navigation sleep ...')),
+        launch.LaunchDescription(lds_camera + [namespace_declare]),
+        TimerAction(
+            period=10.0,
+            actions=[
+                LogInfo(msg=('navigation launch nav2_base')),
+                launch.LaunchDescription([IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + 'nav2_base' + '.launch.py')),
+            launch_arguments = {'namespace': namespace}.items())] + [namespace_declare])
+        ]),
+        TimerAction(
+            period=30.0,
+            actions=[
+                LogInfo(msg=('navigation launch occmap')),
+                launch.LaunchDescription([IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + 'occmap' + '.launch.py')),
+            launch_arguments = {'namespace': namespace}.items())] + [namespace_declare])
+        ])]
+    
+    delay_sec = 50.0
+    for node_name in node_lists:
+        ld = [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + node_name + '.launch.py')),
+            launch_arguments = {'namespace': namespace}.items())]
+        launch_list.append(TimerAction(
+            period=delay_sec,
+            actions=[
+                LogInfo(msg=('navigation launch ' + node_name)),
+                launch.LaunchDescription(ld + [namespace_declare])
+        ]))
+        delay_sec += 4.0
+    launch_list.append(TimerAction(
+            period=delay_sec,
+            actions=[
+                LogInfo(msg=('navigation launch algorithm_manager')),
+                launch.LaunchDescription([IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'node.' + 'algorithm_manager' + '.launch.py')),
+            launch_arguments = {'namespace': namespace}.items())] + [namespace_declare])
+        ]))
+    
+    return launch.LaunchDescription(launch_list)
 
 if __name__ == '__main__':
     generate_launch_description()
