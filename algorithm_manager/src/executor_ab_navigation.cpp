@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,6 +82,9 @@ ExecutorAbNavigation::ExecutorAbNavigation(std::string node_name)
       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
     rmw_qos_profile_default, callback_group_);
 
+  change_gait_client_ = create_client<protocol::srv::MotionResultCmd>(
+    "velocity_adaptor_gait", rmw_qos_profile_services_default, callback_group_);
+
   // spin
   std::thread{[this] {this->executor_->spin();}}.detach();
 }
@@ -144,7 +147,8 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   INFO("[2] Connect nav2 action server Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   timer.Start();
   // Check input target goal is legal
-  bool legal = IsLegal(goal);
+  auto new_goal = std::make_shared<AlgorithmMGR::Goal>();
+  bool legal = IsLegal(goal, new_goal);
   if (!legal) {
     ERROR("Current navigation AB point is not legal.");
     UpdateFeedback(kErrorTargetGoalIsEmpty);
@@ -161,10 +165,13 @@ void ExecutorAbNavigation::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 
   timer.Start();
   // Print set target goal pose
-  Debug2String(goal->poses[0]);
+  Debug2String(new_goal->poses[0]);
+
+  // set default gait
+  ChangeGait(309);
 
   // Send goal request
-  if (!SendGoal(goal->poses[0])) {
+  if (!SendGoal(new_goal->poses[0])) {
     ERROR("Send navigation AB point send target goal request failed.");
     DeactivateDepsLifecycleNodes(20000, true);
     UpdateFeedback(kErrorSendGoalTarget);
@@ -300,6 +307,120 @@ bool ExecutorAbNavigation::IsLegal(const AlgorithmMGR::Goal::ConstSharedPtr goal
   return goal->poses.empty() ? false : true;
 }
 
+bool ExecutorAbNavigation::IsLegal(
+  const AlgorithmMGR::Goal::ConstSharedPtr goal,
+  AlgorithmMGR::Goal::SharedPtr new_goal)
+{
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header.frame_id = "map";
+  pose.header.stamp = rclcpp::Clock().now();
+  // docking handle start
+  {
+    // params
+    static double yaw_goal_tolerance_origin = -1.0;
+    auto tmp_node = std::make_shared<rclcpp::Node>("param_port");
+    auto controller_server_ab_parameter_client = std::make_shared<rclcpp::SyncParametersClient>(
+      tmp_node, "controller_server_ab");
+
+    // judge docking
+    if (goal->poses.empty()) {  // dock, change common params
+      // 1 goal
+      INFO("navigation goal is empty,regard as autodocking AB navigation");
+      std::string filename = "/SDCARD/ChargePose/charging_pose.txt";
+      if (!filesystem::exists(filename)) {
+        ERROR("Navigation's charging pose.txt file is not exist.");
+        return false;
+      }
+
+      std::fstream file_in;
+      file_in.open(filename);
+      if (!file_in) {
+        ERROR("Navigation's charging pose.txt file is open failed.");
+        return false;
+      }
+
+      std::string line;
+      while (getline(file_in, line)) {
+        std::istringstream str(line);
+        str >> pose.pose.position.x >> pose.pose.position.y >> pose.pose.position.z >>
+        pose.pose.orientation.x >> pose.pose.orientation.y >> pose.pose.orientation.z >>
+        pose.pose.orientation.w;
+      }
+      pose.pose.position.z = 0.0;
+      file_in.close();
+
+      new_goal->poses.push_back(pose);
+      INFO("autodocking AB navigation's new_goal is set.");
+      // 2 params
+      if (nullptr != controller_server_ab_parameter_client) {
+        double yaw_goal_tolerance = -1.0;
+        if (controller_server_ab_parameter_client->has_parameter(
+            "general_goal_checker.yaw_goal_tolerance"))
+        {
+          INFO("parameter 'yaw_goal_tolerance' has been found in controller_server_ab");
+          yaw_goal_tolerance = controller_server_ab_parameter_client->get_parameter<double>(
+            "general_goal_checker.yaw_goal_tolerance");
+
+          INFO("yaw_goal_tolerance get from 'controller_server_ab' is %lf", yaw_goal_tolerance);
+
+          INFO("yaw_goal_tolerance_origin is %lf", yaw_goal_tolerance_origin);
+          if ((fabs(yaw_goal_tolerance + 1.0) > 0.00001)  // get param
+            // &&(fabs(yaw_goal_tolerance - yaw_goal_tolerance_origin)>0.00001)// not default val
+            && (fabs(yaw_goal_tolerance - 0.3489) > 0.00001))  // not target val
+          {
+            INFO("Trying to set yaw_goal_tolerance");
+            yaw_goal_tolerance_origin = yaw_goal_tolerance;
+            std::vector<rclcpp::Parameter> parameters;
+            parameters.emplace_back("general_goal_checker.yaw_goal_tolerance", 0.3489);
+            auto ret = controller_server_ab_parameter_client->set_parameters_atomically(parameters);
+
+            if (!ret.successful) {
+              ERROR("recovery common params failed.");
+            }
+            INFO(
+              "yaw_goal_tolerance is set to %lf ",
+              controller_server_ab_parameter_client->get_parameter<double>(
+                "general_goal_checker.yaw_goal_tolerance"));
+          }
+        } else {
+          ERROR(" params not exist.");
+        }
+      }
+
+      return true;
+    } else {
+      // not dock, recovery common params
+      if (nullptr != controller_server_ab_parameter_client) {
+        if (controller_server_ab_parameter_client->has_parameter(
+            "general_goal_checker.yaw_goal_tolerance"))
+        {
+          INFO(
+            "common navigation yaw_goal_tolerance is %lf",
+            controller_server_ab_parameter_client->get_parameter<double>(
+              "general_goal_checker.yaw_goal_tolerance"));
+          if (fabs(yaw_goal_tolerance_origin + 1.0) > 0.00001) {
+            std::vector<rclcpp::Parameter> parameters;
+            parameters.emplace_back(
+              "general_goal_checker.yaw_goal_tolerance",
+              yaw_goal_tolerance_origin);
+            INFO("yaw_goal_tolerance recovery value is %lf", yaw_goal_tolerance_origin);
+            auto ret = controller_server_ab_parameter_client->set_parameters_atomically(parameters);
+            if (!ret.successful) {
+              ERROR("recovery common params failed.");
+            }
+          }
+        }
+      }
+    }
+  }
+  // docking handle end
+  pose.pose.position.x = goal->poses[0].pose.position.x;
+  pose.pose.position.y = goal->poses[0].pose.position.y;
+  pose.pose.orientation.w = 1.0;
+  new_goal->poses.push_back(pose);
+  return true;
+}
+
 bool ExecutorAbNavigation::SendGoal(const geometry_msgs::msg::PoseStamped & pose)
 {
   // Set orientation
@@ -362,8 +483,8 @@ void ExecutorAbNavigation::NormalizedGoal(const geometry_msgs::msg::PoseStamped 
 {
   // Normalize the goal pose
   target_goal_.pose = pose;
-  target_goal_.pose.header.frame_id = "map";
-  target_goal_.pose.pose.orientation.w = 1;
+  // target_goal_.pose.header.frame_id = "map";
+  // target_goal_.pose.pose.orientation.w = 1;
 }
 
 void ExecutorAbNavigation::Debug2String(const geometry_msgs::msg::PoseStamped & pose)
@@ -516,5 +637,29 @@ bool ExecutorAbNavigation::CancelGoal()
   return cancel_goal_result_;
 }
 
+bool ExecutorAbNavigation::ChangeGait(const int & motion_id)
+{
+  auto req = std::make_shared<protocol::srv::MotionResultCmd::Request>();
+  RCLCPP_INFO(get_logger(), "ChangeGait. motion_id: %d", motion_id);
+  std::chrono::seconds timeout(3);
+
+  req->motion_id = motion_id;
+  req->value = 2;
+  req->step_height = std::vector<float>{0.06, 0.06};
+  if (!change_gait_client_->wait_for_service(std::chrono::seconds(3))) {
+    RCLCPP_ERROR(get_logger(), "ChangeGait server not available");
+    return false;
+  }
+  auto future_result = change_gait_client_->async_send_request(std::move(req));
+  std::future_status status = future_result.wait_for(timeout);
+
+  if (status == std::future_status::ready) {
+    RCLCPP_INFO(get_logger(), "success to call ChangeGait services.");
+    return true;
+  } else {
+    RCLCPP_ERROR(get_logger(), "Failed to call ChangeGait services.");
+    return false;
+  }
+}
 }  // namespace algorithm
 }  // namespace cyberdog

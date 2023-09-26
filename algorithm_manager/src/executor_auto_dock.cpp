@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
   action_client_node_ = std::make_shared<rclcpp::Node>("_", options);
   // exe_laser_loc_ptr_ = std::make_shared<ExecutorVisionMapping>("LaserLocalization");
   // exe_ab_nav_ptr_ = std::make_shared<ExecutorVisionMapping>("NavAB");
+  callback_group_ =
+    action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
   client_navtopose_ptr_ = rclcpp_action::create_client<NavigateToPoseT>(
     action_client_node_,
     "navigate_to_pose");
@@ -41,9 +44,22 @@ ExecutorAutoDock::ExecutorAutoDock(std::string node_name)
   client_seat_adjust_ptr_ = rclcpp_action::create_client<SeatAdjustT>(
     action_client_node_,
     "seatadjust");
+
+  audio_play_client_ = action_client_node_->create_client<protocol::srv::AudioTextPlay>(
+    "speech_text_play",
+    rmw_qos_profile_services_default,
+    callback_group_);
+
+  is_power_wp_charging_ = false;
+  bms_sub_ = action_client_node_->create_subscription<protocol::msg::BmsStatus>(
+    "bms_status", rclcpp::SystemDefaultsQoS(),
+    std::bind(&ExecutorAutoDock::tempcallback, this, std::placeholders::_1));
+
   GetParams();
   INFO("ExecutorAutoDock server is ready");
-  std::thread{[this]() {rclcpp::spin(action_client_node_);}}.detach();
+  std::thread{[this]()
+    {rclcpp::spin(action_client_node_);}}
+  .detach();
 }
 bool ExecutorAutoDock::GetParams()
 {
@@ -63,6 +79,7 @@ bool ExecutorAutoDock::GetParams()
 void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
 {
   (void)goal;
+  OnlineAudioPlay("铁蛋要回充电桩啦");
   INFO("Auto Dock starting");
   ReportPreparationStatus();
   // INFO("Starting LaserLocalization");
@@ -82,14 +99,64 @@ void ExecutorAutoDock::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
       task_abort_callback_();
       return;
     }
-    stage2_send_goal();
+    // stage2 send goal
+    if (!stage2_send_goal()) {
+      ERROR("stage2 Preparation failed, call task_abort_callback_ and return.");
+      return;
+    }
+
     if (stage3_enable_) {
+      INFO("stage2 is running, so now we lock stage3.");
       std::unique_lock<std::mutex> lk_stage3(stage3_process_mutex_);
       stage3_process_cv_.wait(lk_stage3);
-      stage3_send_goal();
+
+      if (!stage2_goal_done_) {
+        ERROR("stage2 is failed, unlock and skip stage3, return now.");
+        return;
+      }
+
+      INFO("stage2 is done, unlock stage3 and go on.");
+      seat_try_times_ = 2;
+      std::unique_lock<std::mutex> lk_stage3_self(stage3_self_process_mutex_);
+      while (!is_power_wp_charging_) {
+        INFO("in while cycle");
+        if (seat_try_times_-- > 0) {
+          INFO("still have chance to try, so call stage3_send_goal.");
+          stage3_send_goal();
+
+          INFO("lock stage3 in while cycle, wait for notice.");
+          stage3_self_process_cv_.wait(lk_stage3_self);
+          INFO("unlock stage3 in while cycle.");
+          // std::this_thread::sleep_for(std::chrono::seconds(5));
+          auto end = std::chrono::steady_clock::now() + std::chrono::seconds(7);     // 6---->7
+          INFO("sleep begin");
+          {
+            while (rclcpp::ok()) {
+              auto now = std::chrono::steady_clock::now();
+              auto time_left = end - now;
+              if (time_left <= std::chrono::seconds(0) || is_power_wp_charging_) {
+                break;
+              }
+            }
+          }
+          INFO("sleep end");
+        } else {
+          seat_try_times_ = 0;
+          break;
+        }
+      }
+
+      if (is_power_wp_charging_) {
+        INFO("power wp charging success!");
+        OnlineAudioPlay("充电成功");
+        task_success_callback_();
+
+      } else {
+        INFO("power wp charging failed!");
+        OnlineAudioPlay("没充上电，帮我检查一下吧");
+        task_success_callback_();     // 仅表示回充过程成功
+      }
     }
-  } else if (stage3_enable_) {
-    stage3_send_goal();
   }
 
   // uint8_t goal_result = StartVisionTracking(goal->relative_pos, goal->keep_distance);
@@ -122,6 +189,10 @@ void ExecutorAutoDock::OnCancel()
     INFO("Cancel laser_charge_goal_handle_");
     auto future_cancel =
       client_laser_charge_ptr_->async_cancel_goal(laser_charge_goal_handle_);
+  } else if (seat_adjust_goal_handle_ != nullptr) {
+    INFO("Cancel seat_adjust_goal_handle_");
+    auto future_cancel =
+      client_seat_adjust_ptr_->async_cancel_goal(seat_adjust_goal_handle_);
   } else {
     WARN("laser_charge_goal_handle_ is nullptr");
     if (!DeactivateDepsLifecycleNodes(50000)) {
@@ -157,14 +228,14 @@ void ExecutorAutoDock::stage2_feedback_callback(
 void ExecutorAutoDock::stage2_result_callback(
   const GoalHandleAutomaticRecharge::WrappedResult & result)
 {
-  stage2_goal_done_ = true;
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("stage2 Result SUCCEEDED.");
+      stage2_goal_done_ = true;
       // OnCancel();
-      // if (!DeactivateDepsLifecycleNodes(50000)) {
-      //   ERROR("DeactivateDepsLifecycleNodes failed");
-      // }
+      if (!DeactivateDepsLifecycleNodes(50000)) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
       // StopReportPreparationThread();
       // task_success_callback_();
       laser_charge_goal_handle_.reset();
@@ -177,13 +248,23 @@ void ExecutorAutoDock::stage2_result_callback(
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage2 Goal was aborted");
+      if (!DeactivateDepsLifecycleNodes(50000)) {
+        ERROR("DeactivateDepsLifecycleNodes failed");
+      }
       laser_charge_goal_handle_.reset();
+      if (stage3_enable_) {
+        stage3_process_cv_.notify_one();
+      }
       task_abort_callback_();
       return;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("stage2 Goal was canceled");
       if (!DeactivateDepsLifecycleNodes(50000)) {
         ERROR("DeactivateDepsLifecycleNodes failed");
+      }
+      laser_charge_goal_handle_.reset();
+      if (stage3_enable_) {
+        stage3_process_cv_.notify_one();
       }
       StopReportPreparationThread();
       task_cancle_callback_();
@@ -195,7 +276,7 @@ void ExecutorAutoDock::stage2_result_callback(
   }
 }
 
-void ExecutorAutoDock::stage2_send_goal()
+bool ExecutorAutoDock::stage2_send_goal()
 {
   using namespace std::placeholders;
 
@@ -203,12 +284,23 @@ void ExecutorAutoDock::stage2_send_goal()
 
   if (!client_laser_charge_ptr_) {
     ERROR("Action client not initialized");
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return false;
   }
 
   if (!client_laser_charge_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
     ERROR("Action server not available after waiting");
-    stage2_goal_done_ = true;
-    return;
+    // stage2_goal_done_ = true;
+    ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
+    if (!DeactivateDepsLifecycleNodes(50000)) {
+      ERROR("DeactivateDepsLifecycleNodes failed");
+    }
+    task_abort_callback_();
+    return false;
   }
 
   auto goal_msg = AutomaticRechargeT::Goal();
@@ -232,7 +324,7 @@ void ExecutorAutoDock::stage2_send_goal()
       ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
     }
     task_abort_callback_();
-    return;
+    return false;
   } else {
     INFO("client_laser_charge_ptr_  success");
   }
@@ -246,8 +338,9 @@ void ExecutorAutoDock::stage2_send_goal()
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
-    return;
+    return false;
   }
+  return true;
 }
 
 // This section is for the seat_adjust stage client interface
@@ -270,19 +363,28 @@ void ExecutorAutoDock::stage3_feedback_callback(
 void ExecutorAutoDock::stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result)
 {
   stage3_goal_done_ = true;
+  INFO("seat retry has %d times left", seat_try_times_);
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       INFO("stage3 Result received.");
       seat_adjust_goal_handle_.reset();
-      task_success_callback_();
+      INFO("stage3_self_process_cv_.notify_one");
+      stage3_self_process_cv_.notify_one();
       break;
     case rclcpp_action::ResultCode::ABORTED:
       ERROR("stage3 Goal was aborted");
       seat_adjust_goal_handle_.reset();
+      seat_try_times_ = 0;
+      stage3_self_process_cv_.notify_one();
       task_abort_callback_();
       return;
     case rclcpp_action::ResultCode::CANCELED:
       ERROR("stage3 Goal was canceled");
+      seat_adjust_goal_handle_.reset();
+      seat_try_times_ = 0;
+      stage3_self_process_cv_.notify_one();
+      StopReportPreparationThread();
+      task_cancle_callback_();
       return;
     default:
       ERROR("stage3 Unknown result code");
@@ -290,7 +392,7 @@ void ExecutorAutoDock::stage3_result_callback(const GoalHandleSeatAdjust::Wrappe
   }
 }
 
-void ExecutorAutoDock::stage3_send_goal()
+bool ExecutorAutoDock::stage3_send_goal()
 {
   using namespace std::placeholders;
 
@@ -298,12 +400,13 @@ void ExecutorAutoDock::stage3_send_goal()
 
   if (!client_seat_adjust_ptr_) {
     ERROR("Action client not initialized");
+    return false;
   }
 
   if (!client_seat_adjust_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
     ERROR("Action server not available after waiting");
     stage3_goal_done_ = true;
-    return;
+    return false;
   }
 
   auto goal_msg = SeatAdjustT::Goal();
@@ -322,14 +425,14 @@ void ExecutorAutoDock::stage3_send_goal()
     goal_msg,
     send_goal_options);
   INFO("client_seat_adjust_ptr_ async_send_goal");
-  if (future_goal_handle.wait_for(std::chrono::milliseconds(5000)) == std::future_status::timeout) {
+  if (future_goal_handle.wait_for(std::chrono::milliseconds(7000)) == std::future_status::timeout) {
     ERROR("Cannot Get result client_seat_adjust_ptr_");
     ReportPreparationFinished(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
     if (!DeactivateDepsLifecycleNodes(50000)) {
       ERROR("DeactivateDepsLifecycleNodes async_send_goal failed");
     }
     task_abort_callback_();
-    return;
+    return false;
   } else {
     INFO("client_seat_adjust_ptr_  success");
   }
@@ -343,7 +446,38 @@ void ExecutorAutoDock::stage3_send_goal()
       ERROR("DeactivateDepsLifecycleNodes failed");
     }
     task_abort_callback_();
+    return false;
+  }
+  return true;
+}
+
+void ExecutorAutoDock::tempcallback(const protocol::msg::BmsStatus::SharedPtr msg)     // add ym
+{
+  // INFO("Receive bms_status %d ", msg->power_wp_charging);
+  is_power_wp_charging_ = msg->power_wp_charging;
+}
+
+
+void ExecutorAutoDock::OnlineAudioPlay(const std::string & text)
+{
+  INFO("call OnlineAudioPlay");
+  static bool playing = false;
+  if (playing) {
     return;
+  }
+  auto request = std::make_shared<protocol::srv::AudioTextPlay::Request>();
+  request->is_online = true;
+  request->module_name = get_name();
+  request->text = text;
+  playing = true;
+  auto callback = [this](rclcpp::Client<protocol::srv::AudioTextPlay>::SharedFuture future) {
+      playing = false;
+      INFO("Audio play result: %s", future.get()->status == 0 ? "success" : "failed");
+    };
+  auto future = audio_play_client_->async_send_request(request, callback);
+  if (future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::timeout) {
+    playing = false;
+    ERROR("Cannot get response from AudioPlay");
   }
 }
 

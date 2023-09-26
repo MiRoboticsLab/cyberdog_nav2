@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 #include "algorithm_manager/executor_base.hpp"
+#include "protocol/msg/audio_play.hpp"
 
 namespace cyberdog
 {
@@ -49,11 +50,16 @@ private:
   rclcpp_action::Client<SeatAdjustT>::SharedPtr client_seat_adjust_ptr_;
   rclcpp_action::Client<AutomaticRechargeT>::SharedPtr client_laser_charge_ptr_;
   rclcpp_action::Client<NavigateToPoseT>::SharedPtr client_navtopose_ptr_;
-
+  rclcpp::Client<protocol::srv::AudioTextPlay>::SharedPtr audio_play_client_{nullptr};
+  rclcpp::CallbackGroup::SharedPtr callback_group_{nullptr};
   GoalHandleAutomaticRecharge::SharedPtr laser_charge_goal_handle_;
   GoalHandleSeatAdjust::SharedPtr seat_adjust_goal_handle_;
+  rclcpp::Subscription<protocol::msg::BmsStatus>::SharedPtr bms_sub_;  // add ym
+  bool is_power_wp_charging_;  // 充电标志
+  int seat_try_times_;
+
   bool stage1_goal_done_;
-  bool stage2_goal_done_;
+  bool stage2_goal_done_;  // 阶段2成功的标志
   bool stage3_goal_done_;
 
   bool stage1_enable_;
@@ -63,20 +69,25 @@ private:
   geometry_msgs::msg::PoseStamped goal_pose;
   std::condition_variable stage3_process_cv_;
   std::mutex stage3_process_mutex_;
+  std::condition_variable stage3_self_process_cv_;
+  std::mutex stage3_self_process_mutex_;
+
   // This section is for the stage2 client interface
   void stage2_goal_response_callback(GoalHandleAutomaticRecharge::SharedPtr goal_handle);
   void stage2_feedback_callback(
     GoalHandleAutomaticRecharge::SharedPtr,
     const std::shared_ptr<const AutomaticRechargeT::Feedback> feedback);
   void stage2_result_callback(const GoalHandleAutomaticRecharge::WrappedResult & result);
-  void stage2_send_goal();
+  bool stage2_send_goal();
   // This section is for the seat_adjust stage client interface
   void stage3_goal_response_callback(GoalHandleSeatAdjust::SharedPtr goal_handle);
   void stage3_feedback_callback(
     GoalHandleSeatAdjust::SharedPtr,
     const std::shared_ptr<const SeatAdjustT::Feedback> feedback);
   void stage3_result_callback(const GoalHandleSeatAdjust::WrappedResult & result);
-  void stage3_send_goal();
+  bool stage3_send_goal();
+  void tempcallback(const protocol::msg::BmsStatus::SharedPtr msg);  // add ym
+  void OnlineAudioPlay(const std::string & text);
 };  // class ExecutorAutoDock
 }  // namespace algorithm
 }  // namespace cyberdog

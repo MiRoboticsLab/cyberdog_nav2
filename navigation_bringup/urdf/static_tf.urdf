@@ -23,7 +23,7 @@
   <joint name="tf2_node_base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.288824 0.000 0.144322" rpy="0 -0.524 0"/>
+    <origin xyz="0.26932 0.000 0.11543" rpy="0 0.19 0"/>
   </joint>
 
   <joint name="tf2_node_base_to_tof_left_head" type="fixed">

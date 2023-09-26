@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,27 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
     "elevation_mapping_step_monitor");
   GetBehaviorManager()->RegisterStateCallback(
     std::bind(&ExecutorUwbTracking::UpdateBehaviorStatus, this, std::placeholders::_1));
+
+  callbackgroup_query_visual_obstacle_avoidance_status_ =
+    action_client_node_->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
+  query_visual_avoidance_status_service_ =
+    action_client_node_->create_service<std_srvs::srv::Trigger>(
+    "query_visual_obstacle_avoidance_status",
+    std::bind(
+      &ExecutorUwbTracking::QueryVisualObstacleAvoidanceStatusCallback, this, std::placeholders::_1,
+      std::placeholders::_2), rmw_qos_profile_services_default,
+    callbackgroup_query_visual_obstacle_avoidance_status_);
+
+  callbackgroup_switch_visual_obstacle_avoidance_ = action_client_node_->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
+  switch_visual_avoidance_service_ = action_client_node_->create_service<std_srvs::srv::SetBool>(
+    "switch_visual_obstacle_avoidance",
+    std::bind(
+      &ExecutorUwbTracking::SwitchVisualObstacleAvoidanceCallback, this, std::placeholders::_1,
+      std::placeholders::_2), rmw_qos_profile_services_default,
+    callbackgroup_switch_visual_obstacle_avoidance_);
+
   std::string behavior_config = ament_index_cpp::get_package_share_directory(
     "algorithm_manager") + "/config/UwbTracking.toml";
   toml::value value;
@@ -46,6 +67,7 @@ ExecutorUwbTracking::ExecutorUwbTracking(std::string node_name)
   }
   GET_TOML_VALUE(value, "stair_detect", stair_detect_);
   GET_TOML_VALUE(value, "static_detect", static_detect_);
+
   std::thread{[this]() {executor_->spin();}}.detach();
 }
 
@@ -53,6 +75,38 @@ void ExecutorUwbTracking::ResetLifecycles()
 {
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_FAILED);
   DeactivateDepsLifecycleNodes();
+}
+
+bool ExecutorUwbTracking::StartupRealsenseData(bool enable)
+{
+  if (realsense_client_ == nullptr) {
+    realsense_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "camera/realsense_frame_service", shared_from_this());
+  }
+
+  bool connect = realsense_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for service(camera/realsense_frame_service) timeout");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = enable;
+
+  // Send request
+  bool result = false;
+  try {
+    auto future = realsense_client_->invoke(request, std::chrono::seconds(10));
+    result = future->success;
+  } catch (const std::exception & e) {
+    result = false;
+    ERROR("%s", e.what());
+  }
+
+  std::string state = enable ? "enable" : "disenable";
+  INFO("Startup %s realsense point cloud data success", state.c_str());
+  return result;
 }
 
 void ExecutorUwbTracking::ResetAllDeps()
@@ -111,12 +165,34 @@ void ExecutorUwbTracking::Start(const AlgorithmMGR::Goal::ConstSharedPtr goal)
   // 在激活依赖节点前需要开始上报激活进度
   // ReportPreparationStatus();
   UpdateFeedback(AlgorithmMGR::Feedback::TASK_PREPARATION_EXECUTING);
+  // 读取toml文件 关于 是否开启视觉避障的配置文件
+  std::string behavior_config = ament_index_cpp::get_package_share_directory(
+    "algorithm_manager") + "/config/UwbTracking.toml";
+  toml::value value;
+  if (!cyberdog::common::CyberdogToml::ParseFile(behavior_config, value)) {
+    FATAL("Cannot parse %s", behavior_config.c_str());
+    exit(-1);
+  }
+  GET_TOML_VALUE(value, "enable_visual_obstacle_avoidance", enable_visual_obstacle_avoidance_);
+
+  // 在激活依赖节点前给realsense点云数据使能
+  if (enable_visual_obstacle_avoidance_) {
+    bool success_start_up_realsense = StartupRealsenseData(true);
+    if (!success_start_up_realsense) {
+      ERROR("Failed to startup realsense point cloud data!");
+      return;
+    }
+  }
 
   if (!ActivateDepsLifecycleNodes(this->get_name())) {
     DeactivateDepsLifecycleNodes();
     task_abort_callback_();
     return;
   }
+
+  // 依赖节点激活的标志位置为 true
+  deps_lifecycle_activated_ = true;
+
   if (stair_detect_) {
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
     request->data = true;
@@ -219,12 +295,21 @@ void ExecutorUwbTracking::OnCancel(StopTaskSrv::Response::SharedPtr response)
       cancel_tracking_result_ = true;
     }
   }
-  // else {
-  //   // DeactivateDepsLifecycleNodes();
-  //   // OperateDepsNav2LifecycleNodes(this->get_name(), Nav2LifecycleMode::kPause);
-  //   // task_abort_callback_();
-  // }
+
   ResetAllDeps();
+
+  // 在deactive所依赖的节点后，关闭realsense的使能
+  if (enable_visual_obstacle_avoidance_) {
+    bool success_shutdown_down_realsense = StartupRealsenseData(false);
+    if (!success_shutdown_down_realsense) {
+      ERROR("Failed to close realsense point cloud data!");
+      return;
+    }
+  }
+
+  // 依赖节点激活的标志位置为 true
+  deps_lifecycle_activated_ = false;
+
   task_cancle_callback_();
   target_tracking_goal_handle_.reset();
   GetBehaviorManager()->Launch(false, false);
@@ -260,6 +345,66 @@ void ExecutorUwbTracking::UpdateBehaviorStatus(const BehaviorManager::BehaviorSt
   }
   // task_feedback_callback_(feedback_);
   UpdateFeedback(feedback_code);
+}
+
+// 每次请求SwitchVisualObstacleAvoidanceCallback前，先调用此回调查询 点云已处于发布中
+void ExecutorUwbTracking::QueryVisualObstacleAvoidanceStatusCallback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response
+)
+{
+  // 先读取toml文件 关于 是否开启视觉避障的配置文件
+  std::string visual_aviodance_config = ament_index_cpp::get_package_share_directory(
+    "algorithm_manager") + "/config/UwbTracking.toml";
+  toml::value value;
+  if (!cyberdog::common::CyberdogToml::ParseFile(visual_aviodance_config, value)) {
+    FATAL("Cannot parse %s", visual_aviodance_config.c_str());
+    response->success = false;
+    response->message = "Read toml config fail";
+    return;
+  }
+  GET_TOML_VALUE(value, "enable_visual_obstacle_avoidance", enable_visual_obstacle_avoidance_);
+  if (enable_visual_obstacle_avoidance_) {
+    response->success = true;
+    response->message = "Realsense point cloud data has startup";
+  } else {
+    response->success = false;
+    response->message = "Realsense point cloud data has shutdown";
+  }
+}
+
+//  跟随启动前  调用底层的此接口，提前设置是否启用视觉避障;
+//  若不设置，toml配置中默认开启 视觉避障
+void ExecutorUwbTracking::SwitchVisualObstacleAvoidanceCallback(
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  if (!deps_lifecycle_activated_) {
+    std::string toml_config = ament_index_cpp::get_package_share_directory(
+      "algorithm_manager") + "/config/UwbTracking.toml";
+    toml::value temp;
+    if (!cyberdog::common::CyberdogToml::ParseFile(toml_config, temp)) {
+      FATAL("Cannot parse %s", toml_config.c_str());
+    }
+    if (request->data) {
+      enable_visual_obstacle_avoidance_ = true;
+      response->success = true;
+      response->message = "Realsense point cloud data switch to startup successed";
+    } else {
+      enable_visual_obstacle_avoidance_ = false;
+      response->success = true;
+      response->message = "Realsense point cloud data switch to shutdown successed";
+    }
+    cyberdog::common::CyberdogToml::Set(
+      temp, "enable_visual_obstacle_avoidance",
+      enable_visual_obstacle_avoidance_);                                                                              // NOLINT
+    if (!cyberdog::common::CyberdogToml::WriteFile(toml_config, temp)) {
+      ERROR("Write UWB toml file failed");
+    }
+  } else {  //  跟随过程(realsense节点已经激活)中 ，不可设置点云开关
+    response->success = false;
+    response->message = "Realsense point cloud data can not switch during tracking!";
+  }
 }
 
 void ExecutorUwbTracking::HandleGoalResponseCallback(

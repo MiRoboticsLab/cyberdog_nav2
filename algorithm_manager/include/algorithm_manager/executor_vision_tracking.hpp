@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -110,6 +110,7 @@ private:
   float tracking_keep_distance_ = 1.0;
   int tracking_relative_pos_ = 1;
   toml::value params_toml_;
+  uint8_t tracking_nav_type_ = Navigation::Goal::NAVIGATION_TYPE_START_HUMAN_TRACKING;
 };  // class ExecutorVisionTracking
 }  // namespace algorithm
 }  // namespace cyberdog

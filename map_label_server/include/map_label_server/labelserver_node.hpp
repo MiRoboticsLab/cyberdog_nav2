@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <atomic>
 
 #include "protocol/srv/get_map_label.hpp"
 #include "protocol/srv/set_map_label.hpp"
@@ -105,6 +106,8 @@ private:
   // outdoor
   rclcpp::Service<protocol::srv::SetMapLabel>::SharedPtr outdoor_server_ {nullptr};
   std::mutex mutex_;
+
+  std::atomic_bool loading_map_and_tags_{false};
 };
 }  // namespace CYBERDOG_NAV
 #endif  // MAP_LABEL_SERVER__LABELSERVER_NODE_HPP_

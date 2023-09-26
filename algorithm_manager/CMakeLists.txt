@@ -37,6 +37,7 @@ find_package(cyberdog_machine REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_core REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -69,6 +70,7 @@ set(dependencies
   cyberdog_machine
   tf2
   tf2_ros
+  nav2_core
 )
 
 set(sources
@@ -85,7 +87,6 @@ set(sources
   src/executor_vision_localization.cpp
   src/executor_uwb_tracking.cpp
   src/executor_vision_tracking.cpp
-  src/global_pose_publisher.cpp
   src/timer.cpp
 )
 

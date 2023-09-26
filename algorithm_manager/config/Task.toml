@@ -3,7 +3,8 @@ TaskName = "UwbTracking"
 Id = 11
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["camera/camera", "mivinsfollowing", "mcr_uwb", 'controller_server_tracking', "planner_server_tracking", "recoveries_server", "bt_navigator_tracking"]
+DepsLifecycleNodes = ["camera/camera_align", "mivinsfollowing", "mcr_uwb", "controller_server_tracking",
+"planner_server_tracking", "recoveries_server", "bt_navigator_tracking"]
 
 [[task]]
 TaskName = "LaserMapping"
@@ -17,7 +18,7 @@ TaskName = "LaserLocalization"
 Id = 7
 OutDoor = false
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["camera/camera", "localization_node"]
+DepsLifecycleNodes = ["camera/camera_align", "localization_node"]
 
 [[task]]
 TaskName = "VisionMapping"
@@ -31,7 +32,7 @@ TaskName = "VisionLocalization"
 Id = 7
 OutDoor = true
 DepsNav2LifecycleNodes = []
-DepsLifecycleNodes = ["camera/camera", "stereo_camera", "mivinslocalization"]
+DepsLifecycleNodes = ["camera/camera_align", "stereo_camera", "mivinslocalization"]
 
 [[task]]
 TaskName = "NavAB"
@@ -45,7 +46,8 @@ TaskName = "VisionTracking"
 Id = 13
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "controller_server_tracking", "planner_server_tracking", "recoveries_server", "bt_navigator_tracking", "vision_manager"]
+DepsLifecycleNodes = ["camera/camera_align","mivinsfollowing", "tracking", "controller_server_tracking",
+"planner_server_tracking", "recoveries_server", "bt_navigator_tracking", "vision_manager"]
 
 [[task]]
 TaskName = "ResetNav"
@@ -60,4 +62,4 @@ TaskName = "AutoDock"
 Id = 9
 OutDoor = false
 DepsNav2LifecycleNodes = [""]
-DepsLifecycleNodes = ["camera/camera", "charging_localization", "mivinsfollowing", "controller_server_docking", "planner_server_docking", "recoveries_server", "bt_navigator_docking"]
+DepsLifecycleNodes = ["camera/camera_align", "charging_localization", "mivinsfollowing", "controller_server_docking", "planner_server_docking", "recoveries_server", "bt_navigator_docking"]

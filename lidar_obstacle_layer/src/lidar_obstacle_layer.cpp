@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ void ObstacleLayer::onInitialize()
   node->get_parameter(name_ + "." + "enabled", enabled_);
   node->get_parameter(name_ + "." + "footprint_clearing_enabled", footprint_clearing_enabled_);
   node->get_parameter(name_ + "." + "max_obstacle_height", max_obstacle_height_);
+  node->get_parameter(name_ + "." + "min_obstacle_height", min_obstacle_height_);
   node->get_parameter(name_ + "." + "combination_method", combination_method_);
   node->get_parameter("track_unknown_space", track_unknown_space);
   node->get_parameter("transform_tolerance", transform_tolerance);
@@ -390,6 +391,11 @@ ObstacleLayer::updateBounds(
       // if the obstacle is too high or too far away from the robot we won't add it
       if (pz > max_obstacle_height_) {
         RCLCPP_DEBUG(logger_, "The point is too high");
+        continue;
+      }
+
+      if (pz < min_obstacle_height_) {
+        RCLCPP_DEBUG(logger_, "The point is too low");
         continue;
       }
 

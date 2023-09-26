@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool EnableReportRealtimePose(bool enable);
+  // bool EnableReportRealtimePose(bool enable);
 
   /**
    * @brief Check curent map building available
@@ -146,12 +146,14 @@ private:
 
   bool CheckExit();
 
+  bool StartupRealsenseData(bool enable);
+
   // feedback data
   ExecutorData executor_laser_mapping_data_;
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> stop_client_ {nullptr};
-  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realsense_client_{nullptr};
 
   // serice reset(stop current robot running)
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr stop_running_server_;

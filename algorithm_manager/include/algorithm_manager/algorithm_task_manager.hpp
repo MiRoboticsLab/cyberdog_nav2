@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -168,6 +168,17 @@ private:
   int32_t OnLowPower()
   {
     INFO("Get fsm: LowPower");
+    INFO("Will stop activated executors.");
+    SetStatus(ManagerStatus::kStoppingTask);
+    auto request = std::make_shared<protocol::srv::StopAlgoTask::Request>();
+    auto response = std::make_shared<protocol::srv::StopAlgoTask::Response>();
+    if (activated_executor_ != nullptr) {
+      activated_executor_->Stop(request, response);
+    }
+    if (response->result == StopTaskSrv::Response::SUCCESS) {
+      INFO("Executors finished stop, will setting status");
+    }
+    ResetManagerStatus();
     SetState(FsmState::kLowPower);
     return code_ptr_->GetKeyCode(system::KeyCode::kOK);
   }

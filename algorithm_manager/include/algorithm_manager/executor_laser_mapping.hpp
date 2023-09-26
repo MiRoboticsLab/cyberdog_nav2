@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool EnableReportRealtimePose(bool enable, bool use_topic = false);
+  // bool EnableReportRealtimePose(bool enable, bool use_topic = false);
 
   /**
    * @brief Check localization lifecycle node not activate state
@@ -130,7 +130,7 @@ private:
 
   bool CloseMappingService();
 
-  bool CanTransform(const std::string & parent_link, const std::string & clild_link);
+  // bool CanTransform(const std::string & parent_link, const std::string & clild_link);
 
   void ResetFlags();
 
@@ -138,7 +138,7 @@ private:
   ExecutorData executor_laser_mapping_data_;
 
   // service client
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
+  // rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr realtime_pose_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MilocMapHandler>> miloc_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<visualization::srv::Stop>> stop_ {nullptr};
@@ -168,8 +168,8 @@ private:
   std::mutex realtime_pose_mutex_;
 
   // tf
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
+  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  // std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
 };  // class ExecutorLaserMapping
 }  // namespace algorithm
 }  // namespace cyberdog

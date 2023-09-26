@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
   Timer timer, total_timer;
   timer.Start();
   total_timer.Start();
+
+  StartupRealsenseData(true);
 
   // Check current map available
   UpdateFeedback(relocalization::kMapChecking);
@@ -146,6 +148,13 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
         INFO("Start: Trying call reset all lifecyce nodes success");
       }
 
+      success = StartupRealsenseData(false);
+      if (!success) {
+        ERROR("Start: Close realsense data failed.");
+      } else {
+        INFO("Start: Close realsense data success.");
+      }
+
       ResetFlags();
       task_abort_callback_();
     }
@@ -159,51 +168,51 @@ void ExecutorVisionLocalization::Start(const AlgorithmMGR::Goal::ConstSharedPtr 
     WARN("Vision localization is stop, not need enable report realtime pose.");
     return;
   }
-  timer.Start();
-  // Enable report realtime robot pose
-  auto pose_thread = std::make_shared<std::thread>(
-    [&]() {
-      int try_count = 0;
-      while (rclcpp::ok()) {
-        if (relocalization_failure_) {
-          break;
-        }
+  // timer.Start();
+  // // Enable report realtime robot pose
+  // auto pose_thread = std::make_shared<std::thread>(
+  //   [&]() {
+  //     int try_count = 0;
+  //     while (rclcpp::ok()) {
+  //       if (relocalization_failure_) {
+  //         break;
+  //       }
 
-        if (!relocalization_success_) {
-          std::this_thread::sleep_for(std::chrono::seconds(1));
-          continue;
-        }
+  //       if (!relocalization_success_) {
+  //         std::this_thread::sleep_for(std::chrono::seconds(1));
+  //         continue;
+  //       }
 
-        if (CheckExit()) {
-          break;
-        }
+  //       if (CheckExit()) {
+  //         break;
+  //       }
 
-        try_count++;
-        success = EnableReportRealtimePose(true);
+  //       try_count++;
+  //       success = EnableReportRealtimePose(true);
 
-        if (success) {
-          INFO("Enable report realtime robot pose success.");
-          try_count = 0;
-          break;
-        }
+  //       if (success) {
+  //         INFO("Enable report realtime robot pose success.");
+  //         try_count = 0;
+  //         break;
+  //       }
 
-        if (try_count >= 3 && !success) {
-          ERROR("Enable report realtime robot pose failed.");
+  //       if (try_count >= 3 && !success) {
+  //         ERROR("Enable report realtime robot pose failed.");
 
-          if (is_slam_service_activate_) {
-            DisableRelocalization();
-          }
+  //         if (is_slam_service_activate_) {
+  //           DisableRelocalization();
+  //         }
 
-          ResetAllLifecyceNodes();
-          ResetFlags();
-          task_abort_callback_();
-          return;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      }
-    });
-  pose_thread->join();
-  INFO("[4] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  //         ResetAllLifecyceNodes();
+  //         ResetFlags();
+  //         task_abort_callback_();
+  //         return;
+  //       }
+  //       std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  //     }
+  //   });
+  // pose_thread->join();
+  // INFO("[4] Enable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   UpdateFeedback(relocalization::kSLAMSuccess);
   INFO("Vision localization success.");
   INFO(
@@ -280,13 +289,14 @@ bool ExecutorVisionLocalization::IsDependsReady()
 {
   INFO("IsDependsReady(): Trying to get lifecycle_mutex");
   std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+  is_activate_ = true;
   INFO("IsDependsReady(): Success to get lifecycle_mutex");
   bool acivate_success = ActivateDepsLifecycleNodes(this->get_name(), 40000);
   if (!acivate_success) {
     return false;
   }
 
-  is_activate_ = true;
+  // is_activate_ = true;
   return true;
 }
 
@@ -386,46 +396,46 @@ bool ExecutorVisionLocalization::DisableRelocalization()
   return result;
 }
 
-bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
-{
-  if (realtime_pose_client_ == nullptr) {
-    realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
-      "PoseEnable", shared_from_this());
-  }
+// bool ExecutorVisionLocalization::EnableReportRealtimePose(bool enable)
+// {
+//   if (realtime_pose_client_ == nullptr) {
+//     realtime_pose_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+//       "PoseEnable", shared_from_this());
+//   }
 
-  bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
-  if (!connect) {
-    ERROR("Waiting for the service(PoseEnable) timeout");
-    return false;
-  }
+//   bool connect = realtime_pose_client_->wait_for_service(std::chrono::seconds(2s));
+//   if (!connect) {
+//     ERROR("Waiting for the service(PoseEnable) timeout");
+//     return false;
+//   }
 
-  // Set request data
-  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  request->data = enable;
+//   // Set request data
+//   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+//   request->data = enable;
 
-  // Print enable and disenable message
-  if (enable) {
-    INFO("Robot starting report realtime pose");
-  } else {
-    INFO("Robot stopping report realtime pose.");
-  }
+//   // Print enable and disenable message
+//   if (enable) {
+//     INFO("Robot starting report realtime pose");
+//   } else {
+//     INFO("Robot stopping report realtime pose.");
+//   }
 
-  // Send request
-  // return start_->invoke(request, response);
-  bool result = false;
-  try {
-    INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
-    std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
-    is_realtime_pose_service_activate_ = enable;
-    INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
+//   // Send request
+//   // return start_->invoke(request, response);
+//   bool result = false;
+//   try {
+//     INFO("EnableReportRealtimePose(): Trying to get realtime_pose_mutex");
+//     std::lock_guard<std::mutex> lock(realtime_pose_mutex_);
+//     is_realtime_pose_service_activate_ = enable;
+//     INFO("EnableReportRealtimePose(): Success to get realtime_pose_mutex");
 
-    auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5));
-    result = future_result->success;
-  } catch (const std::exception & e) {
-    ERROR("%s", e.what());
-  }
-  return result;
-}
+//     auto future_result = realtime_pose_client_->invoke(request, std::chrono::seconds(5));
+//     result = future_result->success;
+//   } catch (const std::exception & e) {
+//     ERROR("%s", e.what());
+//   }
+//   return result;
+// }
 
 bool ExecutorVisionLocalization::CheckMapAvailable(int & code)
 {
@@ -549,18 +559,18 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
     }
   }
   INFO("[0] Disable relocalization service Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
-  timer.Start();
-  if (is_realtime_pose_service_activate_) {
-    // Disenable report realtime robot pose
-    INFO("Stop: Trying stop report realtime pose");
-    success = EnableReportRealtimePose(false);
-    if (!success) {
-      ERROR("Stop: Robot stop report realtime pose failed");
-    } else {
-      INFO("Stop: Robot stop report realtime pose success");
-    }
-  }
-  INFO("[1] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
+  // timer.Start();
+  // if (is_realtime_pose_service_activate_) {
+  //   // Disenable report realtime robot pose
+  //   INFO("Stop: Trying stop report realtime pose");
+  //   success = EnableReportRealtimePose(false);
+  //   if (!success) {
+  //     ERROR("Stop: Robot stop report realtime pose failed");
+  //   } else {
+  //     INFO("Stop: Robot stop report realtime pose success");
+  //   }
+  // }
+  // INFO("[1] Disable report realtime pose Elapsed time: %.5f [seconds]", timer.ElapsedSeconds());
   timer.Start();
   INFO("Stop: Trying close all lifecycle nodes");
   success = ResetAllLifecyceNodes();
@@ -573,6 +583,14 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
   // Reset all flags for localization
   ResetFlags();
 
+  success = StartupRealsenseData(false);
+  if (!success) {
+    ERROR("Stop: Close realsense data failed.");
+    return success;
+  } else {
+    INFO("Stop: Close realsense data success.");
+  }
+
   INFO("Vision Localization stoped success");
   INFO(
     "[Total] Stop vision localization Elapsed time: %.5f [seconds]",
@@ -583,6 +601,38 @@ bool ExecutorVisionLocalization::StopLocalizationFunctions()
 bool ExecutorVisionLocalization::CheckExit()
 {
   return is_exit_;
+}
+
+bool ExecutorVisionLocalization::StartupRealsenseData(bool enable)
+{
+  if (realsense_client_ == nullptr) {
+    realsense_client_ = std::make_shared<nav2_util::ServiceClient<std_srvs::srv::SetBool>>(
+      "camera/realsense_frame_service", shared_from_this());
+  }
+
+  bool connect = realsense_client_->wait_for_service(std::chrono::seconds(2s));
+  if (!connect) {
+    ERROR("Waiting for service(camera/realsense_frame_service) timeout");
+    return false;
+  }
+
+  // Set request data
+  auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = enable;
+
+  // Send request
+  bool result = false;
+  try {
+    auto future = realsense_client_->invoke(request, std::chrono::seconds(10));
+    result = future->success;
+  } catch (const std::exception & e) {
+    result = false;
+    ERROR("%s", e.what());
+  }
+
+  std::string state = enable ? "enable" : "disenable";
+  INFO("startup %s realsense data success", state.c_str());
+  return result;
 }
 
 }  // namespace algorithm

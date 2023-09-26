@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@
 #include <memory>
 #include <string>
 #include "algorithm_manager/executor_base.hpp"
+#include "std_srvs/srv/set_bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
+
 namespace cyberdog
 {
 namespace algorithm
@@ -43,6 +46,13 @@ private:
   void UpdateBehaviorStatus(const BehaviorManager::BehaviorStatus & status);
   void ResetAllDeps();
   void ResetLifecycles();
+  bool StartupRealsenseData(bool enable);
+  void QueryVisualObstacleAvoidanceStatusCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  void SwitchVisualObstacleAvoidanceCallback(
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
   ExecutorData executor_uwb_tracking_data_;
   rclcpp_action::Client<mcr_msgs::action::TargetTracking>::SharedPtr
     target_tracking_action_client_;
@@ -57,6 +67,13 @@ private:
   std::mutex task_mutex_;
   bool cancel_tracking_result_{true};
   bool stair_detect_{false}, static_detect_{false};
+  bool deps_lifecycle_activated_ {false};
+  bool enable_visual_obstacle_avoidance_{true};
+  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realsense_client_{nullptr};
+  rclcpp::CallbackGroup::SharedPtr callbackgroup_query_visual_obstacle_avoidance_status_ {nullptr};
+  rclcpp::CallbackGroup::SharedPtr callbackgroup_switch_visual_obstacle_avoidance_ {nullptr};
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr query_visual_avoidance_status_service_ {nullptr};  // NOLINT
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr switch_visual_avoidance_service_ {nullptr};
 };  // class ExecutorUwbTracking
 }  // namespace algorithm
 }  // namespace cyberdog

@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -84,7 +84,7 @@ private:
    * @return true Return success
    * @return false Return failure
    */
-  bool EnableReportRealtimePose(bool enable);
+  // bool EnableReportRealtimePose(bool enable);
 
   /**
    * @brief Check curent map building available
@@ -121,7 +121,7 @@ private:
 
   bool CloseMappingService();
 
-  bool CanTransform(const std::string & parent_link, const std::string & clild_link);
+  // bool CanTransform(const std::string & parent_link, const std::string & clild_link);
 
   void ResetFlags();
 
@@ -130,7 +130,6 @@ private:
 
   std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> start_client_ {nullptr};
   std::shared_ptr<nav2_util::ServiceClient<MapRequest>> stop_client_ {nullptr};
-  std::shared_ptr<nav2_util::ServiceClient<std_srvs::srv::SetBool>> realtime_pose_client_ {nullptr};
 
   // Get vision build map available result
   std::shared_ptr<nav2_util::ServiceClient<MapAvailableResult>> mapping_available_client_ {nullptr};
@@ -151,8 +150,8 @@ private:
   std::mutex realtime_pose_mutex_;
 
   // tf
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
+  // std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  // std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
 };  // class ExecutorVisionMapping
 }  // namespace algorithm
 }  // namespace cyberdog

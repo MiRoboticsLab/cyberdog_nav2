@@ -444,6 +444,14 @@ void ControllerServer::computeAndPublishVelocity()
     throw nav2_core::PlannerException("Failed to make progress");
   }
 
+  auto time = rclcpp::Clock().now();
+  RCLCPP_INFO(this->get_logger(), " now.sec timestamp: %lf", time.seconds());
+  RCLCPP_INFO(this->get_logger(), "pose.sec timestamp: %u", pose.header.stamp.sec);
+
+  if (time.seconds() - pose.header.stamp.sec > 3) {
+    throw nav2_core::PlannerException("TF not update error");
+  }
+
   nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
 
   geometry_msgs::msg::TwistStamped cmd_vel_2d;
