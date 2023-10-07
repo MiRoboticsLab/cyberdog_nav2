@@ -236,9 +236,8 @@ Costmap2DROS::on_activate(const rclcpp_lifecycle::State & /*state*/)
   stop_updates_ = false;
   map_update_thread_shutdown_ = false;
 
-  map_update_thread_ = new std::thread(
-    std::bind(
-      &Costmap2DROS::mapUpdateLoop, this, map_update_frequency_));
+  map_update_thread_ = std::make_unique<std::thread>(
+    std::bind(&Costmap2DROS::mapUpdateLoop, this, map_update_frequency_));
 
   initialized_ = true;
   start();
@@ -251,17 +250,18 @@ Costmap2DROS::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating");
 
-  costmap_publisher_->on_deactivate();
-  footprint_pub_->on_deactivate();
-
   stop();
 
   // Map thread stuff
   // TODO(mjeronimo): unique_ptr
   map_update_thread_shutdown_ = true;
-  map_update_thread_->join();
-  delete map_update_thread_;
-  map_update_thread_ = nullptr;
+
+  if (map_update_thread_->joinable()) {
+    map_update_thread_->join();
+  }
+
+  costmap_publisher_->on_deactivate();
+  footprint_pub_->on_deactivate();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -271,6 +271,9 @@ Costmap2DROS::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Cleaning up");
 
+  costmap_publisher_.reset();
+  clear_costmap_service_.reset();
+
   layered_costmap_.reset();
 
   tf_listener_.reset();
@@ -278,9 +281,6 @@ Costmap2DROS::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 
   footprint_sub_.reset();
   footprint_pub_.reset();
-
-  costmap_publisher_.reset();
-  clear_costmap_service_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -408,39 +408,42 @@ Costmap2DROS::mapUpdateLoop(double frequency)
   while (rclcpp::ok() && !map_update_thread_shutdown_) {
     nav2_util::ExecutionTimer timer;
 
-    // Measure the execution time of the updateMap method
-    timer.start();
-    updateMap();
-    timer.end();
+    // Execute after start() will complete plugins activation
+    if (!stopped_) {
+      // Measure the execution time of the updateMap method
+      timer.start();
+      updateMap();
+      timer.end();
 
-    RCLCPP_DEBUG(get_logger(), "Map update time: %.9f", timer.elapsed_time_in_seconds());
-    if (publish_cycle_ > rclcpp::Duration(0s) && layered_costmap_->isInitialized()) {
-      unsigned int x0, y0, xn, yn;
-      layered_costmap_->getBounds(&x0, &xn, &y0, &yn);
-      costmap_publisher_->updateBounds(x0, xn, y0, yn);
+      RCLCPP_DEBUG(get_logger(), "Map update time: %.9f", timer.elapsed_time_in_seconds());
+      if (publish_cycle_ > rclcpp::Duration(0s) && layered_costmap_->isInitialized()) {
+        unsigned int x0, y0, xn, yn;
+        layered_costmap_->getBounds(&x0, &xn, &y0, &yn);
+        costmap_publisher_->updateBounds(x0, xn, y0, yn);
 
-      auto current_time = now();
-      if ((last_publish_ + publish_cycle_ < current_time) ||  // publish_cycle_ is due
-        (current_time < last_publish_))      // time has moved backwards, probably due to a switch to sim_time // NOLINT
-      {
-        RCLCPP_DEBUG(get_logger(), "Publish costmap at %s", name_.c_str());
-        costmap_publisher_->publishCostmap();
-        last_publish_ = current_time;
+        auto current_time = now();
+        if ((last_publish_ + publish_cycle_ < current_time) ||  // publish_cycle_ is due
+          (current_time < last_publish_))      // time has moved backwards, probably due to a switch to sim_time // NOLINT
+        {
+          RCLCPP_DEBUG(get_logger(), "Publish costmap at %s", name_.c_str());
+          costmap_publisher_->publishCostmap();
+          last_publish_ = current_time;
+        }
       }
-    }
 
-    // Make sure to sleep for the remainder of our cycle time
-    r.sleep();
+      // Make sure to sleep for the remainder of our cycle time
+      r.sleep();
 
-#if 0
-    // TODO(bpwilcox): find ROS2 equivalent or port for r.cycletime()
-    if (r.period() > tf2::durationFromSec(1 / frequency)) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Costmap2DROS: Map update loop missed its desired rate of %.4fHz... "
-        "the loop actually took %.4f seconds", frequency, r.period());
+  #if 0
+      // TODO(bpwilcox): find ROS2 equivalent or port for r.cycletime()
+      if (r.period() > tf2::durationFromSec(1 / frequency)) {
+        RCLCPP_WARN(
+          get_logger(),
+          "Costmap2DROS: Map update loop missed its desired rate of %.4fHz... "
+          "the loop actually took %.4f seconds", frequency, r.period());
+      }
+  #endif
     }
-#endif
   }
 }
 
@@ -459,8 +462,7 @@ Costmap2DROS::updateMap()
       layered_costmap_->updateMap(x, y, yaw);
 
       auto footprint = std::make_unique<geometry_msgs::msg::PolygonStamped>();
-      footprint->header.frame_id = global_frame_;
-      footprint->header.stamp = now();
+      footprint->header = pose.header;
       transformFootprint(x, y, yaw, padded_footprint_, *footprint);
 
       RCLCPP_DEBUG(get_logger(), "Publishing footprint");

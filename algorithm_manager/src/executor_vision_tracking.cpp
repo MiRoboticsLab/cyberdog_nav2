@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -296,6 +296,7 @@ void ExecutorVisionTracking::TrackingSrvCallback(
   // Send the goal pose
   target_tracking_goal_.relative_pos = tracking_relative_pos_;
   target_tracking_goal_.keep_distance = tracking_keep_distance_;
+  target_tracking_goal_.nav_type = tracking_nav_type_;
   // Enable result awareness by providing an empty lambda function
   auto send_goal_options = rclcpp_action::Client<
     mcr_msgs::action::TargetTracking>::SendGoalOptions();

@@ -1,2 +1,3 @@
-stair_detect = true
+stair_detect = false
 static_detect = false
+enable_visual_obstacle_avoidance = false # 跟随默认关闭视觉避障

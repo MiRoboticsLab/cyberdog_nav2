@@ -1,0 +1,59 @@
+# lidar_coeff 系数 从area1->area3 越来越小的趋势
+# 1.5 1.2 0.9 0.6
+# 1.9 1.6 1.3 1.0
+
+[free]
+# 升档时长（单位为秒）阈值，超过该阈值且环境条件满足才进行升档
+up_gear_period_threshold = 3
+
+# 跟随跑起来才进行升挡，避免在停止时也进行换挡
+free_linear_vel_threshold = 0.3
+
+[area1]
+# 是否启用换挡
+enable_gear = true
+
+# 换挡范围
+length = 1.5
+
+# 3个条件均满足才实现换挡
+totol_points_threshold = 10
+points_as_group = 7
+groups_threshold = 2
+
+# 跟随跑起来才进行降挡，避免在停止时也进行换挡
+area1_linear_vel_threshold = 0.3
+
+[stop]
+length = 0.7
+lidar_coeff = 1.2
+
+totol_points_threshold = 15
+stop_linear_vel_threshold = 0.7
+
+# 发送停止指令的次数为100，则停止时长约为 50*10 毫秒
+send_stop_number = 50
+
+[turning]
+truning_vel = 0.5
+send_stop_number = 50
+
+[recoil]
+# 是否急停后执行后退
+enable = false
+
+# 后退速度
+speed = -0.8
+
+# 默认发送后退指令的次数为50，后退时长为 50*10 毫秒
+send_recoil_number = 50
+
+# 当stop_distance_threshold = 1.0（米）时
+# lidar_coeff 为1.0时，雷达探测范围为 l91机身宽度边缘处 外延3cm
+# lidar_coeff 为1.1时，雷达探测范围为 l91机身宽度边缘处 外延13cm
+# lidar_coeff 为1.2时，雷达探测范围为 l91机身宽度边缘处 外延24cm
+# lidar_coeff 为1.3时，雷达探测范围为 l91机身宽度边缘处 外延34cm
+# lidar_coeff 为1.4时，雷达探测范围为 l91机身宽度边缘处 外延45cm
+# lidar_coeff 为1.5时，雷达探测范围为 l91机身宽度边缘处 外延55cm
+# lidar_coeff 为1.6时，雷达探测范围为 l91机身宽度边缘处 外延65cm
+# lidar_coeff 为1.7时，雷达探测范围为 l91机身宽度边缘处 外延75cm

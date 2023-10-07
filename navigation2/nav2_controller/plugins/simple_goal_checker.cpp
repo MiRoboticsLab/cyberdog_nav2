@@ -65,7 +65,7 @@ void SimpleGoalChecker::initialize(
   const std::string & plugin_name)
 {
   plugin_name_ = plugin_name;
-  auto node = parent.lock();
+  node = parent.lock();
 
   nav2_util::declare_parameter_if_not_declared(
     node,
@@ -109,6 +109,10 @@ bool SimpleGoalChecker::isGoalReached(
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
 
+    // ym test
+    RCLCPP_INFO(node->get_logger(), "[goal_delta_xy = %lf]",
+    dx * dx + dy * dy );
+
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
       return false;
     }
@@ -121,6 +125,10 @@ bool SimpleGoalChecker::isGoalReached(
   double dyaw = angles::shortest_angular_distance(
     tf2::getYaw(query_pose.orientation),
     tf2::getYaw(goal_pose.orientation));
+
+    // ym test
+    RCLCPP_INFO(node->get_logger(), "[shortest_angular_distance = %lf]",
+    dyaw );
   return fabs(dyaw) < yaw_goal_tolerance_;
 }
 

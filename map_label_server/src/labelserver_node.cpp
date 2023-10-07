@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,12 @@ void LabelServer::HandleGetLabelServiceCallback(
 
   INFO("----------GetLabel----------");
   INFO("request map_name : %s", request->map_name.c_str());
+  if (loading_map_and_tags_.load()) {
+    INFO("Map label server now is busying");
+    response->success = 5;
+    return;
+  }
+  loading_map_and_tags_.store(true);
 
   std::string map_name = GetMapName(label_store_->map_label_directory());
   if (map_name.empty()) {
@@ -96,6 +102,7 @@ void LabelServer::HandleGetLabelServiceCallback(
   if (!filesystem::exists(label_filename)) {
     ERROR("label json filename(%s) is not exist.", label_filename.c_str());
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
+    loading_map_and_tags_.store(false);
     return;
   }
 
@@ -115,6 +122,7 @@ void LabelServer::HandleGetLabelServiceCallback(
     if (map_name.empty()) {
       WARN("User have not create map, map %s not exist.", map_name.c_str());
       response->success = 2;
+      loading_map_and_tags_.store(false);
       return;
     }
   }
@@ -125,6 +133,7 @@ void LabelServer::HandleGetLabelServiceCallback(
   if (!ok) {
     WARN("Map yaml config file (%s) not exist.", map_yaml_config.c_str());
     response->success = protocol::srv::GetMapLabel_Response::RESULT_FAILED;
+    loading_map_and_tags_.store(false);
     return;
   }
 
@@ -144,6 +153,7 @@ void LabelServer::HandleGetLabelServiceCallback(
 
   // publish map
   occ_pub_->publish(map);
+  loading_map_and_tags_.store(false);
 }
 
 void LabelServer::HandleSetLabelServiceCallback(

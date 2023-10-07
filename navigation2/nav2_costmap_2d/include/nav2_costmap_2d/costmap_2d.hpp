@@ -47,6 +47,7 @@
 #include <vector>
 #include <queue>
 #include <mutex>
+#include <iostream>
 #include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 
@@ -491,7 +492,13 @@ private:
   {
     unsigned int end = std::min(max_length, abs_da);
     for (unsigned int i = 0; i < end; ++i) {
-      at(offset);
+      if (offset < size_x_ * size_y_) {
+        at(offset);
+      } else {
+        std::cout << "offset = " << offset << "size_x_*size_y_ = " << size_x_ * size_y_ <<
+          std::endl;
+      }
+
       offset += offset_a;
       error_b += abs_db;
       if ((unsigned int)error_b >= abs_da) {
@@ -499,7 +506,11 @@ private:
         error_b -= abs_da;
       }
     }
-    at(offset);
+    if (offset < size_x_ * size_y_) {
+      at(offset);
+    } else {
+      std::cout << "offset = " << offset << "size_x_*size_y_ = " << size_x_ * size_y_ << std::endl;
+    }
   }
 
   /**

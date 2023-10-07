@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #include <atomic>
 #include <unordered_map>
 #include <condition_variable>
+#include <fstream>
+#include <sstream>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -118,6 +120,10 @@ private:
    */
   bool IsLegal(const AlgorithmMGR::Goal::ConstSharedPtr goal);
 
+  bool IsLegal(
+    const AlgorithmMGR::Goal::ConstSharedPtr goal,
+    AlgorithmMGR::Goal::SharedPtr new_goal);
+
   /**
    * @brief Send APP or rviz set target pose goal
    *
@@ -181,6 +187,8 @@ private:
 
   bool CancelGoal();
 
+  bool ChangeGait(const int & motion_id);
+
   // feedback data
   ExecutorData executor_nav_ab_data_;
 
@@ -226,6 +234,7 @@ private:
   bool cancel_goal_result_{true};
   std::mutex lifecycle_mutex_;
   std::mutex action_mutex_;
+  rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr change_gait_client_{nullptr};
 };  // class ExecutorAbNavigation
 }  // namespace algorithm
 }  // namespace cyberdog

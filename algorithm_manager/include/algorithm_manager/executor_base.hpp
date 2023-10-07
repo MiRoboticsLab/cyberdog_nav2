@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
+// Copyright (c) 2023 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "nav2_util/lifecycle_service_client.hpp"
 #include "behavior_manager/behavior_manager.hpp"
+#include "protocol/msg/bms_status.hpp"
 
 using namespace std::chrono_literals;   // NOLINT
 

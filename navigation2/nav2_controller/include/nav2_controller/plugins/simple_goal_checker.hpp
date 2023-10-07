@@ -83,6 +83,7 @@ protected:
    * @param event ParameterEvent message
    */
   void on_parameter_event_callback(const rcl_interfaces::msg::ParameterEvent::SharedPtr event);
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node;
 };
 
 }  // namespace nav2_controller
